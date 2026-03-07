@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "alpinejs": "^3.15.8",
+    "daisyui": "^5.5.19",
+    "htmx.org": "^2.0.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.1",
+    "tailwindcss": "^4.2.1"
+  },
+  "scripts": {
+    "postinstall": "npm run copy:js && npm run tailwind:build",
+    "copy:js": "cp node_modules/alpinejs/dist/cdn.min.js static/js/alpine.min.js && cp node_modules/htmx.org/dist/htmx.min.js static/js/htmx.min.js",
+    "tailwind:build": "tailwindcss -i ./static/css/input.css -o ./static/css/output.css",
+    "tailwind:watch": "tailwindcss -i ./static/css/input.css -o ./static/css/output.css --watch"
+  }
+}

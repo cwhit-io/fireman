@@ -1,0 +1,32 @@
+{% load static django_browser_reload %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Django Template{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/output.css' %}">
+</head>
+<body class="bg-base-100 text-base-content min-h-screen">
+
+    <div class="navbar bg-base-200 shadow-sm px-4">
+        <div class="flex-1">
+            <a href="/" class="btn btn-ghost text-xl">Django Template</a>
+        </div>
+        <div class="flex-none">
+            {% block nav_actions %}{% endblock %}
+        </div>
+    </div>
+
+    <main class="container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- htmx -->
+    <script src="{% static 'js/htmx.min.js' %}"></script>
+    <!-- Alpine.js -->
+    <script defer src="{% static 'js/alpine.min.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+    {% if debug %}{% django_browser_reload_script %}{% endif %}
+</body>
+</html>

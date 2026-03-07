@@ -1,0 +1,10 @@
+# Development overrides — adds Tailwind CSS watch alongside the base stack.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# Or:    make docker-up-dev
+
+services:
+  tailwind:
+    build: .
+    command: npm run tailwind:watch
+    volumes:
+      - .:/app

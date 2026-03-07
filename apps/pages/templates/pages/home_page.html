@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block title %}{{ page.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-8">
+
+    <div class="hero bg-base-200 rounded-box py-12 px-8">
+        <div class="hero-content text-center">
+            <div>
+                <h1 class="text-4xl font-bold">{{ page.title }}</h1>
+                {% if page.intro %}
+                <div class="mt-4 text-base-content/70 prose max-w-none">
+                    {{ page.intro|richtext }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% block page_content %}{% endblock %}
+
+</div>
+{% endblock %}
