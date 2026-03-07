@@ -50,7 +50,7 @@ def _matches(rule, job) -> bool:
         return fnmatch.fnmatch(job.name.lower(), cv.lower())
 
     if ct == Rule.ConditionType.PRODUCT_TYPE:
-        return job.product_type.strip().lower() == cv.lower()
+        return (job.product_type or "").strip().lower() == cv.lower()
 
     return False
 
