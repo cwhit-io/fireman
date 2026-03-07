@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Job: {{ job.name }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="mb-4">
+    <a href="{% url 'jobs:list' %}" class="text-blue-600 hover:underline">← Back to Jobs</a>
+  </div>
+  <div class="bg-white shadow rounded-lg p-6">
+    <div class="flex justify-between items-start mb-6">
+      <h1 class="text-2xl font-bold">{{ job.name|default:job.pk }}</h1>
+      <span class="px-3 py-1 text-sm rounded-full
+        {% if job.status == 'sent' %}bg-green-100 text-green-800
+        {% elif job.status == 'error' %}bg-red-100 text-red-800
+        {% elif job.status == 'pending' %}bg-gray-100 text-gray-800
+        {% else %}bg-blue-100 text-blue-800{% endif %}">
+        {{ job.get_status_display }}
+      </span>
+    </div>
+    <dl class="grid grid-cols-2 gap-4">
+      <div><dt class="text-sm text-gray-500">Job ID</dt><dd class="font-mono text-sm">{{ job.pk }}</dd></div>
+      <div><dt class="text-sm text-gray-500">Created</dt><dd>{{ job.created_at|date:"M j, Y H:i" }}</dd></div>
+      <div><dt class="text-sm text-gray-500">Page Count</dt><dd>{{ job.page_count|default:"—" }}</dd></div>
+      <div><dt class="text-sm text-gray-500">Page Size</dt><dd>{{ job.page_size_label }}</dd></div>
+      <div><dt class="text-sm text-gray-500">Product Type</dt><dd>{{ job.product_type|default:"—" }}</dd></div>
+      <div><dt class="text-sm text-gray-500">Imposition Template</dt><dd>{{ job.imposition_template|default:"—" }}</dd></div>
+      <div><dt class="text-sm text-gray-500">Cutter Program</dt><dd>{{ job.cutter_program|default:"—" }}</dd></div>
+      <div><dt class="text-sm text-gray-500">Routing Preset</dt><dd>{{ job.routing_preset|default:"—" }}</dd></div>
+    </dl>
+    {% if job.error_message %}
+    <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+      <p class="text-sm text-red-700 font-medium">Error:</p>
+      <pre class="text-xs text-red-600 mt-1 whitespace-pre-wrap">{{ job.error_message }}</pre>
+    </div>
+    {% endif %}
+    {% if job.notes %}
+    <div class="mt-4"><p class="text-sm text-gray-500">Notes</p><p class="mt-1">{{ job.notes }}</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
