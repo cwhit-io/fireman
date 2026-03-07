@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+    <!-- Alpine.js example -->
+    <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+            <h2 class="card-title">Alpine.js</h2>
+            <p class="text-base-content/70 text-sm">Lightweight JS reactivity — no build step needed.</p>
+            <div x-data="{ open: false }" class="mt-2">
+                <button @click="open = !open" class="btn btn-primary btn-sm">
+                    Toggle message
+                </button>
+                <div x-show="open" x-transition class="mt-3 alert alert-success">
+                    <span>Hello from Alpine.js!</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- htmx example -->
+    <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+            <h2 class="card-title">htmx</h2>
+            <p class="text-base-content/70 text-sm">Dynamic HTML over HTTP — no JavaScript required.</p>
+            <div class="mt-2">
+                <button
+                    hx-get="/ping/"
+                    hx-target="#htmx-result"
+                    hx-swap="innerHTML"
+                    class="btn btn-success btn-sm">
+                    Ping server
+                </button>
+                <div id="htmx-result" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WebSocket example -->
+    <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+            <h2 class="card-title">WebSocket (Django Channels)</h2>
+            <p class="text-base-content/70 text-sm">Real-time communication via <code class="kbd kbd-sm">ws://</code>.</p>
+            <div x-data="chatWidget()" class="mt-2 space-y-2">
+                <div class="flex gap-2">
+                    <input x-model="message" @keydown.enter="send()"
+                        type="text" placeholder="Type a message…"
+                        class="input input-bordered input-sm flex-1" />
+                    <button @click="send()" class="btn btn-accent btn-sm">Send</button>
+                </div>
+                <ul class="menu bg-base-200 rounded-box text-sm max-h-32 overflow-y-auto">
+                    <template x-for="msg in messages" :key="msg">
+                        <li><a x-text="msg"></a></li>
+                    </template>
+                    <li x-show="messages.length === 0" class="text-base-content/50">
+                        <a>No messages yet.</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function chatWidget() {
+    return {
+        ws: null,
+        message: '',
+        messages: [],
+        init() {
+            const room = 'demo';
+            this.ws = new WebSocket(`ws://${location.host}/ws/chat/${room}/`);
+            this.ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                this.messages.push(data.message);
+            };
+        },
+        send() {
+            if (this.message.trim() && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({ message: this.message }));
+                this.message = '';
+            }
+        },
+    };
+}
+</script>
+{% endblock %}

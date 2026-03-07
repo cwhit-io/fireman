@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Django
+*.log
+*.pot
+*.db
+*.sqlite3
+media/
+staticfiles/
+
+# Environments
+venv/
+.venv/
+ENV/
+env/
+
+# Env file (never commit secrets)
+.env
+
+# VSCode
+.vscode/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated static files (rebuilt by npm install)
+static/js/alpine.min.js
+static/js/htmx.min.js
+static/css/output.css
+
+# Misc
+*.swp
+*.swo
+.idea/
+*.bak
+*.tmp
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
