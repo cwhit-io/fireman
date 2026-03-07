@@ -32,6 +32,7 @@ urlpatterns = [
     path("cms/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
     path("demo/", include("core.urls", namespace="core")),
+    path("jobs/", include("apps.jobs.urls", namespace="jobs")),
     # Wagtail catch-all — must be last
     path("", include(wagtail_urls)),
 ]
