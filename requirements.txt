@@ -1,5 +1,9 @@
 # Core
 Django==6.0.2
+pypdf==6.7.5
+Pillow==12.1.1
+qrcode==8.2
+watchdog==6.0.0
 asgiref==3.11.1
 sqlparse==0.5.5
 
