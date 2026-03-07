@@ -43,6 +43,11 @@ INSTALLED_APPS = [
     "core",
     # Apps
     "apps.pages",
+    "apps.jobs",
+    "apps.impose",
+    "apps.cutter",
+    "apps.routing",
+    "apps.rules",
     # Wagtail
     "wagtail.contrib.forms",
     "wagtail.contrib.redirects",
