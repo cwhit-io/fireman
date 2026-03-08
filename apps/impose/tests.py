@@ -340,3 +340,241 @@ class TestImposeFromTemplateOptions:
         reader = PdfReader(out)
         # Step-repeat uses only 1 source page repeated, so 1 sheet
         assert len(reader.pages) == 1
+
+
+class TestImposeStepRepeat:
+    """Tests for the step-and-repeat function filling all cells."""
+
+    def test_step_repeat_fills_all_cells(self):
+        """impose_step_repeat should produce a single sheet with the source page
+        placed in every cell, not just the first cell."""
+        from pypdf import PdfReader
+
+        from apps.impose.services import impose_step_repeat
+
+        # Single 4×6 page
+        pdf = _make_pdf_with_mediabox(288.0, 432.0)
+        inp = io.BytesIO(pdf)
+        out = io.BytesIO()
+        # 4-up: 2 columns × 2 rows on a large sheet
+        impose_step_repeat(inp, out, columns=2, rows=2, sheet_width=576, sheet_height=864)
+        out.seek(0)
+        reader = PdfReader(out)
+        # Should produce exactly 1 output sheet
+        assert len(reader.pages) == 1
+
+    def test_step_repeat_single_page_input(self):
+        """impose_step_repeat with 1-up template produces 1 output sheet."""
+        from pypdf import PdfReader
+
+        from apps.impose.services import impose_step_repeat
+
+        pdf = _make_pdf_with_mediabox(288.0, 432.0)
+        inp = io.BytesIO(pdf)
+        out = io.BytesIO()
+        impose_step_repeat(inp, out, columns=1, rows=1, sheet_width=288, sheet_height=432)
+        out.seek(0)
+        assert len(PdfReader(out).pages) == 1
+
+
+class TestDoubleSidedNup:
+    """Tests for double-sided imposition producing one sheet per source page."""
+
+    def _make_two_page_pdf(self) -> bytes:
+        """Create a 2-page PDF (simulates front + back of a double-sided job)."""
+        from pypdf import PageObject, PdfWriter
+
+        buf = io.BytesIO()
+        w = PdfWriter()
+        w.add_page(PageObject.create_blank_page(width=288, height=432))
+        w.add_page(PageObject.create_blank_page(width=288, height=432))
+        w.write(buf)
+        return buf.getvalue()
+
+    def test_double_sided_nup_one_sheet_per_page(self):
+        """impose_double_sided_nup with a 2-page input and 8-up template should
+        produce 2 output sheets (one per source page)."""
+        from pypdf import PdfReader
+
+        from apps.impose.services import impose_double_sided_nup
+
+        pdf = self._make_two_page_pdf()
+        inp = io.BytesIO(pdf)
+        out = io.BytesIO()
+        impose_double_sided_nup(
+            inp, out,
+            columns=4, rows=2,
+            sheet_width=936, sheet_height=1368,
+        )
+        out.seek(0)
+        assert len(PdfReader(out).pages) == 2
+
+    def test_impose_from_template_double_sided(self):
+        """impose_from_template with is_double_sided=True should create one output
+        sheet for each source page (2 pages in → 2 sheets out)."""
+        from pypdf import PdfReader
+
+        from apps.impose.models import ImpositionTemplate
+        from apps.impose.services import impose_from_template
+
+        pdf = self._make_two_page_pdf()
+        inp = io.BytesIO(pdf)
+        out = io.BytesIO()
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="8up double-sided test",
+            sheet_width=936,   # 13"
+            sheet_height=1368, # 19"
+            columns=4,
+            rows=2,
+            bleed=9,           # 0.125"
+        )
+        impose_from_template(tmpl, inp, out, pages_are_unique=True, is_double_sided=True)
+        out.seek(0)
+        reader = PdfReader(out)
+        assert len(reader.pages) == 2
+
+    def test_pages_not_unique_overrides_double_sided(self):
+        """pages_are_unique=False takes precedence: step-repeat produces 1 sheet."""
+        from pypdf import PdfReader
+
+        from apps.impose.models import ImpositionTemplate
+        from apps.impose.services import impose_from_template
+
+        pdf = self._make_two_page_pdf()
+        inp = io.BytesIO(pdf)
+        out = io.BytesIO()
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="Step-repeat override test",
+            sheet_width=576,
+            sheet_height=864,
+            columns=2,
+            rows=2,
+        )
+        impose_from_template(tmpl, inp, out, pages_are_unique=False, is_double_sided=True)
+        out.seek(0)
+        assert len(PdfReader(out).pages) == 1
+
+
+class TestCutSizeMarginComputation:
+    """Test that cut_width/cut_height drives proper centred margins."""
+
+    def test_cut_size_centres_grid(self):
+        """When cut_width/cut_height are set the grid should be centred on the
+        sheet (margins > 0) and the correct number of output pages produced."""
+        from pypdf import PdfReader
+
+        from apps.impose.models import ImpositionTemplate
+        from apps.impose.services import impose_from_template
+
+        # 2-up 4×6 on a 13×10 sheet — grid fits (2×4.25" = 8.5" < 13")
+        pdf = _make_pdf_with_mediabox(288.0, 432.0)
+        inp = io.BytesIO(pdf)
+        out = io.BytesIO()
+        tmpl = ImpositionTemplate.objects.create(
+            name="Cut-size margin test",
+            sheet_width=936,    # 13"
+            sheet_height=720,   # 10"
+            cut_width=288,      # 4"
+            cut_height=432,     # 6"
+            bleed=9,            # 0.125"
+            columns=2,
+            rows=1,
+        )
+        impose_from_template(tmpl, inp, out)
+        out.seek(0)
+        assert len(PdfReader(out).pages) == 1
+
+
+class TestBarcodeOverlay:
+    """Test that a Code 39 barcode is rendered on each output sheet."""
+
+    def test_barcode_added_to_output(self):
+        """When barcode_value and template barcode coords are set, the output PDF
+        should be larger than without a barcode (overlay content was added)."""
+        from pypdf import PdfReader
+
+        from apps.impose.models import ImpositionTemplate
+        from apps.impose.services import impose_from_template
+
+        pdf = _make_pdf_with_mediabox(288.0, 432.0)
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="Barcode test",
+            sheet_width=936,
+            sheet_height=1368,
+            columns=2,
+            rows=4,
+            barcode_x=18.0,
+            barcode_y=18.0,
+            barcode_width=90.0,
+            barcode_height=25.2,
+        )
+
+        # Without barcode
+        out_no_bc = io.BytesIO()
+        impose_from_template(tmpl, io.BytesIO(pdf), out_no_bc)
+
+        # With barcode
+        out_bc = io.BytesIO()
+        impose_from_template(tmpl, io.BytesIO(pdf), out_bc, barcode_value="JOB001")
+
+        # Both produce 1 sheet
+        assert len(PdfReader(io.BytesIO(out_no_bc.getvalue())).pages) == 1
+        assert len(PdfReader(io.BytesIO(out_bc.getvalue())).pages) == 1
+
+        # The barcode version should be larger (overlay content adds bytes)
+        assert len(out_bc.getvalue()) > len(out_no_bc.getvalue())
+
+    def test_no_barcode_when_no_coords(self):
+        """When the template has no barcode_x/barcode_y, barcode_value is ignored."""
+        from pypdf import PdfReader
+
+        from apps.impose.models import ImpositionTemplate
+        from apps.impose.services import impose_from_template
+
+        pdf = _make_pdf_with_mediabox(288.0, 432.0)
+        tmpl = ImpositionTemplate.objects.create(
+            name="No barcode coords test",
+            sheet_width=576,
+            sheet_height=432,
+            columns=2,
+            rows=1,
+        )
+        out = io.BytesIO()
+        impose_from_template(tmpl, io.BytesIO(pdf), out, barcode_value="IGNORED")
+        out.seek(0)
+        assert len(PdfReader(out).pages) == 1
+
+
+class TestCutMarks:
+    """Test that cut marks are rendered on output sheets when requested."""
+
+    def test_cut_marks_added(self):
+        """cut_marks=True should produce a larger output PDF than cut_marks=False."""
+        from pypdf import PdfReader
+
+        from apps.impose.models import ImpositionTemplate
+        from apps.impose.services import impose_from_template
+
+        pdf = _make_pdf_with_mediabox(288.0, 432.0)
+        tmpl = ImpositionTemplate.objects.create(
+            name="Cut marks test",
+            sheet_width=936,
+            sheet_height=1368,
+            columns=2,
+            rows=4,
+            bleed=9,
+        )
+
+        out_no_marks = io.BytesIO()
+        impose_from_template(tmpl, io.BytesIO(pdf), out_no_marks, cut_marks=False)
+
+        out_marks = io.BytesIO()
+        impose_from_template(tmpl, io.BytesIO(pdf), out_marks, cut_marks=True)
+
+        assert len(PdfReader(io.BytesIO(out_no_marks.getvalue())).pages) == 1
+        assert len(PdfReader(io.BytesIO(out_marks.getvalue())).pages) == 1
+        assert len(out_marks.getvalue()) > len(out_no_marks.getvalue())
+

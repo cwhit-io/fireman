@@ -37,8 +37,18 @@ def impose_job_task(job_id: str, template_id: int | None = None) -> None:
         with job.file.open("rb") as fh:
             input_buf = io.BytesIO(fh.read())
         output_buf = io.BytesIO()
+        barcode_value = (
+            job.cutter_program.duplo_code
+            if job.cutter_program_id and job.cutter_program
+            else None
+        )
         impose_from_template(
-            tmpl, input_buf, output_buf, pages_are_unique=job.pages_are_unique
+            tmpl,
+            input_buf,
+            output_buf,
+            pages_are_unique=job.pages_are_unique,
+            is_double_sided=job.is_double_sided,
+            barcode_value=barcode_value,
         )
         output_buf.seek(0)
         fname = f"imposed_{job.pk}.pdf"
