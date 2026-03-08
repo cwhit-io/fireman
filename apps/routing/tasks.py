@@ -30,11 +30,13 @@ def send_job_task(job_id: str) -> None:
     job.save(update_fields=["status"])
 
     try:
-        raw_name = job.name or f"job-{job.pk}"
-        # Strip extension so the Fiery shows e.g. "my_flyer" not "my_flyer.pdf"
-        import os
+        from pathlib import Path
 
-        title = os.path.splitext(raw_name)[0] or raw_name
+        raw_name = job.name or f"job-{job.pk}"
+        title = Path(raw_name).stem or raw_name
+        logger.info(
+            "Sending job %s to %s with title %r", job.pk, preset.printer_queue, title
+        )
         send_to_fiery_ipp(pdf_file.path, preset.printer_queue, preset, title=title)
         job.status = PrintJob.Status.SENT
         job.save(update_fields=["status"])
