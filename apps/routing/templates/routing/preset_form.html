@@ -125,13 +125,64 @@
       </div>
 
       {# Submit #}
-      <div class="flex gap-3">
+      <div class="flex gap-3 items-center flex-wrap">
         <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 text-sm font-medium">
           {% if preset %}Save Changes{% else %}Create Preset{% endif %}
         </button>
         <a href="{% url 'routing:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
+        {% if preset %}
+        <button type="button" id="test-conn-btn"
+          data-url="{% url 'routing:test_connection' preset.pk %}"
+          class="ml-auto px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50 text-gray-600">
+          Test Printer Connection
+        </button>
+        {% endif %}
       </div>
+
+      {% if preset %}
+      <div id="conn-result" class="hidden mt-3 p-3 rounded text-sm font-medium"></div>
+      {% endif %}
     </form>
   </div>
 </div>
+
+{% if preset %}
+<script>
+(function () {
+  const btn = document.getElementById('test-conn-btn');
+  const result = document.getElementById('conn-result');
+
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    btn.textContent = 'Testing…';
+    result.className = 'hidden';
+
+    const csrfToken = document.cookie.split('; ')
+      .find(row => row.startsWith('csrftoken='))
+      ?.split('=')[1] || '';
+
+    fetch(btn.dataset.url, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrfToken },
+      credentials: 'same-origin',
+    })
+      .then(r => r.json())
+      .then(data => {
+        result.textContent = (data.ok ? '✓ ' : '✗ ') + data.message;
+        result.className = 'mt-3 p-3 rounded text-sm font-medium ' +
+          (data.ok ? 'bg-green-100 text-green-800 border border-green-300'
+                   : 'bg-red-100 text-red-800 border border-red-300');
+      })
+      .catch(err => {
+        result.textContent = '✗ ' + err;
+        result.className = 'mt-3 p-3 rounded text-sm font-medium bg-red-100 text-red-800 border border-red-300';
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.textContent = 'Test Printer Connection';
+      });
+  });
+}());
+</script>
+{% endif %}
 {% endblock %}

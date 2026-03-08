@@ -241,15 +241,11 @@ def _cut_marks_pdf_stream(
             # horizontal arm
             hx1 = cx + dx * total
             hx2 = cx + dx * (total + length)
-            cmds.append(
-                f"{hx1:.3f} {cy:.3f} m {hx2:.3f} {cy:.3f} l S".encode()
-            )
+            cmds.append(f"{hx1:.3f} {cy:.3f} m {hx2:.3f} {cy:.3f} l S".encode())
             # vertical arm
             vy1 = cy + dy * total
             vy2 = cy + dy * (total + length)
-            cmds.append(
-                f"{cx:.3f} {vy1:.3f} m {cx:.3f} {vy2:.3f} l S".encode()
-            )
+            cmds.append(f"{cx:.3f} {vy1:.3f} m {cx:.3f} {vy2:.3f} l S".encode())
 
     cmds.append(b"Q")
     return b"\n".join(cmds)
@@ -326,7 +322,12 @@ def impose_nup(
     cell_h = (sheet_height - margin_top - margin_bottom) / rows
 
     # When all margins are zero, auto-centre the grid on the sheet.
-    if margin_top == 0 and margin_right == 0 and margin_bottom == 0 and margin_left == 0:
+    if (
+        margin_top == 0
+        and margin_right == 0
+        and margin_bottom == 0
+        and margin_left == 0
+    ):
         grid_w = columns * cell_w
         grid_h = rows * cell_h
         margin_left = (sheet_width - grid_w) / 2
@@ -423,11 +424,21 @@ def impose_step_repeat(
     sheet_width: float,
     sheet_height: float,
     bleed: float = 0.0,
+    margin_top: float = 0.0,
+    margin_right: float = 0.0,
+    margin_bottom: float = 0.0,
+    margin_left: float = 0.0,
 ) -> None:
-    """Repeat a single source page *columns × rows* times (step-and-repeat).
+    """Repeat each source page *columns × rows* times on its own output sheet.
 
-    The first page of *input_pdf* is tiled to fill every cell on the sheet.
-    All other pages in the input are ignored.
+    Every page in *input_pdf* produces one full press sheet with that page
+    tiled into every cell.  This handles two distinct scenarios:
+
+    * **Single-design run** — one source page, one output sheet filled with
+      copies of that design.
+    * **Multi-record run** — N source pages, N output sheets (one per record),
+      each sheet filled with copies of that record.  Used for variable-data
+      or front-only simplex gang-runs where every record is a separate page.
     """
     from pypdf import PdfReader, PdfWriter
 
@@ -436,23 +447,36 @@ def impose_step_repeat(
         return
 
     per_sheet = columns * rows
-    buf = io.BytesIO()
-    w = PdfWriter()
-    # Repeat the first page once per cell so impose_nup fills every slot.
-    for _ in range(per_sheet):
-        w.add_page(reader.pages[0])
-    w.write(buf)
-    buf.seek(0)
+    final_writer = PdfWriter()
 
-    impose_nup(
-        buf,
-        output_pdf,
-        columns=columns,
-        rows=rows,
-        sheet_width=sheet_width,
-        sheet_height=sheet_height,
-        bleed=bleed,
-    )
+    for src_page in reader.pages:
+        # Build a single-page PDF with per_sheet copies of this source page.
+        buf = io.BytesIO()
+        w = PdfWriter()
+        for _ in range(per_sheet):
+            w.add_page(src_page)
+        w.write(buf)
+        buf.seek(0)
+
+        sheet_buf = io.BytesIO()
+        impose_nup(
+            buf,
+            sheet_buf,
+            columns=columns,
+            rows=rows,
+            sheet_width=sheet_width,
+            sheet_height=sheet_height,
+            bleed=bleed,
+            margin_top=margin_top,
+            margin_right=margin_right,
+            margin_bottom=margin_bottom,
+            margin_left=margin_left,
+        )
+        sheet_buf.seek(0)
+        for page in PdfReader(sheet_buf).pages:
+            final_writer.add_page(page)
+
+    final_writer.write(output_pdf)
 
 
 def impose_double_sided_nup(
@@ -626,6 +650,10 @@ def impose_from_template(
             sheet_width=sheet_w,
             sheet_height=sheet_h,
             bleed=bleed,
+            margin_top=eff_margin_top,
+            margin_right=eff_margin_right,
+            margin_bottom=eff_margin_bottom,
+            margin_left=eff_margin_left,
         )
     elif is_double_sided:
         impose_double_sided_nup(
