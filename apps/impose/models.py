@@ -3,6 +3,71 @@ from django.db import models
 POINTS_PER_INCH = 72.0
 
 
+class ProductCategory(models.Model):
+    """Lookup table for product categories (e.g. Bookmarks, Postcards, Business Cards)."""
+
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Product Category"
+        verbose_name_plural = "Product Categories"
+
+    def __str__(self):
+        return self.name
+
+
+class PrintSize(models.Model):
+    """Named size for cut sizes (finished product) or press sheet sizes."""
+
+    class SizeType(models.TextChoices):
+        CUT = "cut", "Cut Size (Finished Product)"
+        SHEET = "sheet", "Sheet Size (Press Sheet)"
+        BOTH = "both", "Cut & Sheet"
+
+    name = models.CharField(max_length=100, unique=True)
+    width = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        help_text="Width in points (1 pt = 1/72 in)",
+    )
+    height = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        help_text="Height in points",
+    )
+    size_type = models.CharField(
+        max_length=10,
+        choices=SizeType.choices,
+        default=SizeType.BOTH,
+        help_text="Whether this size is used for cut sizes, sheet sizes, or both",
+    )
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Print Size"
+        verbose_name_plural = "Print Sizes"
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def label(self):
+        """Human-readable dimensions, e.g. '3.5 × 2 in'."""
+        w = round(float(self.width) / POINTS_PER_INCH, 4)
+        h = round(float(self.height) / POINTS_PER_INCH, 4)
+        return f"{w:g} × {h:g} in"
+
+    @property
+    def width_in(self):
+        return round(float(self.width) / POINTS_PER_INCH, 4)
+
+    @property
+    def height_in(self):
+        return round(float(self.height) / POINTS_PER_INCH, 4)
+
+
 class ImpositionTemplate(models.Model):
     """Defines how pages should be imposed onto a press sheet."""
 
@@ -22,6 +87,30 @@ class ImpositionTemplate(models.Model):
         max_length=100,
         blank=True,
         help_text="Optional category for grouping templates (e.g. 'Business Cards', 'Postcards')",
+    )
+    product_category = models.ForeignKey(
+        "impose.ProductCategory",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="imposition_templates",
+        help_text="Product category from the lookup table (e.g. Bookmarks, Postcards)",
+    )
+    cut_size = models.ForeignKey(
+        "impose.PrintSize",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="templates_cut",
+        help_text="Named cut size (finished product dimensions) from the lookup table",
+    )
+    sheet_size = models.ForeignKey(
+        "impose.PrintSize",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="templates_sheet",
+        help_text="Named sheet size (press sheet dimensions) from the lookup table",
     )
     layout_type = models.CharField(
         max_length=20, choices=LayoutType.choices, blank=True, default="custom"

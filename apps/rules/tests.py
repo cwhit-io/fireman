@@ -9,9 +9,6 @@ def _make_rule(**kwargs):
 
     defaults = {
         "name": "Test Ruleset",
-        "condition_type": Rule.ConditionType.PAGE_SIZE,
-        "condition_value": "8.5x11",
-        "priority": 10,
         "active": True,
     }
     defaults.update(kwargs)
@@ -22,136 +19,14 @@ class TestRuleModel:
     def test_create_rule(self):
         from apps.rules.models import Rule
 
-        r = Rule.objects.create(
-            name="Letter to 4-up",
-            condition_type=Rule.ConditionType.PAGE_SIZE,
-            condition_value="8.5x11",
-        )
+        r = Rule.objects.create(name="Letter to 4-up")
         assert "Letter to 4-up" in str(r)
 
-
-class TestRulesEngine:
-    def test_page_size_match(self):
-        from apps.rules.engine import _matches
+    def test_rule_str(self):
         from apps.rules.models import Rule
 
-        rule = Rule(
-            name="test",
-            condition_type=Rule.ConditionType.PAGE_SIZE,
-            condition_value="8.5x11",
-        )
-
-        class FakeJob:
-            page_width = 612  # 8.5 * 72
-            page_height = 792  # 11 * 72
-
-        assert _matches(rule, FakeJob()) is True
-
-    def test_page_size_no_match(self):
-        from apps.rules.engine import _matches
-        from apps.rules.models import Rule
-
-        rule = Rule(
-            name="test",
-            condition_type=Rule.ConditionType.PAGE_SIZE,
-            condition_value="8.5x11",
-        )
-
-        class FakeJob:
-            page_width = 595
-            page_height = 842
-
-        assert _matches(rule, FakeJob()) is False
-
-    def test_page_count_gte(self):
-        from apps.rules.engine import _matches
-        from apps.rules.models import Rule
-
-        rule = Rule(
-            name="test",
-            condition_type=Rule.ConditionType.PAGE_COUNT,
-            condition_value=">=4",
-        )
-
-        class FakeJob:
-            page_count = 4
-
-        assert _matches(rule, FakeJob()) is True
-
-    def test_filename_pattern(self):
-        from apps.rules.engine import _matches
-        from apps.rules.models import Rule
-
-        rule = Rule(
-            name="test",
-            condition_type=Rule.ConditionType.FILENAME,
-            condition_value="*.pdf",
-        )
-
-        class FakeJob:
-            name = "my_order.pdf"
-
-        assert _matches(rule, FakeJob()) is True
-
-    def test_apply_rules_assigns_template(self):
-        from apps.impose.models import ImpositionTemplate
-        from apps.jobs.models import PrintJob
-        from apps.rules.engine import apply_rules
-        from apps.rules.models import Rule
-
-        tmpl = ImpositionTemplate.objects.create(
-            name="4-Up",
-            layout_type="4up",
-            sheet_width=1224,
-            sheet_height=792,
-            columns=4,
-            rows=1,
-        )
-        Rule.objects.create(
-            name="Page size rule",
-            condition_type=Rule.ConditionType.PAGE_SIZE,
-            condition_value="8.5x11",
-            imposition_template=tmpl,
-            priority=1,
-        )
-        job = PrintJob.objects.create(name="test.pdf", page_width=612, page_height=792)
-        apply_rules(job)
-        job.refresh_from_db()
-        assert job.imposition_template_id == tmpl.pk
-
-    def test_apply_rules_assigns_all_actions(self):
-        from apps.cutter.models import CutterProgram
-        from apps.impose.models import ImpositionTemplate
-        from apps.jobs.models import PrintJob
-        from apps.routing.models import RoutingPreset
-        from apps.rules.engine import apply_rules
-        from apps.rules.models import Rule
-
-        tmpl = ImpositionTemplate.objects.create(
-            name="4-Up Multi",
-            layout_type="4up",
-            sheet_width=1224,
-            sheet_height=792,
-            columns=4,
-            rows=1,
-        )
-        cutter = CutterProgram.objects.create(name="Prog1", duplo_code="P001")
-        preset = RoutingPreset.objects.create(name="Fiery Color", printer_queue="fiery")
-        Rule.objects.create(
-            name="Full ruleset",
-            condition_type=Rule.ConditionType.PAGE_SIZE,
-            condition_value="8.5x11",
-            imposition_template=tmpl,
-            cutter_program=cutter,
-            routing_preset=preset,
-            priority=1,
-        )
-        job = PrintJob.objects.create(name="test.pdf", page_width=612, page_height=792)
-        apply_rules(job)
-        job.refresh_from_db()
-        assert job.imposition_template_id == tmpl.pk
-        assert job.cutter_program_id == cutter.pk
-        assert job.routing_preset_id == preset.pk
+        r = Rule(name="My Ruleset")
+        assert str(r) == "My Ruleset"
 
 
 class TestRuleViews:
@@ -189,9 +64,6 @@ class TestRuleViews:
         url = reverse("rules:create")
         data = {
             "name": "Invoice Ruleset",
-            "priority": "5",
-            "condition_type": Rule.ConditionType.FILENAME,
-            "condition_value": "*invoice*",
             "imposition_template": str(tmpl.pk),
             "active": "on",
         }
@@ -200,42 +72,26 @@ class TestRuleViews:
         assert Rule.objects.filter(name="Invoice Ruleset").exists()
 
     def test_create_view_post_missing_name(self, client):
-        from apps.impose.models import ImpositionTemplate
-        from apps.rules.models import Rule
-
-        tmpl = ImpositionTemplate.objects.create(
-            name="Test Tmpl2",
-            layout_type="4up",
-            sheet_width=1224,
-            sheet_height=792,
-            columns=4,
-            rows=1,
-        )
         url = reverse("rules:create")
         data = {
             "name": "",
-            "priority": "5",
-            "condition_type": Rule.ConditionType.FILENAME,
-            "condition_value": "*invoice*",
-            "imposition_template": str(tmpl.pk),
         }
         response = client.post(url, data)
         assert response.status_code == 400
         assert b"Name is required" in response.content
 
-    def test_create_view_post_missing_actions(self, client):
+    def test_create_view_no_actions_still_valid(self, client):
+        """Rulesets no longer require an action to be set."""
         from apps.rules.models import Rule
 
         url = reverse("rules:create")
         data = {
-            "name": "No Action",
-            "priority": "5",
-            "condition_type": Rule.ConditionType.FILENAME,
-            "condition_value": "*invoice*",
+            "name": "No Action Ruleset",
+            "active": "on",
         }
         response = client.post(url, data)
-        assert response.status_code == 400
-        assert b"At least one action" in response.content
+        assert response.status_code == 302
+        assert Rule.objects.filter(name="No Action Ruleset").exists()
 
     def test_edit_view_get(self, client):
         rule = _make_rule(name="Edit Me")
@@ -260,9 +116,6 @@ class TestRuleViews:
         url = reverse("rules:edit", args=[rule.pk])
         data = {
             "name": "New Name",
-            "priority": "3",
-            "condition_type": Rule.ConditionType.PAGE_SIZE,
-            "condition_value": "8.5x11",
             "imposition_template": str(tmpl.pk),
             "active": "on",
         }
@@ -270,7 +123,6 @@ class TestRuleViews:
         assert response.status_code == 302
         rule.refresh_from_db()
         assert rule.name == "New Name"
-        assert rule.priority == 3
 
     def test_delete_view_get(self, client):
         rule = _make_rule(name="Delete Me")
@@ -304,3 +156,44 @@ class TestRuleViews:
         assert response.status_code == 302
         rule.refresh_from_db()
         assert rule.active is True
+
+    def test_size_category_filters_on_template_dropdown(self, client):
+        """When cut_size/sheet_size/product_category are set they filter templates."""
+        from apps.impose.models import ImpositionTemplate, PrintSize, ProductCategory
+
+        cat = ProductCategory.objects.create(name="Business Cards")
+        sz = PrintSize.objects.create(name="Business Card", width=252, height=144, size_type="cut")
+        tmpl_match = ImpositionTemplate.objects.create(
+            name="BC 21-up",
+            layout_type="business_card",
+            sheet_width=1224,
+            sheet_height=792,
+            columns=7,
+            rows=3,
+            product_category=cat,
+            cut_size=sz,
+        )
+        ImpositionTemplate.objects.create(
+            name="Postcard 4-up",
+            layout_type="postcard",
+            sheet_width=1224,
+            sheet_height=792,
+            columns=4,
+            rows=1,
+        )
+        url = reverse("rules:create")
+        # POST HTMX filter request
+        response = client.post(
+            url,
+            {
+                "csrfmiddlewaretoken": "dummy",
+                "_filter_templates": "1",
+                "product_category": str(cat.pk),
+                "cut_size": "",
+                "sheet_size": "",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+        assert b"BC 21-up" in response.content
+        assert b"Postcard 4-up" not in response.content
