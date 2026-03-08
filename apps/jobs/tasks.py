@@ -22,4 +22,5 @@ def process_job_task(job_id: str) -> None:
 
     # Run the rules engine
     from apps.rules.engine import apply_rules
+
     apply_rules(job)

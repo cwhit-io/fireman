@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
@@ -6,6 +7,7 @@ from django.views.generic import DeleteView, DetailView, ListView
 from apps.rules.models import Rule
 
 from .models import PrintJob
+from .services import validate_and_repair_pdf
 from .tasks import process_job_task
 
 
@@ -31,21 +33,45 @@ class JobUploadView(View):
     template_name = "jobs/job_upload.html"
 
     def get(self, request):
-        return render(request, self.template_name)
+        ctx = {"job_types": PrintJob.JobType.choices}
+        return render(request, self.template_name, ctx)
 
     def post(self, request):
         file = request.FILES.get("file")
+        ctx = {"job_types": PrintJob.JobType.choices}
         if not file:
             messages.error(request, "No file selected.")
-            return render(request, self.template_name, status=400)
+            return render(request, self.template_name, ctx, status=400)
         if not file.name.lower().endswith(".pdf"):
             messages.error(request, "Only PDF files are accepted.")
-            return render(request, self.template_name, status=400)
+            return render(request, self.template_name, ctx, status=400)
+
+        # Validate and optionally repair the PDF before saving
+        repaired_bytes, pdf_warnings = validate_and_repair_pdf(file)
+        if repaired_bytes is None:
+            # Unrecoverable — show all warnings as errors
+            for w in pdf_warnings:
+                messages.error(request, w)
+            return render(request, self.template_name, ctx, status=400)
+
+        # Capture user-provided job options
+        product_type = request.POST.get("product_type", "").strip()
+        is_double_sided = request.POST.get("is_double_sided") == "on"
+        pages_are_unique = request.POST.get("pages_are_unique") != "off"
 
         job = PrintJob.objects.create(
             name=file.name,
-            file=file,
+            product_type=product_type,
+            is_double_sided=is_double_sided,
+            pages_are_unique=pages_are_unique,
         )
+        # Save the (possibly repaired) PDF
+        job.file.save(file.name, ContentFile(repaired_bytes), save=True)
+
+        # Warn the user about any repairs made
+        for w in pdf_warnings:
+            messages.warning(request, w)
+
         process_job_task.delay(str(job.pk))
         messages.success(request, f"Job '{job.name}' submitted successfully.")
         return redirect("jobs:detail", pk=job.pk)

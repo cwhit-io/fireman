@@ -1,6 +1,7 @@
 """
 Send PDFs to Fiery via LPD (lpr) or IPP (lp).
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,7 +39,9 @@ def _build_lpr_command(preset, pdf_path: str) -> list[str]:
     return cmd
 
 
-def send_to_fiery_lpr(pdf_path: str, preset, dry_run: bool = False) -> subprocess.CompletedProcess | None:
+def send_to_fiery_lpr(
+    pdf_path: str, preset, dry_run: bool = False
+) -> subprocess.CompletedProcess | None:
     """
     Send *pdf_path* to Fiery via lpr using *preset*.
 
@@ -58,7 +61,9 @@ def send_to_fiery_lpr(pdf_path: str, preset, dry_run: bool = False) -> subproces
     return result
 
 
-def send_to_fiery_ipp(pdf_path: str, printer_uri: str, preset, dry_run: bool = False) -> subprocess.CompletedProcess | None:
+def send_to_fiery_ipp(
+    pdf_path: str, printer_uri: str, preset, dry_run: bool = False
+) -> subprocess.CompletedProcess | None:
     """
     Send *pdf_path* to Fiery via IPP using `lp`.
     """

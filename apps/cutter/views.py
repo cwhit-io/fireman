@@ -1,10 +1,12 @@
 from django.contrib import messages
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import DeleteView, ListView
 
 from .models import CutterProgram
+from .services import generate_qr_barcode
 
 
 def _get_initial_form_values(program=None):
@@ -98,3 +100,12 @@ class ProgramDeleteView(DeleteView):
         program = self.get_object()
         messages.success(self.request, f"Cutter program '{program.name}' deleted.")
         return super().form_valid(form)
+
+
+class ProgramBarcodeView(View):
+    """Return a QR-code PNG for a cutter program's duplo_code."""
+
+    def get(self, request, pk):
+        program = get_object_or_404(CutterProgram, pk=pk)
+        png_bytes = generate_qr_barcode(program.duplo_code)
+        return HttpResponse(png_bytes, content_type="image/png")

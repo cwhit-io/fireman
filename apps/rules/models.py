@@ -12,9 +12,13 @@ class Rule(models.Model):
 
     name = models.CharField(max_length=100)
     active = models.BooleanField(default=True)
-    priority = models.PositiveSmallIntegerField(default=10, help_text="Lower number = higher priority")
+    priority = models.PositiveSmallIntegerField(
+        default=10, help_text="Lower number = higher priority"
+    )
     condition_type = models.CharField(max_length=30, choices=ConditionType.choices)
-    condition_value = models.CharField(max_length=255, help_text="Value to match (exact or pattern)")
+    condition_value = models.CharField(
+        max_length=255, help_text="Value to match (exact or pattern)"
+    )
 
     # Actions — any combination may be applied from a single ruleset
     imposition_template = models.ForeignKey(

@@ -30,12 +30,14 @@ class PrintJobIn(Schema):
 @router.get("/", response=list[PrintJobOut])
 def list_jobs(request):
     from apps.jobs.models import PrintJob
+
     return list(PrintJob.objects.all()[:100])
 
 
 @router.get("/{job_id}", response=PrintJobOut)
 def get_job(request, job_id: uuid.UUID):
     from apps.jobs.models import PrintJob
+
     return get_object_or_404(PrintJob, pk=job_id)
 
 
@@ -56,6 +58,7 @@ def upload_job(request, file: UploadedFile, name: str = "", product_type: str = 
 @router.delete("/{job_id}")
 def delete_job(request, job_id: uuid.UUID):
     from apps.jobs.models import PrintJob
+
     job = get_object_or_404(PrintJob, pk=job_id)
     job.delete()
     return {"success": True}
