@@ -25,6 +25,7 @@ def generate_code39_barcode(data: str, width_px: int = 200, height_px: int = 60)
     from barcode.writer import ImageWriter
 
     options = {
+        # Each Code 39 character encodes to ~16 modules; 20 modules for start/stop + quiet zones
         "module_width": max(0.5, width_px / (len(data) * 16 + 20)),
         "module_height": height_px / 25.4,
         "quiet_zone": 1.0,

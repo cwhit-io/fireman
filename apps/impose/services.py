@@ -127,8 +127,8 @@ def impose_nup(
 
     All dimensions are in PDF points (72 pts = 1 inch).
 
-    The grid is automatically centred on the sheet when all four margins are
-    zero (the default).  Explicit margins override centring.
+    The grid is automatically centered on the sheet when all four margins are
+    zero (the default).  Explicit margins override centering.
 
     Each source page is analysed with :func:`detect_source_trim` so that the
     correct trim area is used for scaling — regardless of whether the uploaded

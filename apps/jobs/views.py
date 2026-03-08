@@ -32,13 +32,16 @@ class JobDetailView(DetailView):
 class JobUploadView(View):
     template_name = "jobs/job_upload.html"
 
+    @staticmethod
+    def _ruleset_context():
+        return {"rulesets": Rule.objects.filter(active=True).order_by("priority", "name")}
+
     def get(self, request):
-        ctx = {"rulesets": Rule.objects.filter(active=True).order_by("priority", "name")}
-        return render(request, self.template_name, ctx)
+        return render(request, self.template_name, self._ruleset_context())
 
     def post(self, request):
         file = request.FILES.get("file")
-        ctx = {"rulesets": Rule.objects.filter(active=True).order_by("priority", "name")}
+        ctx = self._ruleset_context()
         if not file:
             messages.error(request, "No file selected.")
             return render(request, self.template_name, ctx, status=400)
@@ -165,6 +168,7 @@ class JobResendView(View):
             messages.error(request, "No printer preset is assigned to this job.")
             return redirect("jobs:detail", pk=pk)
 
+        tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
                 with job.imposed_file.open("rb") as f:
@@ -178,9 +182,10 @@ class JobResendView(View):
         except Exception as exc:
             messages.error(request, f"Failed to send job: {exc}")
         finally:
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
 
         return redirect("jobs:detail", pk=pk)
