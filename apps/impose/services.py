@@ -9,6 +9,99 @@ from typing import IO
 
 logger = logging.getLogger(__name__)
 
+# ── PDF geometry helpers ───────────────────────────────────────────────────
+
+# Well-known print trim sizes in PDF points (1 pt = 1/72 in).
+# These are the *finished* (cut) dimensions without bleed.
+_STANDARD_TRIM_SIZES_PT: dict[str, tuple[float, float]] = {
+    'Business Card (3.5×2")': (252.0, 144.0),
+    '4×6"': (288.0, 432.0),
+    '5×7"': (360.0, 504.0),
+    '5×8"': (360.0, 576.0),
+    'Half Letter (5.5×8.5")': (396.0, 612.0),
+    '6×9"': (432.0, 648.0),
+    '8×10"': (576.0, 720.0),
+    'Letter (8.5×11")': (612.0, 792.0),
+    'Tabloid (11×17")': (792.0, 1224.0),
+    '12×18"': (864.0, 1296.0),
+}
+
+# Common bleed amounts in PDF points to probe when inferring trim from MediaBox.
+_COMMON_BLEEDS_PT: tuple[float, ...] = (
+    9.0,                   # 0.125" (1/8") — industry standard
+    4.5,                   # 0.0625" (1/16")
+    3 * 72 / 25.4,         # 3 mm ≈ 8.504 pt
+    5 * 72 / 25.4,         # 5 mm ≈ 14.173 pt
+    18.0,                  # 0.25" (1/4")
+)
+
+# Tolerance for dimension matching (pts).
+_DIM_TOL_PT: float = 3.0
+
+
+def detect_source_trim(page) -> tuple[float, float, float, float]:
+    """Detect the trim size and its position within a page's MediaBox.
+
+    Returns ``(trim_w, trim_h, trim_left, trim_bottom)`` — all in PDF points.
+    *trim_left* and *trim_bottom* are the absolute PDF coordinates of the
+    trim box's bottom-left corner (the same coordinate space as MediaBox).
+
+    Detection order:
+
+    1. **Explicit TrimBox** — most reliable; used when the PDF contains a
+       ``/TrimBox`` entry that differs from the MediaBox.
+    2. **Standard exact match** — MediaBox dimensions equal a known trim size
+       within ±3 pt; the page has no bleed content.
+    3. **Inferred trim + bleed** — MediaBox = standard trim + a uniform bleed
+       on all four sides (probes common bleed amounts: 0.0625", 0.125", …,
+       0.25").  For example a 4.25 × 6.25" MediaBox is inferred as a 4 × 6"
+       trim with a 0.125" bleed.
+    4. **Fallback** — treat the full MediaBox as the trim (no bleed).
+    """
+    media = page.mediabox
+    media_w = float(media.width)
+    media_h = float(media.height)
+    media_left = float(media.left)
+    media_bottom = float(media.bottom)
+
+    # 1. Explicit TrimBox ──────────────────────────────────────────────────
+    if "/TrimBox" in page:
+        tb = page.trimbox
+        tb_w = float(tb.width)
+        tb_h = float(tb.height)
+        # Only use when it genuinely differs from the MediaBox.
+        if abs(tb_w - media_w) > 1.0 or abs(tb_h - media_h) > 1.0:
+            return (tb_w, tb_h, float(tb.left), float(tb.bottom))
+
+    # 2. MediaBox exactly matches a known standard trim (no bleed) ─────────
+    for sw, sh in _STANDARD_TRIM_SIZES_PT.values():
+        if (abs(media_w - sw) < _DIM_TOL_PT and abs(media_h - sh) < _DIM_TOL_PT) or (
+            abs(media_w - sh) < _DIM_TOL_PT and abs(media_h - sw) < _DIM_TOL_PT
+        ):
+            return (media_w, media_h, media_left, media_bottom)
+
+    # 3. MediaBox = standard trim + uniform bleed (inferred) ───────────────
+    best: tuple[float, float, float, float] | None = None
+    best_err = float("inf")
+    for sw, sh in _STANDARD_TRIM_SIZES_PT.values():
+        for b in _COMMON_BLEEDS_PT:
+            # Portrait orientation
+            err = abs(media_w - (sw + 2 * b)) + abs(media_h - (sh + 2 * b))
+            if err < best_err and err < _DIM_TOL_PT * 2:
+                best_err = err
+                best = (sw, sh, media_left + b, media_bottom + b)
+            # Landscape orientation
+            err = abs(media_w - (sh + 2 * b)) + abs(media_h - (sw + 2 * b))
+            if err < best_err and err < _DIM_TOL_PT * 2:
+                best_err = err
+                best = (sh, sw, media_left + b, media_bottom + b)
+
+    if best is not None:
+        return best
+
+    # 4. Fallback — full MediaBox is the trim ──────────────────────────────
+    return (media_w, media_h, media_left, media_bottom)
+
 
 def _pts(inches: float) -> float:
     return inches * 72.0
@@ -31,6 +124,11 @@ def impose_nup(
     Tile *columns × rows* source pages onto new press sheets and write to *output_pdf*.
 
     All dimensions are in PDF points (72 pts = 1 inch).
+
+    Each source page is analysed with :func:`detect_source_trim` so that the
+    correct trim area is used for scaling — regardless of whether the uploaded
+    file has bleed already baked into the MediaBox, stores it via an explicit
+    TrimBox/BleedBox, or omits it entirely.
     """
     from pypdf import PageObject, PdfReader, PdfWriter, Transformation
 
@@ -47,6 +145,10 @@ def impose_nup(
     cell_w = printable_w / columns
     cell_h = printable_h / rows
 
+    # Available area for the trim content inside each cell (excluding bleed border).
+    cell_trim_w = cell_w - 2 * bleed
+    cell_trim_h = cell_h - 2 * bleed
+
     for sheet_start in range(0, len(pages_up), per_sheet):
         sheet = PageObject.create_blank_page(width=sheet_width, height=sheet_height)
         for idx in range(per_sheet):
@@ -58,15 +160,32 @@ def impose_nup(
             col = idx % columns
             row = idx // columns
 
-            src_w = float(src.mediabox.width)
-            src_h = float(src.mediabox.height)
+            # Detect the actual trim dimensions of the source page.
+            src_trim_w, src_trim_h, src_trim_left, src_trim_bottom = detect_source_trim(src)
 
-            scale_x = (cell_w - 2 * bleed) / src_w if src_w else 1.0
-            scale_y = (cell_h - 2 * bleed) / src_h if src_h else 1.0
+            # Scale so the source trim fits the cell trim area (aspect-ratio preserved).
+            scale_x = cell_trim_w / src_trim_w if src_trim_w else 1.0
+            scale_y = cell_trim_h / src_trim_h if src_trim_h else 1.0
             scale = min(scale_x, scale_y)
 
-            tx = margin_left + col * cell_w + bleed + (cell_w - 2 * bleed - src_w * scale) / 2
-            ty = sheet_height - margin_top - (row + 1) * cell_h + bleed + (cell_h - 2 * bleed - src_h * scale) / 2
+            # Centre the scaled trim within the cell trim area.
+            center_x = (cell_trim_w - src_trim_w * scale) / 2
+            center_y = (cell_trim_h - src_trim_h * scale) / 2
+
+            # Bottom-left corner of the cell's trim area on the sheet.
+            cell_trim_left = margin_left + col * cell_w + bleed
+            cell_trim_bottom = sheet_height - margin_top - (row + 1) * cell_h + bleed
+
+            # Desired position for the source trim's bottom-left corner on the sheet.
+            target_trim_left = cell_trim_left + center_x
+            target_trim_bottom = cell_trim_bottom + center_y
+
+            # Transformation: scale(s) then translate(tx, ty).
+            # After scale(s): source point (x, y) → (s·x, s·y).
+            # After translate(tx, ty): → (s·x + tx, s·y + ty).
+            # We need: s·src_trim_left + tx = target_trim_left.
+            tx = target_trim_left - scale * src_trim_left
+            ty = target_trim_bottom - scale * src_trim_bottom
 
             transform = Transformation().scale(scale).translate(tx, ty)
             sheet.merge_transformed_page(src, transform)
