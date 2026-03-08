@@ -34,7 +34,9 @@ class JobUploadView(View):
 
     @staticmethod
     def _ruleset_context():
-        return {"rulesets": Rule.objects.filter(active=True).order_by("priority", "name")}
+        return {
+            "rulesets": Rule.objects.filter(active=True).order_by("priority", "name")
+        }
 
     def get(self, request):
         return render(request, self.template_name, self._ruleset_context())
@@ -58,8 +60,11 @@ class JobUploadView(View):
             return render(request, self.template_name, ctx, status=400)
 
         # Capture user-provided job options
-        is_double_sided = request.POST.get("is_double_sided") == "on"
-        pages_are_unique = request.POST.get("pages_are_unique") != "off"
+        pages_are_unique = request.POST.get("pages_are_unique") == "on"
+        # Step-and-repeat jobs cannot be double-sided (same page fills every cell).
+        is_double_sided = (
+            request.POST.get("is_double_sided") == "on"
+        ) and pages_are_unique
 
         job = PrintJob.objects.create(
             name=file.name,
@@ -81,10 +86,20 @@ class JobUploadView(View):
                     "imposition_template", "cutter_program", "routing_preset"
                 ).get(pk=int(ruleset_id))
                 from apps.rules.engine import _apply
+
                 _apply(ruleset, job)
-                job.save(update_fields=["imposition_template", "cutter_program", "routing_preset"])
+                job.save(
+                    update_fields=[
+                        "imposition_template",
+                        "cutter_program",
+                        "routing_preset",
+                    ]
+                )
             except (Rule.DoesNotExist, ValueError):
-                messages.warning(request, "Selected ruleset not found; rules will be applied automatically.")
+                messages.warning(
+                    request,
+                    "Selected ruleset not found; rules will be applied automatically.",
+                )
 
         process_job_task.delay(str(job.pk))
         messages.success(request, f"Job '{job.name}' submitted successfully.")
@@ -116,11 +131,18 @@ class JobApplyRulesetView(View):
         _apply(ruleset, job)
         job.status = PrintJob.Status.PENDING
         job.save(
-            update_fields=["imposition_template", "cutter_program", "routing_preset", "status"]
+            update_fields=[
+                "imposition_template",
+                "cutter_program",
+                "routing_preset",
+                "status",
+            ]
         )
         # Re-process the job immediately
         process_job_task.delay(str(job.pk))
-        messages.success(request, f"Ruleset '{ruleset.name}' applied — job is being re-processed.")
+        messages.success(
+            request, f"Ruleset '{ruleset.name}' applied — job is being re-processed."
+        )
         return redirect("jobs:detail", pk=pk)
 
 

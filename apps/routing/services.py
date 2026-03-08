@@ -78,3 +78,73 @@ def send_to_fiery_ipp(
 
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     return result
+
+
+def test_printer_connection(preset) -> dict:
+    """
+    Check that the printer queue named in *preset* is reachable.
+
+    Returns a dict with:
+      ``ok``      – True if the queue responded, False otherwise
+      ``message`` – Human-readable result string
+    """
+    queue = preset.printer_queue.strip()
+    if not queue:
+        return {"ok": False, "message": "No printer queue configured."}
+
+    # Use lpstat to query the specific queue without sending any data.
+    if shutil.which("lpstat"):
+        try:
+            result = subprocess.run(
+                ["lpstat", "-p", queue],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                status_line = (
+                    result.stdout.strip().splitlines()[0]
+                    if result.stdout.strip()
+                    else f"printer {queue} is idle."
+                )
+                return {"ok": True, "message": status_line}
+            else:
+                err = (result.stderr or result.stdout).strip()
+                return {
+                    "ok": False,
+                    "message": err or f"Queue '{queue}' not found or unreachable.",
+                }
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "message": f"Timed out connecting to queue '{queue}'."}
+        except Exception as exc:
+            return {"ok": False, "message": str(exc)}
+
+    # Fall back to lp if lpstat is unavailable.
+    if shutil.which("lp"):
+        try:
+            result = subprocess.run(
+                ["lp", "-d", queue, "--", "/dev/null"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                return {
+                    "ok": True,
+                    "message": f"Queue '{queue}' accepted a test request.",
+                }
+            else:
+                err = (result.stderr or result.stdout).strip()
+                return {
+                    "ok": False,
+                    "message": err or f"Queue '{queue}' rejected the test request.",
+                }
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "message": f"Timed out connecting to queue '{queue}'."}
+        except Exception as exc:
+            return {"ok": False, "message": str(exc)}
+
+    return {
+        "ok": False,
+        "message": "Neither lpstat nor lp is available on this system.",
+    }

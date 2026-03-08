@@ -338,8 +338,8 @@ class TestImposeFromTemplateOptions:
         impose_from_template(tmpl, buf, out, pages_are_unique=False)
         out.seek(0)
         reader = PdfReader(out)
-        # Step-repeat uses only 1 source page repeated, so 1 sheet
-        assert len(reader.pages) == 1
+        # Step-repeat produces one output sheet per source page (2 pages → 2 sheets).
+        assert len(reader.pages) == 2
 
 
 class TestImposeStepRepeat:
@@ -357,7 +357,9 @@ class TestImposeStepRepeat:
         inp = io.BytesIO(pdf)
         out = io.BytesIO()
         # 4-up: 2 columns × 2 rows on a large sheet
-        impose_step_repeat(inp, out, columns=2, rows=2, sheet_width=576, sheet_height=864)
+        impose_step_repeat(
+            inp, out, columns=2, rows=2, sheet_width=576, sheet_height=864
+        )
         out.seek(0)
         reader = PdfReader(out)
         # Should produce exactly 1 output sheet
@@ -372,7 +374,9 @@ class TestImposeStepRepeat:
         pdf = _make_pdf_with_mediabox(288.0, 432.0)
         inp = io.BytesIO(pdf)
         out = io.BytesIO()
-        impose_step_repeat(inp, out, columns=1, rows=1, sheet_width=288, sheet_height=432)
+        impose_step_repeat(
+            inp, out, columns=1, rows=1, sheet_width=288, sheet_height=432
+        )
         out.seek(0)
         assert len(PdfReader(out).pages) == 1
 
@@ -402,9 +406,12 @@ class TestDoubleSidedNup:
         inp = io.BytesIO(pdf)
         out = io.BytesIO()
         impose_double_sided_nup(
-            inp, out,
-            columns=4, rows=2,
-            sheet_width=936, sheet_height=1368,
+            inp,
+            out,
+            columns=4,
+            rows=2,
+            sheet_width=936,
+            sheet_height=1368,
         )
         out.seek(0)
         assert len(PdfReader(out).pages) == 2
@@ -423,13 +430,15 @@ class TestDoubleSidedNup:
 
         tmpl = ImpositionTemplate.objects.create(
             name="8up double-sided test",
-            sheet_width=936,   # 13"
-            sheet_height=1368, # 19"
+            sheet_width=936,  # 13"
+            sheet_height=1368,  # 19"
             columns=4,
             rows=2,
-            bleed=9,           # 0.125"
+            bleed=9,  # 0.125"
         )
-        impose_from_template(tmpl, inp, out, pages_are_unique=True, is_double_sided=True)
+        impose_from_template(
+            tmpl, inp, out, pages_are_unique=True, is_double_sided=True
+        )
         out.seek(0)
         reader = PdfReader(out)
         assert len(reader.pages) == 2
@@ -452,7 +461,9 @@ class TestDoubleSidedNup:
             columns=2,
             rows=2,
         )
-        impose_from_template(tmpl, inp, out, pages_are_unique=False, is_double_sided=True)
+        impose_from_template(
+            tmpl, inp, out, pages_are_unique=False, is_double_sided=True
+        )
         out.seek(0)
         assert len(PdfReader(out).pages) == 1
 
@@ -474,11 +485,11 @@ class TestCutSizeMarginComputation:
         out = io.BytesIO()
         tmpl = ImpositionTemplate.objects.create(
             name="Cut-size margin test",
-            sheet_width=936,    # 13"
-            sheet_height=720,   # 10"
-            cut_width=288,      # 4"
-            cut_height=432,     # 6"
-            bleed=9,            # 0.125"
+            sheet_width=936,  # 13"
+            sheet_height=720,  # 10"
+            cut_width=288,  # 4"
+            cut_height=432,  # 6"
+            bleed=9,  # 0.125"
             columns=2,
             rows=1,
         )
@@ -577,4 +588,3 @@ class TestCutMarks:
         assert len(PdfReader(io.BytesIO(out_no_marks.getvalue())).pages) == 1
         assert len(PdfReader(io.BytesIO(out_marks.getvalue())).pages) == 1
         assert len(out_marks.getvalue()) > len(out_no_marks.getvalue())
-

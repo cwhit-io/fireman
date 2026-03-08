@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views import View
@@ -145,3 +146,14 @@ class PresetDeleteView(DeleteView):
         preset = self.get_object()
         messages.success(self.request, f"Printer preset '{preset.name}' deleted.")
         return super().form_valid(form)
+
+
+class PresetTestConnectionView(View):
+    """POST to this view to test connectivity to the preset's printer queue."""
+
+    def post(self, request, pk):
+        preset = get_object_or_404(RoutingPreset, pk=pk)
+        from .services import test_printer_connection
+
+        result = test_printer_connection(preset)
+        return JsonResponse(result)
