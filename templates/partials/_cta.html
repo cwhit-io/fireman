@@ -1,0 +1,15 @@
+{% comment %}Reusable final CTA panel — big rounded card with headline + button.
+  Usage: {% include "partials/_cta.html" with cta_text="Ready?" cta_url="/jobs/upload/" btn_label="Get Started" %}{% endcomment %}
+<section class="my-16">
+  <div class="bg-primary text-primary-content rounded-3xl px-8 py-14 text-center max-w-3xl mx-auto shadow-xl">
+    <h2 class="text-3xl md:text-4xl font-bold mb-4">
+      {{ cta_text|default:"Ready to make printing feel easy again?" }}
+    </h2>
+    <p class="text-primary-content/80 mb-8 text-lg">
+      {{ cta_subtitle|default:"Start with Ember and send your next job in minutes." }}
+    </p>
+    <a href="{{ cta_url|default:'/jobs/upload/' }}" class="btn btn-lg bg-white text-primary hover:bg-base-100 border-0 shadow-md">
+      {{ btn_label|default:"Get Started" }}
+    </a>
+  </div>
+</section>

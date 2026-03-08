@@ -1,0 +1,90 @@
+{% load static %}
+{# Sticky top navbar — uses daisyUI `navbar` + Alpine.js for mobile drawer toggle #}
+<header class="sticky top-0 z-50 shadow-sm">
+  <div class="navbar bg-base-100 max-w-6xl mx-auto px-4">
+
+    {# ── Brand / logo ──────────────────────────────── #}
+    <div class="navbar-start gap-2">
+      {# Mobile hamburger (visible on small screens only) #}
+      <div class="dropdown lg:hidden" x-data="{ open: false }">
+        <button
+          class="btn btn-ghost btn-square"
+          aria-label="Open navigation menu"
+          :aria-expanded="open.toString()"
+          @click="open = !open"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <ul
+          class="menu menu-sm dropdown-content bg-base-100 rounded-box z-50 mt-3 w-52 p-2 shadow-lg"
+          x-show="open"
+          @click.outside="open = false"
+          x-transition
+        >
+          <li><a href="{% url 'jobs:list' %}">Jobs</a></li>
+          <li><a href="{% url 'impose:list' %}">Templates</a></li>
+          <li><a href="{% url 'cutter:list' %}">Cutters</a></li>
+          <li><a href="{% url 'routing:list' %}">Presets</a></li>
+          <li><a href="{% url 'rules:list' %}">Rulesets</a></li>
+        </ul>
+      </div>
+
+      {# Logo + App name #}
+      <a href="{% url 'homepage' %}" class="btn btn-ghost text-xl font-bold flex items-center gap-2 px-2">
+        <img
+          src="{% static 'logo.png' %}"
+          alt="Ember logo"
+          class="w-8 h-8 rounded-full object-cover"
+        />
+        <span class="text-primary">Ember</span>
+      </a>
+    </div>
+
+    {# ── Desktop nav links ─────────────────────────── #}
+    <div class="navbar-center hidden lg:flex">
+      <ul class="menu menu-horizontal px-1 gap-1">
+        <li><a href="{% url 'jobs:list' %}" class="font-medium">Jobs</a></li>
+        <li><a href="{% url 'impose:list' %}" class="font-medium">Templates</a></li>
+        <li><a href="{% url 'cutter:list' %}" class="font-medium">Cutters</a></li>
+        <li><a href="{% url 'routing:list' %}" class="font-medium">Presets</a></li>
+        <li><a href="{% url 'rules:list' %}" class="font-medium">Rulesets</a></li>
+      </ul>
+    </div>
+
+    {# ── Right side: CTA + user menu ───────────────── #}
+    <div class="navbar-end gap-2">
+      <a href="{% url 'jobs:upload' %}" class="btn btn-primary btn-sm hidden sm:inline-flex">
+        Get Started
+      </a>
+
+      {# User menu placeholder (expand with auth views later) #}
+      <div class="dropdown dropdown-end" x-data="{ open: false }">
+        <button
+          class="btn btn-ghost btn-circle avatar"
+          aria-label="User menu"
+          :aria-expanded="open.toString()"
+          @click="open = !open"
+        >
+          <div class="w-8 rounded-full bg-base-300 flex items-center justify-center text-base-content/60">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M5.121 17.804A8 8 0 1118.879 6.196M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+        </button>
+        <ul
+          class="menu menu-sm dropdown-content bg-base-100 rounded-box z-50 mt-3 w-48 p-2 shadow-lg"
+          x-show="open"
+          @click.outside="open = false"
+          x-transition
+        >
+          <li><a href="/admin/">Admin</a></li>
+          <li><a href="/demo/">Demo</a></li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</header>
