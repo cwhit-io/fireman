@@ -42,6 +42,13 @@ def impose_job_task(job_id: str, template_id: int | None = None) -> None:
             if job.cutter_program_id and job.cutter_program
             else None
         )
+        # Barcode position comes from the cutter program when configured;
+        # impose_from_template falls back to the template coords if not set.
+        cp = job.cutter_program if job.cutter_program_id else None
+        barcode_x = float(cp.barcode_x) if cp and cp.barcode_x is not None else None
+        barcode_y = float(cp.barcode_y) if cp and cp.barcode_y is not None else None
+        barcode_width = float(cp.barcode_width) if cp else None
+        barcode_height = float(cp.barcode_height) if cp else None
         impose_from_template(
             tmpl,
             input_buf,
@@ -49,6 +56,10 @@ def impose_job_task(job_id: str, template_id: int | None = None) -> None:
             pages_are_unique=job.pages_are_unique,
             is_double_sided=job.is_double_sided,
             barcode_value=barcode_value,
+            barcode_x=barcode_x,
+            barcode_y=barcode_y,
+            barcode_width=barcode_width,
+            barcode_height=barcode_height,
         )
         output_buf.seek(0)
         from pathlib import Path

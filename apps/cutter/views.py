@@ -16,12 +16,24 @@ def _get_initial_form_values(program=None):
             "duplo_code": program.duplo_code,
             "description": program.description,
             "active": "on" if program.active else "",
+            "barcode_x": str(program.barcode_x)
+            if program.barcode_x is not None
+            else "",
+            "barcode_y": str(program.barcode_y)
+            if program.barcode_y is not None
+            else "",
+            "barcode_width": str(program.barcode_width),
+            "barcode_height": str(program.barcode_height),
         }
     return {
         "name": "",
         "duplo_code": "",
         "description": "",
         "active": "on",
+        "barcode_x": "",
+        "barcode_y": "",
+        "barcode_width": "90.0",
+        "barcode_height": "25.2",
     }
 
 
@@ -32,6 +44,30 @@ def _validate_program_form(data):
     if not data.get("duplo_code", "").strip():
         errors["duplo_code"] = "Duplo code is required."
     return errors
+
+
+def _parse_optional_decimal(value: str):
+    """Return a Decimal from a string, or None if blank/invalid."""
+    from decimal import Decimal, InvalidOperation
+
+    v = (value or "").strip()
+    if not v:
+        return None
+    try:
+        return Decimal(v)
+    except InvalidOperation:
+        return None
+
+
+def _parse_decimal(value: str, default):
+    """Return a Decimal from a string, falling back to default."""
+    from decimal import Decimal, InvalidOperation
+
+    v = (value or "").strip()
+    try:
+        return Decimal(v)
+    except (InvalidOperation, TypeError):
+        return Decimal(str(default))
 
 
 class ProgramListView(ListView):
@@ -57,6 +93,10 @@ class ProgramCreateView(View):
                 duplo_code=data["duplo_code"].strip(),
                 description=data.get("description", "").strip(),
                 active=data.get("active") == "on",
+                barcode_x=_parse_optional_decimal(data.get("barcode_x", "")),
+                barcode_y=_parse_optional_decimal(data.get("barcode_y", "")),
+                barcode_width=_parse_decimal(data.get("barcode_width", ""), 90.0),
+                barcode_height=_parse_decimal(data.get("barcode_height", ""), 25.2),
             )
             messages.success(request, f"Cutter program '{program.name}' created.")
             return redirect("cutter:list")
@@ -83,6 +123,12 @@ class ProgramEditView(View):
             program.duplo_code = data["duplo_code"].strip()
             program.description = data.get("description", "").strip()
             program.active = data.get("active") == "on"
+            program.barcode_x = _parse_optional_decimal(data.get("barcode_x", ""))
+            program.barcode_y = _parse_optional_decimal(data.get("barcode_y", ""))
+            program.barcode_width = _parse_decimal(data.get("barcode_width", ""), 90.0)
+            program.barcode_height = _parse_decimal(
+                data.get("barcode_height", ""), 25.2
+            )
             program.save()
             messages.success(request, f"Cutter program '{program.name}' updated.")
             return redirect("cutter:list")

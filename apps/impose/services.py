@@ -553,6 +553,10 @@ def impose_from_template(
     is_double_sided: bool = False,
     auto_rotate: bool = True,
     barcode_value: str | None = None,
+    barcode_x: float | None = None,
+    barcode_y: float | None = None,
+    barcode_width: float | None = None,
+    barcode_height: float | None = None,
     cut_marks: bool = False,
 ) -> None:
     """Dispatch imposition to the right function based on *template* settings.
@@ -569,9 +573,10 @@ def impose_from_template(
 
     Post-processing overlays
     ------------------------
-    When *barcode_value* is a non-empty string **and** the template has
-    ``barcode_x``/``barcode_y`` coordinates, a Code 39 barcode is rendered on
-    every output sheet at the position defined by the template.
+    When *barcode_value* is set, the matching TIF barcode is stamped on every
+    output sheet.  The position is taken from the explicit *barcode_x* /
+    *barcode_y* kwargs first (supplied by the cutter program), falling back to
+    the template's own ``barcode_x`` / ``barcode_y`` fields.
 
     When *cut_marks* is ``True``, hairline crop marks are drawn at every cell
     corner on every output sheet to guide the cutter operator.
@@ -667,10 +672,27 @@ def impose_from_template(
         )
 
     # ── Build overlays (barcode TIF + cut marks) ──────────────────────────
+    # Resolve barcode position: explicit kwargs (from cutter program) first,
+    # then fall back to whatever the template has configured.
+    eff_barcode_x = (
+        barcode_x
+        if barcode_x is not None
+        else (float(template.barcode_x) if template.barcode_x is not None else None)
+    )
+    eff_barcode_y = (
+        barcode_y
+        if barcode_y is not None
+        else (float(template.barcode_y) if template.barcode_y is not None else None)
+    )
+    eff_barcode_width = (
+        barcode_width if barcode_width is not None else float(template.barcode_width)
+    )
+    eff_barcode_height = (
+        barcode_height if barcode_height is not None else float(template.barcode_height)
+    )
+
     has_barcode = (
-        barcode_value
-        and template.barcode_x is not None
-        and template.barcode_y is not None
+        barcode_value and eff_barcode_x is not None and eff_barcode_y is not None
     )
 
     if not has_barcode and not cut_marks:
@@ -683,11 +705,13 @@ def impose_from_template(
     if has_barcode:
         tif_path = _resolve_barcode_tif(barcode_value)
         if tif_path:
-            bx = float(template.barcode_x)
-            by = float(template.barcode_y)
-            bw = float(template.barcode_width)
-            bh = float(template.barcode_height)
-            overlay_stream += _barcode_tif_pdf_stream(tif_path, bx, by, bw, bh)
+            overlay_stream += _barcode_tif_pdf_stream(
+                tif_path,
+                eff_barcode_x,
+                eff_barcode_y,
+                eff_barcode_width,
+                eff_barcode_height,
+            )
 
     if cut_marks:
         # Re-derive cell trim positions using the same formulas as impose_nup.
