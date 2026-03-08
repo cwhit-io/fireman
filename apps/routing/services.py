@@ -13,26 +13,45 @@ logger = logging.getLogger(__name__)
 
 def _build_lpr_command(preset, pdf_path: str, title: str = "") -> list[str]:
     """Build the lpr command list for the given preset."""
-    cmd = ["lpr", "-P", preset.printer_queue, "-#", str(preset.copies)]
+    from django.conf import settings
+
+    print_user = getattr(settings, "FIERY_PRINT_USER", "Ember")
+    cmd = [
+        "lpr",
+        "-P",
+        preset.printer_queue,
+        "-#",
+        str(preset.copies),
+        "-U",
+        print_user,
+    ]
 
     if title:
         cmd += ["-T", title]
 
-    if preset.media_size:
-        cmd += ["-o", f"media={preset.media_size}"]
-    if preset.media_type:
-        cmd += ["-o", f"MediaType={preset.media_type}"]
-    if preset.duplex and preset.duplex != "simplex":
-        sides_map = {
-            "duplex_long": "two-sided-long-edge",
-            "duplex_short": "two-sided-short-edge",
-        }
-        cmd += ["-o", f"sides={sides_map.get(preset.duplex, 'one-sided')}"]
-    if preset.color_mode == "grayscale":
-        cmd += ["-o", "ColorModel=Gray"]
-    if preset.tray:
-        cmd += ["-o", f"InputSlot={preset.tray}"]
+    # New-style Fiery PPD options (takes precedence)
+    for key, value in (preset.fiery_options or {}).items():
+        if value:
+            cmd += ["-o", f"{key}={value}"]
 
+    # Legacy field fallback for presets that pre-date fiery_options
+    if not preset.fiery_options:
+        if preset.media_size:
+            cmd += ["-o", f"media={preset.media_size}"]
+        if preset.media_type:
+            cmd += ["-o", f"MediaType={preset.media_type}"]
+        if preset.duplex and preset.duplex != "simplex":
+            sides_map = {
+                "duplex_long": "two-sided-long-edge",
+                "duplex_short": "two-sided-short-edge",
+            }
+            cmd += ["-o", f"sides={sides_map.get(preset.duplex, 'one-sided')}"]
+        if preset.color_mode == "grayscale":
+            cmd += ["-o", "ColorModel=Gray"]
+        if preset.tray:
+            cmd += ["-o", f"InputSlot={preset.tray}"]
+
+    # Free-text extra options always appended last
     for line in preset.extra_lpr_options.splitlines():
         line = line.strip()
         if line:
@@ -73,9 +92,39 @@ def send_to_fiery_ipp(
     if not shutil.which("lp"):
         raise OSError("lp is not available on this system.")
 
-    cmd = ["lp", "-d", printer_uri, "-n", str(preset.copies)]
+    from django.conf import settings
+
+    print_user = getattr(settings, "FIERY_PRINT_USER", "Ember")
+    cmd = ["lp", "-d", printer_uri, "-n", str(preset.copies), "-U", print_user]
     if title:
         cmd += ["-t", title]
+
+    # Fiery PPD options
+    for key, value in (preset.fiery_options or {}).items():
+        if value:
+            cmd += ["-o", f"{key}={value}"]
+
+    # Legacy fallback
+    if not preset.fiery_options:
+        if getattr(preset, "media_size", ""):
+            cmd += ["-o", f"media={preset.media_size}"]
+        if getattr(preset, "media_type", ""):
+            cmd += ["-o", f"MediaType={preset.media_type}"]
+        if getattr(preset, "duplex", "") and preset.duplex != "simplex":
+            sides_map = {
+                "duplex_long": "two-sided-long-edge",
+                "duplex_short": "two-sided-short-edge",
+            }
+            cmd += ["-o", f"sides={sides_map.get(preset.duplex, 'one-sided')}"]
+        if getattr(preset, "color_mode", "") == "grayscale":
+            cmd += ["-o", "ColorModel=Gray"]
+
+    # Free-text extra options always appended last
+    for line in preset.extra_lpr_options.splitlines():
+        line = line.strip()
+        if line:
+            cmd += ["-o", line]
+
     cmd.append(pdf_path)
     logger.info("Sending to Fiery via IPP: %s", " ".join(cmd))
 

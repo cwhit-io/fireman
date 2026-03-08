@@ -6,7 +6,7 @@ from django.views import View
 from django.views.generic import DeleteView, ListView
 
 from .models import CutterProgram
-from .services import generate_code39_barcode
+from .services import get_barcode_tif_preview
 
 
 def _get_initial_form_values(program=None):
@@ -74,6 +74,17 @@ class ProgramListView(ListView):
     model = CutterProgram
     template_name = "cutter/program_list.html"
     context_object_name = "programs"
+
+    def get_queryset(self):
+        sort = self.request.GET.get("sort", "duplo_code")
+        if sort not in ("name", "-name", "duplo_code", "-duplo_code"):
+            sort = "duplo_code"
+        return CutterProgram.objects.order_by(sort)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["sort"] = self.request.GET.get("sort", "duplo_code")
+        return ctx
 
 
 class ProgramCreateView(View):
@@ -149,9 +160,13 @@ class ProgramDeleteView(DeleteView):
 
 
 class ProgramBarcodeView(View):
-    """Return a Code 39 barcode PNG for a cutter program's duplo_code."""
+    """Return the pre-generated barcode TIF as a PNG for a cutter program."""
 
     def get(self, request, pk):
+        from django.http import Http404
+
         program = get_object_or_404(CutterProgram, pk=pk)
-        png_bytes = generate_code39_barcode(program.duplo_code)
+        png_bytes = get_barcode_tif_preview(program.duplo_code)
+        if png_bytes is None:
+            raise Http404("No barcode TIF found for this program.")
         return HttpResponse(png_bytes, content_type="image/png")

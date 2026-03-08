@@ -1,3 +1,5 @@
+import json
+
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -6,6 +8,52 @@ from django.views import View
 from django.views.generic import DeleteView, ListView
 
 from .models import POINTS_PER_INCH, ImpositionTemplate
+
+# ── JSON export / import helpers ─────────────────────────────────────────────
+
+EXPORT_VERSION = 1
+
+_PT_FIELDS = [
+    "cut_width",
+    "cut_height",
+    "sheet_width",
+    "sheet_height",
+    "bleed",
+    "margin_top",
+    "margin_right",
+    "margin_bottom",
+    "margin_left",
+    "barcode_x",
+    "barcode_y",
+    "barcode_width",
+    "barcode_height",
+]
+_PLAIN_FIELDS = ["name", "layout_type", "columns", "rows", "notes"]
+
+
+def _template_to_dict(tmpl: ImpositionTemplate) -> dict:
+    """Serialise one template to a plain dict (dimensions in inches)."""
+    d = {f: getattr(tmpl, f) for f in _PLAIN_FIELDS}
+    for f in _PT_FIELDS:
+        val = getattr(tmpl, f)
+        d[f] = round(float(val) / POINTS_PER_INCH, 6) if val is not None else None
+    return d
+
+
+def _dict_to_template_fields(d: dict) -> dict:
+    """Convert an exported dict back to model kwargs (dimensions in points)."""
+    fields = {f: d.get(f) for f in _PLAIN_FIELDS}
+    for f in _PT_FIELDS:
+        val = d.get(f)
+        fields[f] = round(float(val) * POINTS_PER_INCH, 3) if val is not None else None
+    # non-nullable fields default to 0
+    for f in ["bleed", "margin_top", "margin_right", "margin_bottom", "margin_left"]:
+        if fields[f] is None:
+            fields[f] = 0
+    for f in ["barcode_width", "barcode_height"]:
+        if fields[f] is None:
+            fields[f] = 90.0 if f == "barcode_width" else 25.2
+    return fields
 
 
 def _pts_to_in(pts):
@@ -342,3 +390,107 @@ class TemplateDeleteView(DeleteView):
         tmpl = self.get_object()
         messages.success(self.request, f"Template '{tmpl.name}' deleted.")
         return super().form_valid(form)
+
+
+# ── Export ────────────────────────────────────────────────────────────────────
+
+
+class TemplateExportView(View):
+    """GET  /impose/<pk>/export/  → single-template JSON download."""
+
+    def get(self, request, pk):
+        tmpl = get_object_or_404(ImpositionTemplate, pk=pk)
+        payload = {
+            "version": EXPORT_VERSION,
+            "templates": [_template_to_dict(tmpl)],
+        }
+        resp = HttpResponse(
+            json.dumps(payload, indent=2),
+            content_type="application/json",
+        )
+        safe_name = tmpl.name.replace(" ", "_").replace("/", "-")
+        resp["Content-Disposition"] = f'attachment; filename="{safe_name}.json"'
+        return resp
+
+
+class TemplateExportAllView(View):
+    """GET  /impose/export-all/  → all templates in one JSON download."""
+
+    def get(self, request):
+        templates = ImpositionTemplate.objects.all().order_by("name")
+        payload = {
+            "version": EXPORT_VERSION,
+            "templates": [_template_to_dict(t) for t in templates],
+        }
+        resp = HttpResponse(
+            json.dumps(payload, indent=2),
+            content_type="application/json",
+        )
+        resp["Content-Disposition"] = 'attachment; filename="imposition_templates.json"'
+        return resp
+
+
+# ── Import ────────────────────────────────────────────────────────────────────
+
+
+class TemplateImportView(View):
+    """POST /impose/import/  → upload a JSON file and create/update templates."""
+
+    def post(self, request):
+        upload = request.FILES.get("file")
+        if not upload:
+            messages.error(request, "No file selected.")
+            return redirect("impose:list")
+
+        overwrite = request.POST.get("overwrite") == "on"
+
+        try:
+            payload = json.loads(upload.read())
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            messages.error(request, f"Invalid JSON file: {exc}")
+            return redirect("impose:list")
+
+        entries = payload if isinstance(payload, list) else payload.get("templates", [])
+        if not entries:
+            messages.error(request, "No templates found in the uploaded file.")
+            return redirect("impose:list")
+
+        created = updated = skipped = errors = 0
+        for d in entries:
+            name = (d.get("name") or "").strip()
+            if not name:
+                errors += 1
+                continue
+            try:
+                fields = _dict_to_template_fields(d)
+            except Exception as exc:
+                messages.warning(request, f"Skipped '{name}': {exc}")
+                errors += 1
+                continue
+
+            existing = ImpositionTemplate.objects.filter(name=name).first()
+            if existing:
+                if overwrite:
+                    for k, v in fields.items():
+                        setattr(existing, k, v)
+                    existing.save()
+                    updated += 1
+                else:
+                    skipped += 1
+            else:
+                ImpositionTemplate.objects.create(**fields)
+                created += 1
+
+        parts = []
+        if created:
+            parts.append(f"{created} created")
+        if updated:
+            parts.append(f"{updated} updated")
+        if skipped:
+            parts.append(
+                f"{skipped} skipped (already exist; enable overwrite to replace)"
+            )
+        if errors:
+            parts.append(f"{errors} invalid entries ignored")
+        messages.success(request, "Import complete: " + ", ".join(parts) + ".")
+        return redirect("impose:list")

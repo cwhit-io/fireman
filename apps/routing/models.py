@@ -29,8 +29,13 @@ class RoutingPreset(models.Model):
     )
     tray = models.CharField(max_length=50, blank=True)
     copies = models.PositiveSmallIntegerField(default=1)
+    fiery_options = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Fiery PPD options sent as -o key=value pairs (e.g. {'EFMediaType': 'Plain'})",
+    )
     extra_lpr_options = models.TextField(
-        blank=True, help_text="Additional -o key=value options, one per line"
+        blank=True, help_text="Additional raw -o key=value options, one per line"
     )
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

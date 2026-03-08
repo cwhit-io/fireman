@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{% if preset %}Edit Preset: {{ preset.name }}{% else %}New Printer Preset{% endif %}{% endblock %}
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-8">
+<div class="max-w-4xl mx-auto px-4 py-8">
   <div class="mb-4">
     <a href="{% url 'routing:list' %}" class="text-blue-600 hover:underline">← Back to Presets</a>
   </div>
@@ -12,120 +12,104 @@
     <form method="post">
       {% csrf_token %}
 
-      {# Name #}
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_name">Preset Name <span class="text-red-500">*</span></label>
-        <input id="id_name" name="name" type="text" required
-          value="{{ values.name }}"
-          placeholder="e.g. Fiery Color Coated"
-          class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
-            {% if errors.name %}border-red-400{% else %}border-gray-300{% endif %}">
-        {% if errors.name %}<p class="text-red-600 text-xs mt-1">{{ errors.name }}</p>{% endif %}
-      </div>
-
-      {# Printer Queue #}
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_printer_queue">Printer Queue <span class="text-red-500">*</span></label>
-        <input id="id_printer_queue" name="printer_queue" type="text" required
-          value="{{ values.printer_queue }}"
-          placeholder="fiery"
-          class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
-            {% if errors.printer_queue %}border-red-400{% else %}border-gray-300{% endif %}">
-        <p class="text-gray-400 text-xs mt-1">LPD queue name (e.g. <code>fiery</code>) or IPP URI (e.g. <code>ipp://192.168.1.10/ipp/print</code>)</p>
-        {% if errors.printer_queue %}<p class="text-red-600 text-xs mt-1">{{ errors.printer_queue }}</p>{% endif %}
-      </div>
-
-      <hr class="my-5 border-gray-200">
-
-      {# Media #}
-      <div class="mb-5">
-        <p class="text-sm font-medium text-gray-700 mb-3">Media</p>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs text-gray-500 mb-1" for="id_media_type">Media Type</label>
-            <input id="id_media_type" name="media_type" type="text"
-              value="{{ values.media_type }}"
-              placeholder="Coated"
-              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <p class="text-gray-400 text-xs mt-1">e.g. Coated, Uncoated, Gloss</p>
-          </div>
-          <div>
-            <label class="block text-xs text-gray-500 mb-1" for="id_media_size">Media Size</label>
-            <input id="id_media_size" name="media_size" type="text"
-              value="{{ values.media_size }}"
-              placeholder="12.5x19"
-              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <p class="text-gray-400 text-xs mt-1">e.g. 12.5x19, Letter, Tabloid</p>
-          </div>
+      {# ── Preset Identity ─────────────────────────────────────────────── #}
+      <div class="grid grid-cols-2 gap-4 mb-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="id_name">
+            Preset Name <span class="text-red-500">*</span>
+          </label>
+          <input id="id_name" name="name" type="text" required
+            value="{{ values.name }}"
+            placeholder="e.g. Fiery Color Coated"
+            class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
+              {% if errors.name %}border-red-400{% else %}border-gray-300{% endif %}">
+          {% if errors.name %}<p class="text-red-600 text-xs mt-1">{{ errors.name }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="id_printer_queue">
+            Printer Queue <span class="text-red-500">*</span>
+          </label>
+          <input id="id_printer_queue" name="printer_queue" type="text" required
+            value="{{ values.printer_queue }}"
+            placeholder="fiery_hold"
+            class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
+              {% if errors.printer_queue %}border-red-400{% else %}border-gray-300{% endif %}">
+          <p class="text-gray-400 text-xs mt-1">CUPS queue name (e.g. <code>fiery_hold</code>) or IPP URI</p>
+          {% if errors.printer_queue %}<p class="text-red-600 text-xs mt-1">{{ errors.printer_queue }}</p>{% endif %}
         </div>
       </div>
 
-      {# Tray #}
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_tray">Tray</label>
-        <input id="id_tray" name="tray" type="text"
-          value="{{ values.tray }}"
-          placeholder=""
-          class="w-48 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-      </div>
-
-      <hr class="my-5 border-gray-200">
-
-      {# Print Settings #}
-      <div class="mb-5">
-        <p class="text-sm font-medium text-gray-700 mb-3">Print Settings</p>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs text-gray-500 mb-1" for="id_duplex">Duplex Mode</label>
-            <select id="id_duplex" name="duplex"
-              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-              {% for value, label in duplex_modes %}
-              <option value="{{ value }}" {% if values.duplex == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs text-gray-500 mb-1" for="id_color_mode">Color Mode</label>
-            <select id="id_color_mode" name="color_mode"
-              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-              {% for value, label in color_modes %}
-              <option value="{{ value }}" {% if values.color_mode == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
+      <div class="grid grid-cols-2 gap-4 mb-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="id_copies">Copies</label>
+          <input id="id_copies" name="copies" type="number" min="1" max="9999"
+            value="{{ values.copies }}"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div class="flex items-end pb-2">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input id="id_active" name="active" type="checkbox"
+              class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              {% if values.active == 'on' or values.active == True %}checked{% endif %}>
+            <span class="text-sm font-medium text-gray-700">Preset is active</span>
+          </label>
+          <span class="ml-2 text-gray-400 text-xs">(inactive presets are hidden from rules)</span>
         </div>
       </div>
 
-      {# Copies #}
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_copies">Copies</label>
-        <input id="id_copies" name="copies" type="number" min="1" max="9999"
-          value="{{ values.copies }}"
-          class="w-24 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-      </div>
+      <hr class="my-6 border-gray-200">
+      <h2 class="text-base font-semibold text-gray-800 mb-4">Fiery Print Options</h2>
+      <p class="text-xs text-gray-500 mb-4">
+        Options set to "— printer default —" are not sent to the printer (the Fiery uses its own defaults).
+        Only changed options are included in the print command.
+      </p>
 
-      {# Extra LPR Options #}
+      {# ── Fiery Option Sections ────────────────────────────────────────── #}
+      {% for section in fiery_sections %}
+      <details class="mb-3 border border-gray-200 rounded-lg group" {% if section.title == "Media" or section.title == "Print Queue Action" or section.title == "Color" or section.title == "Layout" or section.title == "Output & Delivery" or section.title == "Finishing" %}open{% endif %}>
+        <summary class="flex items-center justify-between px-4 py-3 cursor-pointer rounded-lg hover:bg-gray-50 list-none">
+          <span class="text-sm font-semibold text-gray-700">{{ section.title }}</span>
+          <svg class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </summary>
+        <div class="px-4 pb-4 pt-2">
+          <div class="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+            {% for opt in section.options %}
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1" for="id_fiery_{{ opt.key }}">
+                {{ opt.label }}
+              </label>
+              <select id="id_fiery_{{ opt.key }}" name="fiery_{{ opt.key }}"
+                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                {% for choice_val, choice_label, is_selected in opt.choices %}
+                <option value="{{ choice_val }}" {% if is_selected %}selected{% endif %}>{{ choice_label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </details>
+      {% endfor %}
+
+      <hr class="my-6 border-gray-200">
+
+      {# ── Extra raw options ────────────────────────────────────────────── #}
       <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_extra_lpr_options">Extra LPR Options</label>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_extra_lpr_options">
+          Additional Raw Options
+        </label>
         <textarea id="id_extra_lpr_options" name="extra_lpr_options" rows="3"
-          placeholder="e.g. MediaColor=Blue&#10;StapleLocation=UpperLeft"
+          placeholder="e.g. EFCustomKey=CustomValue"
           class="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400">{{ values.extra_lpr_options }}</textarea>
-        <p class="text-gray-400 text-xs mt-1">Additional <code>-o key=value</code> options, one per line.</p>
+        <p class="text-gray-400 text-xs mt-1">
+          Extra <code>-o key=value</code> options, one per line. Applied after the Fiery options above.
+        </p>
       </div>
 
-      <hr class="my-5 border-gray-200">
-
-      {# Active #}
-      <div class="mb-6 flex items-center gap-3">
-        <input id="id_active" name="active" type="checkbox"
-          class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          {% if values.active == 'on' or values.active == True %}checked{% endif %}>
-        <label for="id_active" class="text-sm font-medium text-gray-700">Preset is active</label>
-        <span class="text-gray-400 text-xs">(inactive presets are hidden from ruleset selection)</span>
-      </div>
-
-      {# Submit #}
-      <div class="flex gap-3 items-center flex-wrap">
+      {# ── Submit ───────────────────────────────────────────────────────── #}
+      <div class="flex gap-3 items-center flex-wrap pt-2">
         <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 text-sm font-medium">
           {% if preset %}Save Changes{% else %}Create Preset{% endif %}
         </button>
