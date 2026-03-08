@@ -46,15 +46,12 @@ class JobUploadView(View):
 
     @staticmethod
     def _ruleset_context(category_id=None):
+        qs = Rule.objects.filter(active=True).order_by("name")
         if category_id:
             try:
-                qs = Rule.objects.filter(
-                    active=True, product_category_id=int(category_id)
-                ).order_by("name")
+                qs = qs.filter(product_category_id=int(category_id))
             except (ValueError, TypeError):
-                qs = Rule.objects.none()
-        else:
-            qs = Rule.objects.none()
+                pass
         return {
             "rulesets": qs,
             "product_categories": ProductCategory.objects.order_by("name"),
@@ -74,9 +71,6 @@ class JobUploadView(View):
             return render(request, self.template_name, ctx, status=400)
         if not file.name.lower().endswith(".pdf"):
             messages.error(request, "Only PDF files are accepted.")
-            return render(request, self.template_name, ctx, status=400)
-        if not category_id:
-            messages.error(request, "Please select a category.")
             return render(request, self.template_name, ctx, status=400)
 
         # Validate and optionally repair the PDF before saving
