@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Delete Template: {{ object.name }}{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-8">
+  <div class="mb-4">
+    <a href="{% url 'impose:list' %}" class="text-blue-600 hover:underline">← Back to Templates</a>
+  </div>
+  <div class="bg-white shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold mb-2 text-red-700">Delete Template</h1>
+    <p class="text-gray-600 mb-6">
+      Are you sure you want to delete <strong>{{ object.name }}</strong>?
+      This action cannot be undone. Jobs currently using this template will have their template assignment cleared.
+    </p>
+    <div class="bg-gray-50 rounded p-4 mb-6 text-sm text-gray-600">
+      <dl class="grid grid-cols-2 gap-2">
+        <div><dt class="font-medium">Layout</dt><dd>{{ object.get_layout_type_display }}</dd></div>
+        <div><dt class="font-medium">Sheet Size</dt><dd>{{ object.sheet_size_label }}</dd></div>
+        <div><dt class="font-medium">Grid</dt><dd>{{ object.columns }}×{{ object.rows }}</dd></div>
+        <div><dt class="font-medium">Bleed</dt><dd>{{ object.bleed_in|default:"0" }} in</dd></div>
+      </dl>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="flex gap-3">
+        <button type="submit" class="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 text-sm font-medium">
+          Yes, delete this template
+        </button>
+        <a href="{% url 'impose:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
