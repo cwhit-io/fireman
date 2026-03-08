@@ -60,12 +60,22 @@ class PresetListView(ListView):
     context_object_name = "presets"
 
 
+def _get_next_url(request):
+    """Return the validated `next` redirect URL from GET/POST, or None."""
+    next_url = request.GET.get("next") or request.POST.get("next") or ""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return next_url
+    return None
+
+
 class PresetCreateView(View):
     template_name = "routing/preset_form.html"
 
     def get(self, request):
         ctx = _build_form_context()
         ctx["values"] = _get_initial_form_values()
+        ctx["next"] = request.GET.get("next", "")
         return render(request, self.template_name, ctx)
 
     def post(self, request):
@@ -88,11 +98,13 @@ class PresetCreateView(View):
                 active=data.get("active") == "on",
             )
             messages.success(request, f"Printer preset '{preset.name}' created.")
-            return redirect("routing:list")
+            next_url = _get_next_url(request)
+            return redirect(next_url or "routing:list")
 
         ctx = _build_form_context(fiery_options)
         ctx["values"] = dict(data)
         ctx["errors"] = errors
+        ctx["next"] = data.get("next", "")
         return render(request, self.template_name, ctx, status=400)
 
 
@@ -104,6 +116,7 @@ class PresetEditView(View):
         ctx = _build_form_context(preset.fiery_options)
         ctx["preset"] = preset
         ctx["values"] = _get_initial_form_values(preset)
+        ctx["next"] = request.GET.get("next", "")
         return render(request, self.template_name, ctx)
 
     def post(self, request, pk):
@@ -124,12 +137,14 @@ class PresetEditView(View):
             preset.active = data.get("active") == "on"
             preset.save()
             messages.success(request, f"Printer preset '{preset.name}' updated.")
-            return redirect("routing:list")
+            next_url = _get_next_url(request)
+            return redirect(next_url or "routing:list")
 
         ctx = _build_form_context(fiery_options)
         ctx["preset"] = preset
         ctx["values"] = dict(data)
         ctx["errors"] = errors
+        ctx["next"] = data.get("next", "")
         return render(request, self.template_name, ctx, status=400)
 
 
@@ -137,6 +152,15 @@ class PresetDeleteView(DeleteView):
     model = RoutingPreset
     template_name = "routing/preset_confirm_delete.html"
     success_url = reverse_lazy("routing:list")
+
+    def get_success_url(self):
+        next_url = _get_next_url(self.request)
+        return next_url or str(self.success_url)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["next"] = self.request.GET.get("next", "")
+        return ctx
 
     def form_valid(self, form):
         preset = self.get_object()

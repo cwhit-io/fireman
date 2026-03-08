@@ -367,6 +367,10 @@ class TemplateListView(ListView):
         return qs
 
     def get_context_data(self, **kwargs):
+        from django.urls import reverse
+
+        from apps.routing.models import RoutingPreset
+
         from .models import ProductCategory
 
         ctx = super().get_context_data(**kwargs)
@@ -383,6 +387,11 @@ class TemplateListView(ListView):
         )
         ctx["current_product_category"] = self.request.GET.get("product_category", "")
         ctx["current_category"] = self.request.GET.get("category", "")
+        # Include printer presets so they are manageable from the Templates section
+        ctx["presets"] = RoutingPreset.objects.order_by("name")
+        ctx["active_tab"] = self.request.GET.get("tab", "templates")
+        # Stable URL to redirect back to the presets tab after create/edit/delete
+        ctx["presets_tab_url"] = reverse("impose:list") + "?tab=presets"
         return ctx
 
 
