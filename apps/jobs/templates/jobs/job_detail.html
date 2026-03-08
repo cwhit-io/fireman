@@ -12,9 +12,108 @@
     {% endfor %}
   {% endif %}
 
-  <div class="bg-white shadow rounded-lg p-6">
-    <div class="flex justify-between items-start mb-6">
-      <h1 class="text-2xl font-bold">{{ job.name|default:job.pk }}</h1>
+  {# ── Large action buttons at top (shown once job is imposed) ── #}
+  {% if job.imposed_file %}
+  <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-5 mb-6 shadow-lg">
+    <p class="text-white text-sm font-medium mb-1 opacity-80">{{ job.name|default:job.pk }}</p>
+    <p class="text-white text-xl font-bold mb-4">Imposed PDF is ready to send</p>
+    <div class="flex flex-wrap gap-3">
+      <a href="{% url 'jobs:preview' job.pk %}" target="_blank"
+        class="flex items-center gap-2 bg-white text-blue-700 font-bold px-6 py-3 rounded-lg hover:bg-blue-50 text-base shadow">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        Preview PDF
+      </a>
+      <a href="{% url 'jobs:download' job.pk %}"
+        class="flex items-center gap-2 bg-emerald-500 text-white font-bold px-6 py-3 rounded-lg hover:bg-emerald-600 text-base shadow">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Download
+      </a>
+      {% if job.routing_preset %}
+      <form method="post" action="{% url 'jobs:resend' job.pk %}" class="inline">
+        {% csrf_token %}
+        <button type="submit"
+          class="flex items-center gap-2 bg-orange-500 text-white font-bold px-6 py-3 rounded-lg hover:bg-orange-600 text-base shadow">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17H17.01M5 17l7-7 7 7M5 7l7 7 7-7"/></svg>
+          Send to Printer
+        </button>
+      </form>
+      {% else %}
+      <span class="flex items-center gap-2 bg-white/20 text-white px-6 py-3 rounded-lg text-base opacity-60 cursor-not-allowed">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17H17.01M5 17l7-7 7 7M5 7l7 7 7-7"/></svg>
+        No Printer Assigned
+      </span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Applied Ruleset — prominent section ── #}
+  <div class="bg-white shadow rounded-xl border-l-4 {% if job.imposition_template or job.routing_preset %}border-blue-500{% else %}border-gray-300{% endif %} p-5 mb-6" x-data="{ showChange: false }">
+    <div class="flex items-start justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Applied Settings</p>
+        <div class="flex flex-wrap gap-3 mt-2">
+          {% if job.imposition_template %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
+            {{ job.imposition_template }}
+            {% if job.imposition_template.cutter_program %} · barcode {{ job.imposition_template.cutter_program.duplo_code }}{% endif %}
+          </span>
+          {% else %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-500 text-sm">No template</span>
+          {% endif %}
+          {% if job.cutter_program %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-sm font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343"/></svg>
+            {{ job.cutter_program }}
+          </span>
+          {% endif %}
+          {% if job.routing_preset %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-sm font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17H17.01M5 17l7-7 7 7M5 7l7 7 7-7"/></svg>
+            {{ job.routing_preset }}
+          </span>
+          {% else %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-500 text-sm">No printer</span>
+          {% endif %}
+        </div>
+      </div>
+      <button @click="showChange = !showChange"
+        class="ml-4 flex-shrink-0 px-4 py-2 text-sm font-semibold text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+        Change
+      </button>
+    </div>
+
+    {# Inline ruleset change form #}
+    <div x-show="showChange" x-transition class="mt-4 border-t pt-4">
+      <p class="text-sm text-gray-500 mb-3">Select a ruleset to apply its gangup template and/or printer preset. The job will be re-processed immediately.</p>
+      {% if rulesets %}
+      <form method="post" action="{% url 'jobs:apply_ruleset' job.pk %}" class="flex items-end gap-3">
+        {% csrf_token %}
+        <div class="flex-1">
+          <label class="block text-xs font-medium text-gray-600 mb-1" for="id_ruleset_id">Ruleset</label>
+          <select id="id_ruleset_id" name="ruleset_id"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">— Select a ruleset —</option>
+            {% for ruleset in rulesets %}
+            <option value="{{ ruleset.pk }}">[{{ ruleset.priority }}] {{ ruleset.name }} ({{ ruleset.get_condition_type_display }}: {{ ruleset.condition_value }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold whitespace-nowrap">
+          Apply &amp; Reprocess
+        </button>
+      </form>
+      {% else %}
+      <p class="text-sm text-gray-400">No active rulesets available. <a href="{% url 'rules:create' %}" class="text-blue-600 hover:underline">Create a ruleset</a>.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Job details ── #}
+  <div class="bg-white shadow rounded-lg p-6 mb-6">
+    <div class="flex justify-between items-start mb-4">
+      <h1 class="text-xl font-bold">{{ job.name|default:job.pk }}</h1>
       <div class="flex items-center gap-3">
         <span class="px-3 py-1 text-sm rounded-full
           {% if job.status == 'sent' %}bg-green-100 text-green-800
@@ -37,23 +136,6 @@
       <div><dt class="text-sm text-gray-500">Type</dt><dd>{{ job.get_product_type_display|default:"—" }}</dd></div>
       <div><dt class="text-sm text-gray-500">Double-sided</dt><dd>{% if job.is_double_sided %}Yes{% else %}No{% endif %}</dd></div>
       <div><dt class="text-sm text-gray-500">Unique pages</dt><dd>{% if job.pages_are_unique %}Yes (n-up){% else %}No (step-and-repeat / stack-cut){% endif %}</dd></div>
-      <div class="col-span-2 border-t pt-3 mt-1">
-        <dt class="text-sm text-gray-500 mb-2 font-medium">Applied Settings</dt>
-        <dd class="grid grid-cols-3 gap-3">
-          <div>
-            <p class="text-xs text-gray-400">Gangup Template</p>
-            <p class="text-sm">{{ job.imposition_template|default:"—" }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-400">Cutter Program</p>
-            <p class="text-sm">{{ job.cutter_program|default:"—" }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-400">Printer Preset</p>
-            <p class="text-sm">{{ job.routing_preset|default:"—" }}</p>
-          </div>
-        </dd>
-      </div>
     </dl>
     {% if job.error_message %}
     <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded">
@@ -65,59 +147,5 @@
     <div class="mt-4"><p class="text-sm text-gray-500">Notes</p><p class="mt-1">{{ job.notes }}</p></div>
     {% endif %}
   </div>
-
-  {# Apply Ruleset manually #}
-  <div class="bg-white shadow rounded-lg p-6 mt-6">
-    <h2 class="text-lg font-semibold mb-1">Apply Ruleset Manually</h2>
-    <p class="text-sm text-gray-500 mb-4">Select a ruleset to apply its gangup template, cutter program, and/or printer preset to this job, overriding any currently assigned settings. The job will be re-processed immediately.</p>
-
-    {% if rulesets %}
-    <form method="post" action="{% url 'jobs:apply_ruleset' job.pk %}" class="flex items-end gap-3">
-      {% csrf_token %}
-      <div class="flex-1">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_ruleset_id">Ruleset</label>
-        <select id="id_ruleset_id" name="ruleset_id"
-          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-          <option value="">— Select a ruleset —</option>
-          {% for ruleset in rulesets %}
-          <option value="{{ ruleset.pk }}">
-            [{{ ruleset.priority }}] {{ ruleset.name }}
-            ({{ ruleset.get_condition_type_display }}: {{ ruleset.condition_value }})
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium whitespace-nowrap">
-        Apply &amp; Process
-      </button>
-    </form>
-    {% else %}
-    <p class="text-sm text-gray-400">No active rulesets available. <a href="{% url 'rules:create' %}" class="text-blue-600 hover:underline">Create a ruleset</a>.</p>
-    {% endif %}
-  </div>
-
-  {# Download / Resend / Preview #}
-  {% if job.imposed_file %}
-  <div class="bg-white shadow rounded-lg p-6 mt-6">
-    <h2 class="text-lg font-semibold mb-1">Output File</h2>
-    <p class="text-sm text-gray-500 mb-4">The imposed PDF is ready. Preview it in your browser, download it for inspection, or re-send it to the printer.</p>
-    <div class="flex gap-3 flex-wrap">
-      <a href="{% url 'jobs:preview' job.pk %}" target="_blank" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
-        Preview PDF
-      </a>
-      <a href="{% url 'jobs:download' job.pk %}" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm font-medium">
-        Download Imposed PDF
-      </a>
-      {% if job.routing_preset %}
-      <form method="post" action="{% url 'jobs:resend' job.pk %}">
-        {% csrf_token %}
-        <button type="submit" class="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 text-sm font-medium">
-          Re-send to Printer
-        </button>
-      </form>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
 </div>
 {% endblock %}

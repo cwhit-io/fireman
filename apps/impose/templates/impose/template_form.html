@@ -91,6 +91,23 @@
           <div class="mb-5">
             <p class="text-sm font-medium text-gray-700 mb-1">Code 39 Barcode Position (inches) <span class="text-gray-400 text-xs font-normal">— optional, DC-646 scanner</span></p>
             <p class="text-gray-400 text-xs mb-3">Leave blank if no barcode overlay is needed. Origin is bottom-left of sheet. For DC-646 right-lead-edge placement: X = sheet_width − 1.5" (0.25" from right + 1.25" block), Y = sheet_height − 0.6" (0.25" from top + 0.35" block).</p>
+
+            <div class="mb-3">
+              <div class="flex items-center gap-2 mb-1">
+                <label class="block text-xs text-gray-500" for="id_cutter_program">Barcode Program</label>
+                <a href="{% url 'cutter:create' %}" target="_blank" class="text-xs text-blue-600 hover:underline font-medium">+ Add new barcode</a>
+              </div>
+              <select id="id_cutter_program" name="cutter_program" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <option value="">— None —</option>
+                {% for cp in cutter_programs %}
+                <option value="{{ cp.pk }}" {% if values.cutter_program == cp.pk|stringformat:'s' %}selected{% endif %}>{{ cp.name }}{% if cp.duplo_code %} ({{ cp.duplo_code }}){% endif %}</option>
+                {% empty %}
+                <option value="" disabled>No barcode programs configured yet — add one using the link above</option>
+                {% endfor %}
+              </select>
+              <p class="text-gray-400 text-xs mt-1">Select which DC-646 barcode program to stamp on each imposed sheet.</p>
+            </div>
+
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs text-gray-500 mb-1" for="id_barcode_x">X — from left of sheet</label>

@@ -81,8 +81,11 @@ def _in_to_pts(inches_str):
 
 
 def _build_form_context():
+    from apps.cutter.models import CutterProgram
+
     return {
         "layout_types": ImpositionTemplate.LayoutType.choices,
+        "cutter_programs": CutterProgram.objects.filter(active=True).order_by("name"),
     }
 
 
@@ -112,6 +115,7 @@ def _get_initial_form_values(tmpl=None):
             "barcode_width": _pts_to_in(tmpl.barcode_width),
             "barcode_height": _pts_to_in(tmpl.barcode_height),
             "print_barcode": tmpl.print_barcode,
+            "cutter_program": str(tmpl.cutter_program_id) if tmpl.cutter_program_id else "",
             "notes": tmpl.notes,
         }
     return {
@@ -130,6 +134,7 @@ def _get_initial_form_values(tmpl=None):
         "barcode_width": "1.25",  # DC-646 default: 1.25" wide (3-digit Code 39)
         "barcode_height": "0.35",  # DC-646 default: 0.35" tall
         "print_barcode": True,
+        "cutter_program": "",
         "notes": "",
     }
 
@@ -191,6 +196,7 @@ def _template_from_post(data):
         "barcode_width": _fld("barcode_width") or 90.0,  # 1.25" default
         "barcode_height": _fld("barcode_height") or 25.2,  # 0.35" default
         "print_barcode": data.get("print_barcode") == "on",
+        "cutter_program_id": int(data.get("cutter_program")) if data.get("cutter_program", "").strip() else None,
         "notes": data.get("notes", "").strip(),
     }
 
