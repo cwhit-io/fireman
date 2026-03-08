@@ -1,0 +1,100 @@
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
+from django.views import View
+from django.views.generic import DeleteView, ListView
+
+from .models import CutterProgram
+
+
+def _get_initial_form_values(program=None):
+    if program:
+        return {
+            "name": program.name,
+            "duplo_code": program.duplo_code,
+            "description": program.description,
+            "active": "on" if program.active else "",
+        }
+    return {
+        "name": "",
+        "duplo_code": "",
+        "description": "",
+        "active": "on",
+    }
+
+
+def _validate_program_form(data):
+    errors = {}
+    if not data.get("name", "").strip():
+        errors["name"] = "Name is required."
+    if not data.get("duplo_code", "").strip():
+        errors["duplo_code"] = "Duplo code is required."
+    return errors
+
+
+class ProgramListView(ListView):
+    model = CutterProgram
+    template_name = "cutter/program_list.html"
+    context_object_name = "programs"
+
+
+class ProgramCreateView(View):
+    template_name = "cutter/program_form.html"
+
+    def get(self, request):
+        ctx = {"values": _get_initial_form_values()}
+        return render(request, self.template_name, ctx)
+
+    def post(self, request):
+        data = request.POST
+        errors = _validate_program_form(data)
+
+        if not errors:
+            program = CutterProgram.objects.create(
+                name=data["name"].strip(),
+                duplo_code=data["duplo_code"].strip(),
+                description=data.get("description", "").strip(),
+                active=data.get("active") == "on",
+            )
+            messages.success(request, f"Cutter program '{program.name}' created.")
+            return redirect("cutter:list")
+
+        ctx = {"values": dict(data), "errors": errors}
+        return render(request, self.template_name, ctx, status=400)
+
+
+class ProgramEditView(View):
+    template_name = "cutter/program_form.html"
+
+    def get(self, request, pk):
+        program = get_object_or_404(CutterProgram, pk=pk)
+        ctx = {"program": program, "values": _get_initial_form_values(program)}
+        return render(request, self.template_name, ctx)
+
+    def post(self, request, pk):
+        program = get_object_or_404(CutterProgram, pk=pk)
+        data = request.POST
+        errors = _validate_program_form(data)
+
+        if not errors:
+            program.name = data["name"].strip()
+            program.duplo_code = data["duplo_code"].strip()
+            program.description = data.get("description", "").strip()
+            program.active = data.get("active") == "on"
+            program.save()
+            messages.success(request, f"Cutter program '{program.name}' updated.")
+            return redirect("cutter:list")
+
+        ctx = {"program": program, "values": dict(data), "errors": errors}
+        return render(request, self.template_name, ctx, status=400)
+
+
+class ProgramDeleteView(DeleteView):
+    model = CutterProgram
+    template_name = "cutter/program_confirm_delete.html"
+    success_url = reverse_lazy("cutter:list")
+
+    def form_valid(self, form):
+        program = self.get_object()
+        messages.success(self.request, f"Cutter program '{program.name}' deleted.")
+        return super().form_valid(form)

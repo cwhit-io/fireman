@@ -9,8 +9,9 @@ class RuleOut(Schema):
     priority: int
     condition_type: str
     condition_value: str
-    action_type: str
-    action_value: str
+    imposition_template_id: int | None = None
+    cutter_program_id: int | None = None
+    routing_preset_id: int | None = None
     active: bool
 
     class Config:
@@ -22,8 +23,9 @@ class RuleIn(Schema):
     priority: int = 10
     condition_type: str
     condition_value: str
-    action_type: str
-    action_value: str
+    imposition_template_id: int | None = None
+    cutter_program_id: int | None = None
+    routing_preset_id: int | None = None
 
 
 @router.get("/", response=list[RuleOut])

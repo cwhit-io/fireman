@@ -5,6 +5,13 @@
   <div class="mb-4">
     <a href="{% url 'jobs:list' %}" class="text-blue-600 hover:underline">← Back to Jobs</a>
   </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="mb-4 p-3 rounded {% if message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
   <div class="bg-white shadow rounded-lg p-6">
     <div class="flex justify-between items-start mb-6">
       <h1 class="text-2xl font-bold">{{ job.name|default:job.pk }}</h1>
@@ -22,9 +29,23 @@
       <div><dt class="text-sm text-gray-500">Page Count</dt><dd>{{ job.page_count|default:"—" }}</dd></div>
       <div><dt class="text-sm text-gray-500">Page Size</dt><dd>{{ job.page_size_label }}</dd></div>
       <div><dt class="text-sm text-gray-500">Product Type</dt><dd>{{ job.product_type|default:"—" }}</dd></div>
-      <div><dt class="text-sm text-gray-500">Imposition Template</dt><dd>{{ job.imposition_template|default:"—" }}</dd></div>
-      <div><dt class="text-sm text-gray-500">Cutter Program</dt><dd>{{ job.cutter_program|default:"—" }}</dd></div>
-      <div><dt class="text-sm text-gray-500">Routing Preset</dt><dd>{{ job.routing_preset|default:"—" }}</dd></div>
+      <div class="col-span-2 border-t pt-3 mt-1">
+        <dt class="text-sm text-gray-500 mb-2 font-medium">Applied Settings</dt>
+        <dd class="grid grid-cols-3 gap-3">
+          <div>
+            <p class="text-xs text-gray-400">Gangup Template</p>
+            <p class="text-sm">{{ job.imposition_template|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400">Cutter Program</p>
+            <p class="text-sm">{{ job.cutter_program|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400">Printer Preset</p>
+            <p class="text-sm">{{ job.routing_preset|default:"—" }}</p>
+          </div>
+        </dd>
+      </div>
     </dl>
     {% if job.error_message %}
     <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded">
@@ -34,6 +55,36 @@
     {% endif %}
     {% if job.notes %}
     <div class="mt-4"><p class="text-sm text-gray-500">Notes</p><p class="mt-1">{{ job.notes }}</p></div>
+    {% endif %}
+  </div>
+
+  {# Apply Ruleset manually #}
+  <div class="bg-white shadow rounded-lg p-6 mt-6">
+    <h2 class="text-lg font-semibold mb-1">Apply Ruleset Manually</h2>
+    <p class="text-sm text-gray-500 mb-4">Select a ruleset to apply its gangup template, cutter program, and/or printer preset to this job, overriding any currently assigned settings.</p>
+
+    {% if rulesets %}
+    <form method="post" action="{% url 'jobs:apply_ruleset' job.pk %}" class="flex items-end gap-3">
+      {% csrf_token %}
+      <div class="flex-1">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_ruleset_id">Ruleset</label>
+        <select id="id_ruleset_id" name="ruleset_id"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">— Select a ruleset —</option>
+          {% for ruleset in rulesets %}
+          <option value="{{ ruleset.pk }}">
+            [{{ ruleset.priority }}] {{ ruleset.name }}
+            ({{ ruleset.get_condition_type_display }}: {{ ruleset.condition_value }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium whitespace-nowrap">
+        Apply Ruleset
+      </button>
+    </form>
+    {% else %}
+    <p class="text-sm text-gray-400">No active rulesets available. <a href="{% url 'rules:create' %}" class="text-blue-600 hover:underline">Create a ruleset</a>.</p>
     {% endif %}
   </div>
 </div>

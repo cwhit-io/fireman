@@ -8,11 +8,9 @@ def _make_rule(**kwargs):
     from apps.rules.models import Rule
 
     defaults = {
-        "name": "Test Rule",
+        "name": "Test Ruleset",
         "condition_type": Rule.ConditionType.PAGE_SIZE,
-        "condition_value": "612x792",
-        "action_type": Rule.ActionType.APPLY_TEMPLATE,
-        "action_value": "1",
+        "condition_value": "8.5x11",
         "priority": 10,
         "active": True,
     }
@@ -27,9 +25,7 @@ class TestRuleModel:
         r = Rule.objects.create(
             name="Letter to 4-up",
             condition_type=Rule.ConditionType.PAGE_SIZE,
-            condition_value="612x792",
-            action_type=Rule.ActionType.APPLY_TEMPLATE,
-            action_value="1",
+            condition_value="8.5x11",
         )
         assert "Letter to 4-up" in str(r)
 
@@ -42,14 +38,12 @@ class TestRulesEngine:
         rule = Rule(
             name="test",
             condition_type=Rule.ConditionType.PAGE_SIZE,
-            condition_value="612x792",
-            action_type=Rule.ActionType.APPLY_TEMPLATE,
-            action_value="1",
+            condition_value="8.5x11",
         )
 
         class FakeJob:
-            page_width = 612
-            page_height = 792
+            page_width = 612   # 8.5 * 72
+            page_height = 792  # 11 * 72
 
         assert _matches(rule, FakeJob()) is True
 
@@ -60,9 +54,7 @@ class TestRulesEngine:
         rule = Rule(
             name="test",
             condition_type=Rule.ConditionType.PAGE_SIZE,
-            condition_value="612x792",
-            action_type=Rule.ActionType.APPLY_TEMPLATE,
-            action_value="1",
+            condition_value="8.5x11",
         )
 
         class FakeJob:
@@ -79,8 +71,6 @@ class TestRulesEngine:
             name="test",
             condition_type=Rule.ConditionType.PAGE_COUNT,
             condition_value=">=4",
-            action_type=Rule.ActionType.APPLY_TEMPLATE,
-            action_value="1",
         )
 
         class FakeJob:
@@ -96,8 +86,6 @@ class TestRulesEngine:
             name="test",
             condition_type=Rule.ConditionType.FILENAME,
             condition_value="*.pdf",
-            action_type=Rule.ActionType.APPLY_TEMPLATE,
-            action_value="1",
         )
 
         class FakeJob:
@@ -122,9 +110,8 @@ class TestRulesEngine:
         Rule.objects.create(
             name="Page size rule",
             condition_type=Rule.ConditionType.PAGE_SIZE,
-            condition_value="612x792",
-            action_type=Rule.ActionType.APPLY_TEMPLATE,
-            action_value=str(tmpl.pk),
+            condition_value="8.5x11",
+            imposition_template=tmpl,
             priority=1,
         )
         job = PrintJob.objects.create(name="test.pdf", page_width=612, page_height=792)
@@ -132,59 +119,123 @@ class TestRulesEngine:
         job.refresh_from_db()
         assert job.imposition_template_id == tmpl.pk
 
+    def test_apply_rules_assigns_all_actions(self):
+        from apps.cutter.models import CutterProgram
+        from apps.impose.models import ImpositionTemplate
+        from apps.jobs.models import PrintJob
+        from apps.routing.models import RoutingPreset
+        from apps.rules.engine import apply_rules
+        from apps.rules.models import Rule
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="4-Up Multi",
+            layout_type="4up",
+            sheet_width=1224,
+            sheet_height=792,
+            columns=4,
+            rows=1,
+        )
+        cutter = CutterProgram.objects.create(name="Prog1", duplo_code="P001")
+        preset = RoutingPreset.objects.create(name="Fiery Color", printer_queue="fiery")
+        Rule.objects.create(
+            name="Full ruleset",
+            condition_type=Rule.ConditionType.PAGE_SIZE,
+            condition_value="8.5x11",
+            imposition_template=tmpl,
+            cutter_program=cutter,
+            routing_preset=preset,
+            priority=1,
+        )
+        job = PrintJob.objects.create(name="test.pdf", page_width=612, page_height=792)
+        apply_rules(job)
+        job.refresh_from_db()
+        assert job.imposition_template_id == tmpl.pk
+        assert job.cutter_program_id == cutter.pk
+        assert job.routing_preset_id == preset.pk
+
 
 class TestRuleViews:
     def test_list_view(self, client):
-        _make_rule(name="My Rule")
+        _make_rule(name="My Ruleset")
         url = reverse("rules:list")
         response = client.get(url)
         assert response.status_code == 200
-        assert b"My Rule" in response.content
+        assert b"My Ruleset" in response.content
 
     def test_list_view_empty(self, client):
         url = reverse("rules:list")
         response = client.get(url)
         assert response.status_code == 200
-        assert b"No rules defined" in response.content
+        assert b"No rulesets defined" in response.content
 
     def test_create_view_get(self, client):
         url = reverse("rules:create")
         response = client.get(url)
         assert response.status_code == 200
-        assert b"New Rule" in response.content
+        assert b"New Ruleset" in response.content
 
     def test_create_view_post_valid(self, client):
+        from apps.impose.models import ImpositionTemplate
         from apps.rules.models import Rule
 
+        tmpl = ImpositionTemplate.objects.create(
+            name="Test Tmpl",
+            layout_type="4up",
+            sheet_width=1224,
+            sheet_height=792,
+            columns=4,
+            rows=1,
+        )
         url = reverse("rules:create")
         data = {
-            "name": "Invoice Rule",
+            "name": "Invoice Ruleset",
             "priority": "5",
             "condition_type": Rule.ConditionType.FILENAME,
             "condition_value": "*invoice*",
-            "action_type": Rule.ActionType.APPLY_TEMPLATE,
-            "action_value": "42",
+            "imposition_template": str(tmpl.pk),
             "active": "on",
         }
         response = client.post(url, data)
         assert response.status_code == 302
-        assert Rule.objects.filter(name="Invoice Rule").exists()
+        assert Rule.objects.filter(name="Invoice Ruleset").exists()
 
     def test_create_view_post_missing_name(self, client):
+        from apps.impose.models import ImpositionTemplate
         from apps.rules.models import Rule
 
+        tmpl = ImpositionTemplate.objects.create(
+            name="Test Tmpl2",
+            layout_type="4up",
+            sheet_width=1224,
+            sheet_height=792,
+            columns=4,
+            rows=1,
+        )
         url = reverse("rules:create")
         data = {
             "name": "",
             "priority": "5",
             "condition_type": Rule.ConditionType.FILENAME,
             "condition_value": "*invoice*",
-            "action_type": Rule.ActionType.APPLY_TEMPLATE,
-            "action_value": "42",
+            "imposition_template": str(tmpl.pk),
         }
         response = client.post(url, data)
         assert response.status_code == 400
         assert b"Name is required" in response.content
+
+    def test_create_view_post_missing_actions(self, client):
+        from apps.rules.models import Rule
+
+        url = reverse("rules:create")
+        data = {
+            "name": "No Action",
+            "priority": "5",
+            "condition_type": Rule.ConditionType.FILENAME,
+            "condition_value": "*invoice*",
+        }
+        response = client.post(url, data)
+        assert response.status_code == 400
+        assert b"At least one action" in response.content
 
     def test_edit_view_get(self, client):
         rule = _make_rule(name="Edit Me")
@@ -194,17 +245,25 @@ class TestRuleViews:
         assert b"Edit Me" in response.content
 
     def test_edit_view_post_valid(self, client):
+        from apps.impose.models import ImpositionTemplate
         from apps.rules.models import Rule
 
+        tmpl = ImpositionTemplate.objects.create(
+            name="Edit Tmpl",
+            layout_type="4up",
+            sheet_width=1224,
+            sheet_height=792,
+            columns=4,
+            rows=1,
+        )
         rule = _make_rule(name="Old Name")
         url = reverse("rules:edit", args=[rule.pk])
         data = {
             "name": "New Name",
             "priority": "3",
             "condition_type": Rule.ConditionType.PAGE_SIZE,
-            "condition_value": "612x792",
-            "action_type": Rule.ActionType.APPLY_TEMPLATE,
-            "action_value": "1",
+            "condition_value": "8.5x11",
+            "imposition_template": str(tmpl.pk),
             "active": "on",
         }
         response = client.post(url, data)

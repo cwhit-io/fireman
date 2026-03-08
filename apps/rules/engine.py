@@ -1,5 +1,5 @@
 """
-Rules engine: evaluate active rules against a PrintJob and apply matching actions.
+Rules engine: evaluate active rulesets against a PrintJob and apply matching actions.
 """
 from __future__ import annotations
 
@@ -17,16 +17,18 @@ def _matches(rule, job) -> bool:
     cv = rule.condition_value.strip()
 
     if ct == Rule.ConditionType.PAGE_SIZE:
-        # condition_value format: "WxH" in points, e.g. "612x792"
+        # condition_value format: "WxH" in inches, e.g. "8.5x11" (letter) or "11x17" (tabloid)
         if not (job.page_width and job.page_height):
             return False
         try:
-            cw, ch = (float(v) for v in cv.lower().split("x"))
+            cw_in, ch_in = (float(v) for v in cv.lower().split("x"))
+            cw_pt = cw_in * 72.0
+            ch_pt = ch_in * 72.0
         except ValueError:
             return False
         return (
-            abs(float(job.page_width) - cw) < 1.0
-            and abs(float(job.page_height) - ch) < 1.0
+            abs(float(job.page_width) - cw_pt) < 1.0
+            and abs(float(job.page_height) - ch_pt) < 1.0
         )
 
     if ct == Rule.ConditionType.PAGE_COUNT:
@@ -56,45 +58,42 @@ def _matches(rule, job) -> bool:
 
 
 def _apply(rule, job) -> None:
-    """Apply *rule*'s action to *job*."""
-    from apps.rules.models import Rule
+    """Apply all of *rule*'s configured actions to *job*."""
+    if rule.imposition_template_id:
+        job.imposition_template = rule.imposition_template
+        logger.info(
+            "Ruleset '%s': applied template '%s' to job %s",
+            rule.name,
+            rule.imposition_template.name,
+            job.pk,
+        )
 
-    at = rule.action_type
-    av = rule.action_value.strip()
+    if rule.cutter_program_id:
+        job.cutter_program = rule.cutter_program
+        logger.info(
+            "Ruleset '%s': assigned cutter '%s' to job %s",
+            rule.name,
+            rule.cutter_program.name,
+            job.pk,
+        )
 
-    if at == Rule.ActionType.APPLY_TEMPLATE:
-        from apps.impose.models import ImpositionTemplate
-        try:
-            tmpl = ImpositionTemplate.objects.get(pk=int(av))
-            job.imposition_template = tmpl
-            logger.info("Rule '%s': applied template '%s' to job %s", rule.name, tmpl.name, job.pk)
-        except (ImpositionTemplate.DoesNotExist, ValueError):
-            logger.warning("Rule '%s': template id=%s not found", rule.name, av)
-
-    elif at == Rule.ActionType.ASSIGN_CUTTER:
-        from apps.cutter.models import CutterProgram
-        try:
-            prog = CutterProgram.objects.get(pk=int(av))
-            job.cutter_program = prog
-            logger.info("Rule '%s': assigned cutter '%s' to job %s", rule.name, prog.name, job.pk)
-        except (CutterProgram.DoesNotExist, ValueError):
-            logger.warning("Rule '%s': cutter program id=%s not found", rule.name, av)
-
-    elif at == Rule.ActionType.ROUTE_TO_PRINTER:
-        from apps.routing.models import RoutingPreset
-        try:
-            preset = RoutingPreset.objects.get(pk=int(av))
-            job.routing_preset = preset
-            logger.info("Rule '%s': routed job %s to preset '%s'", rule.name, job.pk, preset.name)
-        except (RoutingPreset.DoesNotExist, ValueError):
-            logger.warning("Rule '%s': routing preset id=%s not found", rule.name, av)
+    if rule.routing_preset_id:
+        job.routing_preset = rule.routing_preset
+        logger.info(
+            "Ruleset '%s': routed job %s to preset '%s'",
+            rule.name,
+            job.pk,
+            rule.routing_preset.name,
+        )
 
 
 def apply_rules(job) -> None:
-    """Evaluate all active rules against *job* in priority order and save changes."""
+    """Evaluate all active rulesets against *job* in priority order and save changes."""
     from apps.rules.models import Rule
 
-    rules = Rule.objects.filter(active=True).order_by("priority")
+    rules = Rule.objects.filter(active=True).select_related(
+        "imposition_template", "cutter_program", "routing_preset"
+    ).order_by("priority")
     changed = False
     for rule in rules:
         if _matches(rule, job):

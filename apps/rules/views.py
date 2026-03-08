@@ -12,13 +12,12 @@ from .models import Rule
 
 
 def _build_form_context():
-    """Return available action targets and choice lists for the rule form."""
+    """Return available action targets and choice lists for the ruleset form."""
     return {
         "templates": ImpositionTemplate.objects.order_by("name"),
         "cutters": CutterProgram.objects.filter(active=True).order_by("name"),
         "presets": RoutingPreset.objects.filter(active=True).order_by("name"),
         "condition_types": Rule.ConditionType.choices,
-        "action_types": Rule.ActionType.choices,
     }
 
 
@@ -30,8 +29,9 @@ def _get_initial_form_values(rule=None):
             "priority": str(rule.priority),
             "condition_type": rule.condition_type,
             "condition_value": rule.condition_value,
-            "action_type": rule.action_type,
-            "action_value": rule.action_value,
+            "imposition_template": str(rule.imposition_template_id) if rule.imposition_template_id else "",
+            "cutter_program": str(rule.cutter_program_id) if rule.cutter_program_id else "",
+            "routing_preset": str(rule.routing_preset_id) if rule.routing_preset_id else "",
             "active": "on" if rule.active else "",
         }
     return {
@@ -39,8 +39,9 @@ def _get_initial_form_values(rule=None):
         "priority": "10",
         "condition_type": "",
         "condition_value": "",
-        "action_type": "",
-        "action_value": "",
+        "imposition_template": "",
+        "cutter_program": "",
+        "routing_preset": "",
         "active": "on",
     }
 
@@ -53,10 +54,14 @@ def _validate_rule_form(data):
         errors["condition_type"] = "Condition type is required."
     if not data.get("condition_value", "").strip():
         errors["condition_value"] = "Condition value is required."
-    if not data.get("action_type", ""):
-        errors["action_type"] = "Action type is required."
-    if not data.get("action_value", "").strip():
-        errors["action_value"] = "Action value is required."
+    # At least one action must be selected
+    has_action = any([
+        data.get("imposition_template"),
+        data.get("cutter_program"),
+        data.get("routing_preset"),
+    ])
+    if not has_action:
+        errors["actions"] = "At least one action (template, cutter, or preset) is required."
     return errors
 
 
@@ -64,6 +69,11 @@ class RuleListView(ListView):
     model = Rule
     template_name = "rules/rule_list.html"
     context_object_name = "rules"
+
+    def get_queryset(self):
+        return Rule.objects.select_related(
+            "imposition_template", "cutter_program", "routing_preset"
+        ).order_by("priority", "name")
 
 
 class RuleCreateView(View):
@@ -83,16 +93,22 @@ class RuleCreateView(View):
                 priority = int(data.get("priority", 10))
             except (ValueError, TypeError):
                 priority = 10
+
+            def _fk_or_none(key):
+                val = data.get(key, "").strip()
+                return int(val) if val else None
+
             rule = Rule.objects.create(
                 name=data["name"].strip(),
                 priority=priority,
                 condition_type=data["condition_type"],
                 condition_value=data["condition_value"].strip(),
-                action_type=data["action_type"],
-                action_value=data["action_value"].strip(),
+                imposition_template_id=_fk_or_none("imposition_template"),
+                cutter_program_id=_fk_or_none("cutter_program"),
+                routing_preset_id=_fk_or_none("routing_preset"),
                 active=data.get("active") == "on",
             )
-            messages.success(request, f"Rule '{rule.name}' created.")
+            messages.success(request, f"Ruleset '{rule.name}' created.")
             return redirect("rules:list")
 
         ctx = _build_form_context()
@@ -124,11 +140,17 @@ class RuleEditView(View):
                 rule.priority = 10
             rule.condition_type = data["condition_type"]
             rule.condition_value = data["condition_value"].strip()
-            rule.action_type = data["action_type"]
-            rule.action_value = data["action_value"].strip()
+
+            def _fk_or_none(key):
+                val = data.get(key, "").strip()
+                return int(val) if val else None
+
+            rule.imposition_template_id = _fk_or_none("imposition_template")
+            rule.cutter_program_id = _fk_or_none("cutter_program")
+            rule.routing_preset_id = _fk_or_none("routing_preset")
             rule.active = data.get("active") == "on"
             rule.save()
-            messages.success(request, f"Rule '{rule.name}' updated.")
+            messages.success(request, f"Ruleset '{rule.name}' updated.")
             return redirect("rules:list")
 
         ctx = _build_form_context()
@@ -145,7 +167,7 @@ class RuleDeleteView(DeleteView):
 
     def form_valid(self, form):
         rule = self.get_object()
-        messages.success(self.request, f"Rule '{rule.name}' deleted.")
+        messages.success(self.request, f"Ruleset '{rule.name}' deleted.")
         return super().form_valid(form)
 
 
@@ -157,5 +179,5 @@ class RuleToggleView(View):
         rule.active = not rule.active
         rule.save(update_fields=["active"])
         state = "enabled" if rule.active else "disabled"
-        messages.success(request, f"Rule '{rule.name}' {state}.")
+        messages.success(request, f"Ruleset '{rule.name}' {state}.")
         return redirect("rules:list")

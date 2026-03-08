@@ -1,27 +1,25 @@
 {% extends "base.html" %}
-{% block title %}{% if rule %}Edit Rule: {{ rule.name }}{% else %}New Rule{% endif %}{% endblock %}
+{% block title %}{% if rule %}Edit Ruleset: {{ rule.name }}{% else %}New Ruleset{% endif %}{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 py-8">
   <div class="mb-4">
-    <a href="{% url 'rules:list' %}" class="text-blue-600 hover:underline">← Back to Rules</a>
+    <a href="{% url 'rules:list' %}" class="text-blue-600 hover:underline">← Back to Rulesets</a>
   </div>
 
   <div class="bg-white shadow rounded-lg p-6">
-    <h1 class="text-2xl font-bold mb-6">{% if rule %}Edit Rule{% else %}New Rule{% endif %}</h1>
+    <h1 class="text-2xl font-bold mb-6">{% if rule %}Edit Ruleset{% else %}New Ruleset{% endif %}</h1>
 
-    {# Alpine.js component for dynamic field behavior #}
     <form method="post"
       x-data="{
         conditionType: '{{ values.condition_type }}',
-        actionType: '{{ values.action_type }}',
         conditionHints: {
-          'page_size':    'Width x Height in points separated by x — e.g. 612x792 (letter) or 1224x792 (tabloid).',
+          'page_size':    'Width × Height in inches — e.g. 8.5x11 (letter) or 11x17 (tabloid).',
           'page_count':   'Exact number or comparison: >=4, <=10, >2, <8 — e.g. >=4',
           'filename':     'Glob pattern (case-insensitive) — e.g. *invoice* or order_*.pdf',
           'product_type': 'Exact product type string — e.g. business_card'
         },
         conditionPlaceholders: {
-          'page_size':    '612x792',
+          'page_size':    '8.5x11',
           'page_count':   '>=4',
           'filename':     '*invoice*',
           'product_type': 'business_card'
@@ -31,7 +29,7 @@
 
       {# Name #}
       <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_name">Rule Name <span class="text-red-500">*</span></label>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_name">Ruleset Name <span class="text-red-500">*</span></label>
         <input id="id_name" name="name" type="text" required
           value="{{ values.name }}"
           placeholder="e.g. Letter 4-up Postcards"
@@ -46,7 +44,7 @@
         <input id="id_priority" name="priority" type="number" min="1" max="999"
           value="{{ values.priority }}"
           class="w-24 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-        <p class="text-gray-500 text-xs mt-1">Lower number = higher priority. Rules are evaluated from lowest to highest.</p>
+        <p class="text-gray-500 text-xs mt-1">Lower number = higher priority. Rulesets are evaluated from lowest to highest.</p>
       </div>
 
       <hr class="my-5 border-gray-200">
@@ -81,86 +79,70 @@
 
       <hr class="my-5 border-gray-200">
 
-      {# Action Type #}
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_action_type">Action Type <span class="text-red-500">*</span></label>
-        <select id="id_action_type" name="action_type" required
-          x-model="actionType"
-          class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
-            {% if errors.action_type %}border-red-400{% else %}border-gray-300{% endif %}">
-          <option value="">— Select an action —</option>
-          {% for value, label in action_types %}
-          <option value="{{ value }}" {% if values.action_type == value %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-        {% if errors.action_type %}<p class="text-red-600 text-xs mt-1">{{ errors.action_type }}</p>{% endif %}
+      <div class="mb-2">
+        <p class="text-sm font-medium text-gray-700">Actions <span class="text-red-500">*</span></p>
+        <p class="text-gray-500 text-xs mt-1">Select one or more actions to apply when the condition matches.</p>
+        {% if errors.actions %}<p class="text-red-600 text-xs mt-1">{{ errors.actions }}</p>{% endif %}
       </div>
 
-      {# Action Value — dynamic dropdown based on action type #}
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_action_value">Action Target <span class="text-red-500">*</span></label>
+      {# Gangup / Imposition Template #}
+      <div class="mb-4 pl-2 border-l-2 border-blue-200">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_imposition_template">
+          <span class="inline-block bg-blue-50 text-blue-700 rounded px-2 py-0.5 text-xs font-medium mr-1">Gangup</span>
+          Imposition Template
+        </label>
+        <select id="id_imposition_template" name="imposition_template"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">— None —</option>
+          {% for tmpl in templates %}
+          <option value="{{ tmpl.pk }}"
+            {% if values.imposition_template == tmpl.pk|stringformat:'s' %}selected{% endif %}>
+            {{ tmpl.name }} ({{ tmpl.get_layout_type_display }})
+          </option>
+          {% empty %}
+          <option value="" disabled>No imposition templates configured yet</option>
+          {% endfor %}
+        </select>
+      </div>
 
-        {# Imposition Template dropdown #}
-        <div x-show="actionType === 'apply_template'" x-cloak>
-          <select name="action_value" id="id_action_value_template"
-            class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
-              {% if errors.action_value %}border-red-400{% else %}border-gray-300{% endif %}"
-            :required="actionType === 'apply_template'">
-            <option value="">— Select an imposition template —</option>
-            {% for tmpl in templates %}
-            <option value="{{ tmpl.pk }}"
-              {% if values.action_value == tmpl.pk|stringformat:'s' %}selected{% endif %}>
-              {{ tmpl.name }} ({{ tmpl.get_layout_type_display }})
-            </option>
-            {% empty %}
-            <option value="" disabled>No imposition templates configured yet</option>
-            {% endfor %}
-          </select>
-        </div>
+      {# Cutter Program #}
+      <div class="mb-4 pl-2 border-l-2 border-purple-200">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_cutter_program">
+          <span class="inline-block bg-purple-50 text-purple-700 rounded px-2 py-0.5 text-xs font-medium mr-1">Cutter</span>
+          Cutter / Barcode Program
+        </label>
+        <select id="id_cutter_program" name="cutter_program"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">— None —</option>
+          {% for cutter in cutters %}
+          <option value="{{ cutter.pk }}"
+            {% if values.cutter_program == cutter.pk|stringformat:'s' %}selected{% endif %}>
+            {{ cutter.name }}{% if cutter.duplo_code %} ({{ cutter.duplo_code }}){% endif %}
+          </option>
+          {% empty %}
+          <option value="" disabled>No active cutter programs configured yet</option>
+          {% endfor %}
+        </select>
+      </div>
 
-        {# Cutter Program dropdown #}
-        <div x-show="actionType === 'assign_cutter'" x-cloak>
-          <select name="action_value" id="id_action_value_cutter"
-            class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
-              {% if errors.action_value %}border-red-400{% else %}border-gray-300{% endif %}"
-            :required="actionType === 'assign_cutter'">
-            <option value="">— Select a cutter program —</option>
-            {% for cutter in cutters %}
-            <option value="{{ cutter.pk }}"
-              {% if values.action_value == cutter.pk|stringformat:'s' %}selected{% endif %}>
-              {{ cutter.name }}{% if cutter.duplo_code %} ({{ cutter.duplo_code }}){% endif %}
-            </option>
-            {% empty %}
-            <option value="" disabled>No active cutter programs configured yet</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        {# Routing Preset dropdown #}
-        <div x-show="actionType === 'route_to_printer'" x-cloak>
-          <select name="action_value" id="id_action_value_preset"
-            class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
-              {% if errors.action_value %}border-red-400{% else %}border-gray-300{% endif %}"
-            :required="actionType === 'route_to_printer'">
-            <option value="">— Select a routing preset —</option>
-            {% for preset in presets %}
-            <option value="{{ preset.pk }}"
-              {% if values.action_value == preset.pk|stringformat:'s' %}selected{% endif %}>
-              {{ preset.name }} ({{ preset.printer_queue }})
-            </option>
-            {% empty %}
-            <option value="" disabled>No active routing presets configured yet</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        {# Placeholder when no action type selected yet #}
-        <div x-show="!actionType" x-cloak>
-          <input type="text" disabled placeholder="Select an action type first…"
-            class="w-full border border-gray-200 bg-gray-50 rounded px-3 py-2 text-sm text-gray-400 cursor-not-allowed">
-        </div>
-
-        {% if errors.action_value %}<p class="text-red-600 text-xs mt-1">{{ errors.action_value }}</p>{% endif %}
+      {# Routing Preset #}
+      <div class="mb-5 pl-2 border-l-2 border-emerald-200">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_routing_preset">
+          <span class="inline-block bg-emerald-50 text-emerald-700 rounded px-2 py-0.5 text-xs font-medium mr-1">Printer</span>
+          Printer Preset
+        </label>
+        <select id="id_routing_preset" name="routing_preset"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">— None —</option>
+          {% for preset in presets %}
+          <option value="{{ preset.pk }}"
+            {% if values.routing_preset == preset.pk|stringformat:'s' %}selected{% endif %}>
+            {{ preset.name }} ({{ preset.printer_queue }})
+          </option>
+          {% empty %}
+          <option value="" disabled>No active routing presets configured yet</option>
+          {% endfor %}
+        </select>
       </div>
 
       <hr class="my-5 border-gray-200">
@@ -170,14 +152,14 @@
         <input id="id_active" name="active" type="checkbox"
           class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           {% if values.active == 'on' or values.active == True %}checked{% endif %}>
-        <label for="id_active" class="text-sm font-medium text-gray-700">Rule is active</label>
-        <span class="text-gray-400 text-xs">(inactive rules are skipped during job processing)</span>
+        <label for="id_active" class="text-sm font-medium text-gray-700">Ruleset is active</label>
+        <span class="text-gray-400 text-xs">(inactive rulesets are skipped during job processing)</span>
       </div>
 
       {# Submit #}
       <div class="flex gap-3">
         <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 text-sm font-medium">
-          {% if rule %}Save Changes{% else %}Create Rule{% endif %}
+          {% if rule %}Save Changes{% else %}Create Ruleset{% endif %}
         </button>
         <a href="{% url 'rules:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
       </div>
