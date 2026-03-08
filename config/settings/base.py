@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env(
     DEBUG=(bool, False),
-    ALLOWED_HOSTS=(list, ["*"]),
+    ALLOWED_HOSTS=(list, ["10.10.96.138", "localhost", "127.0.0.1"]),
     INTERNAL_IPS=(list, ["127.0.0.1"]),
     # SECRET_KEY has no default — raises ImproperlyConfigured if not set
     DATABASE_URL=(str, f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),

@@ -2,7 +2,8 @@
   "dependencies": {
     "alpinejs": "^3.15.8",
     "daisyui": "^5.5.19",
-    "htmx.org": "^2.0.8"
+    "htmx.org": "^2.0.8",
+    "tailwind": "^4.0.0"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.2.1",
