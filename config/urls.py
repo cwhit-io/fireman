@@ -19,9 +19,6 @@ from django.conf import settings
 from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path
-from wagtail import urls as wagtail_urls
-from wagtail.admin import urls as wagtailadmin_urls
-from wagtail.documents import urls as wagtaildocs_urls
 
 from config.api import api
 
@@ -29,8 +26,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", api.urls),
     path("ping/", lambda r: HttpResponse("pong"), name="ping"),
-    path("cms/", include(wagtailadmin_urls)),
-    path("documents/", include(wagtaildocs_urls)),
     path("demo/", include("core.urls", namespace="core")),
     path("jobs/", include("apps.jobs.urls", namespace="jobs")),
     path("rules/", include("apps.rules.urls", namespace="rules")),
@@ -38,7 +33,7 @@ urlpatterns = [
     path("presets/", include("apps.routing.urls", namespace="routing")),
     path("cutters/", include("apps.cutter.urls", namespace="cutter")),
     # Wagtail catch-all — must be last
-    path("", include(wagtail_urls)),
+    # Wagtail integration removed
 ]
 
 if settings.DEBUG:

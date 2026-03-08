@@ -23,7 +23,7 @@ django-ninja==1.5.3
 pydantic==2.12.5
 
 # CMS
-wagtail==7.3
+
 
 # Database drivers
 psycopg2-binary==2.9.10
