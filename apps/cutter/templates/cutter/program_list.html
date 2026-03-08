@@ -20,8 +20,24 @@
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duplo Code</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            {% if sort == "name" %}
+              <a href="?sort=-name" class="flex items-center gap-1 hover:text-gray-700">Name <span>&#8593;</span></a>
+            {% elif sort == "-name" %}
+              <a href="?sort=name" class="flex items-center gap-1 hover:text-gray-700">Name <span>&#8595;</span></a>
+            {% else %}
+              <a href="?sort=name" class="flex items-center gap-1 hover:text-gray-700">Name <span class="text-gray-300">&#8597;</span></a>
+            {% endif %}
+          </th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            {% if sort == "duplo_code" %}
+              <a href="?sort=-duplo_code" class="flex items-center gap-1 hover:text-gray-700">Duplo Code <span>&#8593;</span></a>
+            {% elif sort == "-duplo_code" %}
+              <a href="?sort=duplo_code" class="flex items-center gap-1 hover:text-gray-700">Duplo Code <span>&#8595;</span></a>
+            {% else %}
+              <a href="?sort=duplo_code" class="flex items-center gap-1 hover:text-gray-700">Duplo Code <span class="text-gray-300">&#8597;</span></a>
+            {% endif %}
+          </th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-20">Barcode</th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-20">Active</th>
@@ -36,8 +52,8 @@
           </td>
           <td class="px-4 py-3 text-sm font-mono text-gray-800 font-semibold">{{ program.duplo_code }}</td>
           <td class="px-4 py-3">
-            <a href="{% url 'cutter:barcode' program.pk %}" target="_blank" title="View QR barcode for {{ program.duplo_code }}">
-              <img src="{% url 'cutter:barcode' program.pk %}" alt="QR: {{ program.duplo_code }}" class="w-12 h-12 border border-gray-200 rounded">
+            <a href="{% url 'cutter:barcode' program.pk %}" target="_blank" title="View barcode for {{ program.duplo_code }}">
+              <img src="{% url 'cutter:barcode' program.pk %}" alt="Barcode {{ program.duplo_code }}" class="w-20 h-8 border border-gray-200 rounded object-contain">
             </a>
           </td>
           <td class="px-4 py-3 text-sm text-gray-600">{{ program.description|default:"—"|truncatechars:60 }}</td>

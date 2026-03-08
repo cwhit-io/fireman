@@ -126,6 +126,9 @@ STORAGES = {
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Fiery print queue username shown on the Fiery job list
+FIERY_PRINT_USER = env("FIERY_PRINT_USER", default="Ember")
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email

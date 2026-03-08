@@ -5,13 +5,25 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import DeleteView, ListView
 
+from .fiery_options import build_fiery_sections
 from .models import RoutingPreset
 
 
-def _build_form_context():
+def _extract_fiery_options(post_data) -> dict:
+    """Collect all fiery_<KEY>=<value> POST fields into a plain dict."""
+    opts = {}
+    for key, value in post_data.items():
+        if key.startswith("fiery_"):
+            opt_key = key[6:]
+            v = value.strip() if isinstance(value, str) else value
+            if v:
+                opts[opt_key] = v
+    return opts
+
+
+def _build_form_context(fiery_options=None):
     return {
-        "duplex_modes": RoutingPreset.DuplexMode.choices,
-        "color_modes": RoutingPreset.ColorMode.choices,
+        "fiery_sections": build_fiery_sections(fiery_options or {}),
     }
 
 
@@ -20,23 +32,13 @@ def _get_initial_form_values(preset=None):
         return {
             "name": preset.name,
             "printer_queue": preset.printer_queue,
-            "media_type": preset.media_type,
-            "media_size": preset.media_size,
-            "duplex": preset.duplex,
-            "color_mode": preset.color_mode,
-            "tray": preset.tray,
             "copies": str(preset.copies),
             "extra_lpr_options": preset.extra_lpr_options,
             "active": "on" if preset.active else "",
         }
     return {
         "name": "",
-        "printer_queue": "fiery",
-        "media_type": "",
-        "media_size": "",
-        "duplex": RoutingPreset.DuplexMode.SIMPLEX,
-        "color_mode": RoutingPreset.ColorMode.COLOR,
-        "tray": "",
+        "printer_queue": "fiery_hold",
         "copies": "1",
         "extra_lpr_options": "",
         "active": "on",
@@ -69,6 +71,7 @@ class PresetCreateView(View):
     def post(self, request):
         data = request.POST
         errors = _validate_preset_form(data)
+        fiery_options = _extract_fiery_options(data)
 
         if not errors:
             try:
@@ -79,19 +82,15 @@ class PresetCreateView(View):
             preset = RoutingPreset.objects.create(
                 name=data["name"].strip(),
                 printer_queue=data["printer_queue"].strip(),
-                media_type=data.get("media_type", "").strip(),
-                media_size=data.get("media_size", "").strip(),
-                duplex=data.get("duplex", RoutingPreset.DuplexMode.SIMPLEX),
-                color_mode=data.get("color_mode", RoutingPreset.ColorMode.COLOR),
-                tray=data.get("tray", "").strip(),
                 copies=copies,
+                fiery_options=fiery_options,
                 extra_lpr_options=data.get("extra_lpr_options", "").strip(),
                 active=data.get("active") == "on",
             )
             messages.success(request, f"Printer preset '{preset.name}' created.")
             return redirect("routing:list")
 
-        ctx = _build_form_context()
+        ctx = _build_form_context(fiery_options)
         ctx["values"] = dict(data)
         ctx["errors"] = errors
         return render(request, self.template_name, ctx, status=400)
@@ -102,7 +101,7 @@ class PresetEditView(View):
 
     def get(self, request, pk):
         preset = get_object_or_404(RoutingPreset, pk=pk)
-        ctx = _build_form_context()
+        ctx = _build_form_context(preset.fiery_options)
         ctx["preset"] = preset
         ctx["values"] = _get_initial_form_values(preset)
         return render(request, self.template_name, ctx)
@@ -111,26 +110,23 @@ class PresetEditView(View):
         preset = get_object_or_404(RoutingPreset, pk=pk)
         data = request.POST
         errors = _validate_preset_form(data)
+        fiery_options = _extract_fiery_options(data)
 
         if not errors:
             preset.name = data["name"].strip()
             preset.printer_queue = data["printer_queue"].strip()
-            preset.media_type = data.get("media_type", "").strip()
-            preset.media_size = data.get("media_size", "").strip()
-            preset.duplex = data.get("duplex", RoutingPreset.DuplexMode.SIMPLEX)
-            preset.color_mode = data.get("color_mode", RoutingPreset.ColorMode.COLOR)
-            preset.tray = data.get("tray", "").strip()
+            preset.fiery_options = fiery_options
+            preset.extra_lpr_options = data.get("extra_lpr_options", "").strip()
             try:
                 preset.copies = max(1, int(data.get("copies", 1)))
             except (ValueError, TypeError):
                 preset.copies = 1
-            preset.extra_lpr_options = data.get("extra_lpr_options", "").strip()
             preset.active = data.get("active") == "on"
             preset.save()
             messages.success(request, f"Printer preset '{preset.name}' updated.")
             return redirect("routing:list")
 
-        ctx = _build_form_context()
+        ctx = _build_form_context(fiery_options)
         ctx["preset"] = preset
         ctx["values"] = dict(data)
         ctx["errors"] = errors

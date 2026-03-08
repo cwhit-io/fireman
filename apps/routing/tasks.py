@@ -32,8 +32,9 @@ def send_job_task(job_id: str) -> None:
     try:
         from pathlib import Path
 
-        raw_name = job.name or f"job-{job.pk}"
-        title = Path(raw_name).stem or raw_name
+        preset_name = preset.name
+        raw_name = Path(job.name).stem if job.name else f"job-{job.pk}"
+        title = f"{preset_name}_{raw_name}"
         logger.info(
             "Sending job %s to %s with title %r", job.pk, preset.printer_queue, title
         )
