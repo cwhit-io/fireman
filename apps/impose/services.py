@@ -142,63 +142,48 @@ def _resolve_barcode_tif(barcode_value: str) -> str | None:
     return str(tif_path)
 
 
-def _barcode_tif_overlay_page(
+def _barcode_tif_pdf_stream(
     tif_path: str,
     x: float,
     y: float,
     width: float,
     height: float,
-    sheet_w: float,
-    sheet_h: float,
-):
-    """Return a PDF page (sheet-sized) with the barcode TIF placed at *(x, y)*.
+) -> bytes:
+    """Return PDF content-stream bytes that place the barcode TIF at *(x, y)*.
 
-    The image is scaled to *width × height* points.  The returned page can be
-    merged directly onto an output sheet with ``page.merge_page(overlay)``.
-    Returns ``None`` if the image cannot be embedded.
+    The image is embedded as a PDF inline image using ASCIIHex encoding so
+    the bytes remain safe inside any content stream without risk of false
+    ``EI`` marker collisions.  No PDF XObject resource is needed, which
+    means the overlay can be combined with cut-mark streams and merged
+    reliably using ``_make_overlay_page`` + ``page.merge_page``.
     """
     try:
         from PIL import Image
     except ImportError:
         logger.error("Pillow is required for TIF barcode embedding.")
-        return None
-
-    from pypdf import PageObject, PdfReader, PdfWriter, Transformation
+        return b""
 
     try:
         img = Image.open(tif_path)
-        # Normalise to grayscale; handles 1-bit, palette, CMYK, etc.
-        img = img.convert("L")
-        pdf_buf = io.BytesIO()
-        img.save(pdf_buf, format="PDF")
-        pdf_buf.seek(0)
+        img = img.convert("L")  # 8-bit grayscale; handles 1-bit / CMYK TIFs
+        img_w, img_h = img.size
+        raw_bytes = img.tobytes()
     except Exception:
-        logger.exception("Failed to convert barcode TIF %r to PDF", tif_path)
-        return None
+        logger.exception("Failed to open barcode TIF %r", tif_path)
+        return b""
 
-    img_reader = PdfReader(pdf_buf)
-    if not img_reader.pages:
-        return None
+    # ASCIIHex-encode so the data is pure ASCII — no false EI matches possible.
+    hex_data = raw_bytes.hex().upper().encode()
 
-    img_page = img_reader.pages[0]
-    img_w = float(img_page.mediabox.width)
-    img_h = float(img_page.mediabox.height)
-    if img_w <= 0 or img_h <= 0:
-        return None
-
-    sx = width / img_w
-    sy = height / img_h
-
-    sheet_page = PageObject.create_blank_page(width=sheet_w, height=sheet_h)
-    transform = Transformation().scale(sx, sy).translate(x, y)
-    sheet_page.merge_transformed_page(img_page, transform)
-
-    writer = PdfWriter()
-    writer.add_page(sheet_page)
-    out_buf = io.BytesIO()
-    writer.write(out_buf)
-    out_buf.seek(0)
-    return PdfReader(out_buf).pages[0]
+    return (
+        b"q\n"
+        + f"{width:.3f} 0 0 {height:.3f} {x:.3f} {y:.3f} cm\n".encode()
+        + b"BI\n"
+        + f"/W {img_w} /H {img_h} /CS /G /BPC 8 /F /AHx\n".encode()
+        + b"ID\n"
+        + hex_data
+        + b">\nEI\nQ"
+    )
 
 
 def _cut_marks_pdf_stream(
@@ -693,7 +678,7 @@ def impose_from_template(
         output_pdf.write(imposed_buf.read())
         return
 
-    barcode_overlay = None
+    overlay_stream = b""
 
     if has_barcode:
         tif_path = _resolve_barcode_tif(barcode_value)
@@ -702,11 +687,7 @@ def impose_from_template(
             by = float(template.barcode_y)
             bw = float(template.barcode_width)
             bh = float(template.barcode_height)
-            barcode_overlay = _barcode_tif_overlay_page(
-                tif_path, bx, by, bw, bh, sheet_w, sheet_h
-            )
-
-    cut_overlay = None
+            overlay_stream += _barcode_tif_pdf_stream(tif_path, bx, by, bw, bh)
 
     if cut_marks:
         # Re-derive cell trim positions using the same formulas as impose_nup.
@@ -722,20 +703,11 @@ def impose_from_template(
                 tw = cell_w - 2 * bleed
                 th = cell_h - 2 * bleed
                 cells.append((tl, tb, tw, th))
-        cut_overlay = _make_overlay_page(
-            sheet_w, sheet_h, _cut_marks_pdf_stream(cells, bleed)
-        )
+        if overlay_stream:
+            overlay_stream += b"\n"
+        overlay_stream += _cut_marks_pdf_stream(cells, bleed)
 
-    # Combine barcode + cut marks into a single overlay page.
-    combined_overlay = None
-    if barcode_overlay is not None:
-        combined_overlay = barcode_overlay
-        if cut_overlay is not None:
-            combined_overlay.merge_page(cut_overlay)
-    elif cut_overlay is not None:
-        combined_overlay = cut_overlay
-
-    if combined_overlay is None:
+    if not overlay_stream:
         imposed_buf.seek(0)
         output_pdf.write(imposed_buf.read())
         return
@@ -750,7 +722,8 @@ def impose_from_template(
     for page in reader.pages:
         writer.add_page(page)
 
+    overlay_page = _make_overlay_page(sheet_w, sheet_h, overlay_stream)
     for page in writer.pages:
-        page.merge_page(combined_overlay)
+        page.merge_page(overlay_page)
 
     writer.write(output_pdf)

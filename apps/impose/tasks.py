@@ -51,7 +51,10 @@ def impose_job_task(job_id: str, template_id: int | None = None) -> None:
             barcode_value=barcode_value,
         )
         output_buf.seek(0)
-        fname = f"imposed_{job.pk}.pdf"
+        from pathlib import Path
+
+        stem = Path(job.name).stem if job.name else f"job_{job.pk}"
+        fname = f"{stem}_imposed.pdf"
         job.imposed_file.save(fname, ContentFile(output_buf.read()), save=False)
         job.status = PrintJob.Status.IMPOSED
         job.save(update_fields=["imposed_file", "status"])
