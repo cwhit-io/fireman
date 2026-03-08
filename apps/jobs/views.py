@@ -33,12 +33,12 @@ class JobUploadView(View):
     template_name = "jobs/job_upload.html"
 
     def get(self, request):
-        ctx = {"job_types": PrintJob.JobType.choices}
+        ctx = {"rulesets": Rule.objects.filter(active=True).order_by("priority", "name")}
         return render(request, self.template_name, ctx)
 
     def post(self, request):
         file = request.FILES.get("file")
-        ctx = {"job_types": PrintJob.JobType.choices}
+        ctx = {"rulesets": Rule.objects.filter(active=True).order_by("priority", "name")}
         if not file:
             messages.error(request, "No file selected.")
             return render(request, self.template_name, ctx, status=400)
@@ -55,13 +55,11 @@ class JobUploadView(View):
             return render(request, self.template_name, ctx, status=400)
 
         # Capture user-provided job options
-        product_type = request.POST.get("product_type", "").strip()
         is_double_sided = request.POST.get("is_double_sided") == "on"
         pages_are_unique = request.POST.get("pages_are_unique") != "off"
 
         job = PrintJob.objects.create(
             name=file.name,
-            product_type=product_type,
             is_double_sided=is_double_sided,
             pages_are_unique=pages_are_unique,
         )
@@ -72,13 +70,26 @@ class JobUploadView(View):
         for w in pdf_warnings:
             messages.warning(request, w)
 
+        # Apply an explicit ruleset if selected, otherwise let auto-matching run
+        ruleset_id = request.POST.get("ruleset_id", "").strip()
+        if ruleset_id:
+            try:
+                ruleset = Rule.objects.select_related(
+                    "imposition_template", "cutter_program", "routing_preset"
+                ).get(pk=int(ruleset_id))
+                from apps.rules.engine import _apply
+                _apply(ruleset, job)
+                job.save(update_fields=["imposition_template", "cutter_program", "routing_preset"])
+            except (Rule.DoesNotExist, ValueError):
+                messages.warning(request, "Selected ruleset not found; rules will be applied automatically.")
+
         process_job_task.delay(str(job.pk))
         messages.success(request, f"Job '{job.name}' submitted successfully.")
         return redirect("jobs:detail", pk=job.pk)
 
 
 class JobApplyRulesetView(View):
-    """Manually apply a ruleset to a job."""
+    """Manually apply a ruleset to a job and immediately re-process it."""
 
     def post(self, request, pk):
         job = get_object_or_404(PrintJob, pk=pk)
@@ -100,10 +111,13 @@ class JobApplyRulesetView(View):
         from apps.rules.engine import _apply
 
         _apply(ruleset, job)
+        job.status = PrintJob.Status.PENDING
         job.save(
-            update_fields=["imposition_template", "cutter_program", "routing_preset"]
+            update_fields=["imposition_template", "cutter_program", "routing_preset", "status"]
         )
-        messages.success(request, f"Ruleset '{ruleset.name}' applied to job.")
+        # Re-process the job immediately
+        process_job_task.delay(str(job.pk))
+        messages.success(request, f"Ruleset '{ruleset.name}' applied — job is being re-processed.")
         return redirect("jobs:detail", pk=pk)
 
 
@@ -112,6 +126,61 @@ class JobDeleteView(DeleteView):
     template_name = "jobs/job_confirm_delete.html"
     success_url = "/jobs/"
 
-    def delete(self, request, *args, **kwargs):
-        messages.success(request, "Job deleted.")
-        return super().delete(request, *args, **kwargs)
+    def form_valid(self, form):
+        messages.success(self.request, "Job deleted.")
+        return super().form_valid(form)
+
+
+class JobDownloadView(View):
+    """Serve the imposed PDF for download."""
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        job = get_object_or_404(PrintJob, pk=pk)
+        if not job.imposed_file:
+            raise Http404("No imposed file available for this job.")
+        response = FileResponse(
+            job.imposed_file.open("rb"),
+            as_attachment=True,
+            filename=f"imposed_{job.name}",
+        )
+        return response
+
+
+class JobResendView(View):
+    """Re-send an already-processed job to the printer."""
+
+    def post(self, request, pk):
+        import os
+        import tempfile
+
+        from apps.routing.services import send_to_fiery_lpr
+
+        job = get_object_or_404(PrintJob, pk=pk)
+        if not job.imposed_file:
+            messages.error(request, "No imposed file available to send.")
+            return redirect("jobs:detail", pk=pk)
+        if not job.routing_preset:
+            messages.error(request, "No printer preset is assigned to this job.")
+            return redirect("jobs:detail", pk=pk)
+
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                with job.imposed_file.open("rb") as f:
+                    tmp.write(f.read())
+                tmp_path = tmp.name
+
+            send_to_fiery_lpr(tmp_path, job.routing_preset)
+            job.status = PrintJob.Status.SENT
+            job.save(update_fields=["status"])
+            messages.success(request, f"Job '{job.name}' re-sent to printer.")
+        except Exception as exc:
+            messages.error(request, f"Failed to send job: {exc}")
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+        return redirect("jobs:detail", pk=pk)

@@ -20,3 +20,9 @@ STORAGES = {
 
 # In-memory channel layer in dev (set in base.py)
 # EMAIL_BACKEND already set to console in base.py
+
+# Run Celery tasks synchronously (inline) when a broker is unavailable.
+# This ensures jobs are processed immediately in development without needing
+# a running Redis + Celery worker.
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
