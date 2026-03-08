@@ -11,8 +11,8 @@ from apps.routing.models import RoutingPreset
 from .models import Rule
 
 
-def _base_context():
-    """Return available action targets and choice lists for the form."""
+def _build_form_context():
+    """Return available action targets and choice lists for the rule form."""
     return {
         "templates": ImpositionTemplate.objects.order_by("name"),
         "cutters": CutterProgram.objects.filter(active=True).order_by("name"),
@@ -22,7 +22,7 @@ def _base_context():
     }
 
 
-def _initial_values(rule=None):
+def _get_initial_form_values(rule=None):
     """Return a dict of initial form field values, optionally seeded from a rule."""
     if rule:
         return {
@@ -45,7 +45,7 @@ def _initial_values(rule=None):
     }
 
 
-def _validate(data):
+def _validate_rule_form(data):
     errors = {}
     if not data.get("name", "").strip():
         errors["name"] = "Name is required."
@@ -70,13 +70,13 @@ class RuleCreateView(View):
     template_name = "rules/rule_form.html"
 
     def get(self, request):
-        ctx = _base_context()
-        ctx["values"] = _initial_values()
+        ctx = _build_form_context()
+        ctx["values"] = _get_initial_form_values()
         return render(request, self.template_name, ctx)
 
     def post(self, request):
         data = request.POST
-        errors = _validate(data)
+        errors = _validate_rule_form(data)
 
         if not errors:
             try:
@@ -95,7 +95,7 @@ class RuleCreateView(View):
             messages.success(request, f"Rule '{rule.name}' created.")
             return redirect("rules:list")
 
-        ctx = _base_context()
+        ctx = _build_form_context()
         ctx["values"] = dict(data)
         ctx["errors"] = errors
         return render(request, self.template_name, ctx, status=400)
@@ -106,15 +106,15 @@ class RuleEditView(View):
 
     def get(self, request, pk):
         rule = get_object_or_404(Rule, pk=pk)
-        ctx = _base_context()
+        ctx = _build_form_context()
         ctx["rule"] = rule
-        ctx["values"] = _initial_values(rule)
+        ctx["values"] = _get_initial_form_values(rule)
         return render(request, self.template_name, ctx)
 
     def post(self, request, pk):
         rule = get_object_or_404(Rule, pk=pk)
         data = request.POST
-        errors = _validate(data)
+        errors = _validate_rule_form(data)
 
         if not errors:
             rule.name = data["name"].strip()
@@ -131,7 +131,7 @@ class RuleEditView(View):
             messages.success(request, f"Rule '{rule.name}' updated.")
             return redirect("rules:list")
 
-        ctx = _base_context()
+        ctx = _build_form_context()
         ctx["rule"] = rule
         ctx["values"] = dict(data)
         ctx["errors"] = errors
