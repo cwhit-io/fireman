@@ -15,13 +15,19 @@
   <div class="bg-white shadow rounded-lg p-6">
     <div class="flex justify-between items-start mb-6">
       <h1 class="text-2xl font-bold">{{ job.name|default:job.pk }}</h1>
-      <span class="px-3 py-1 text-sm rounded-full
-        {% if job.status == 'sent' %}bg-green-100 text-green-800
-        {% elif job.status == 'error' %}bg-red-100 text-red-800
-        {% elif job.status == 'pending' %}bg-gray-100 text-gray-800
-        {% else %}bg-blue-100 text-blue-800{% endif %}">
-        {{ job.get_status_display }}
-      </span>
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1 text-sm rounded-full
+          {% if job.status == 'sent' %}bg-green-100 text-green-800
+          {% elif job.status == 'error' %}bg-red-100 text-red-800
+          {% elif job.status == 'pending' %}bg-gray-100 text-gray-800
+          {% else %}bg-blue-100 text-blue-800{% endif %}">
+          {{ job.get_status_display }}
+        </span>
+        <form method="post" action="{% url 'jobs:delete' job.pk %}" onsubmit="return confirm('Delete this job?')">
+          {% csrf_token %}
+          <button type="submit" class="text-sm text-red-600 hover:text-red-800 hover:underline">Delete</button>
+        </form>
+      </div>
     </div>
     <dl class="grid grid-cols-2 gap-4">
       <div><dt class="text-sm text-gray-500">Job ID</dt><dd class="font-mono text-sm">{{ job.pk }}</dd></div>
@@ -63,7 +69,7 @@
   {# Apply Ruleset manually #}
   <div class="bg-white shadow rounded-lg p-6 mt-6">
     <h2 class="text-lg font-semibold mb-1">Apply Ruleset Manually</h2>
-    <p class="text-sm text-gray-500 mb-4">Select a ruleset to apply its gangup template, cutter program, and/or printer preset to this job, overriding any currently assigned settings.</p>
+    <p class="text-sm text-gray-500 mb-4">Select a ruleset to apply its gangup template, cutter program, and/or printer preset to this job, overriding any currently assigned settings. The job will be re-processed immediately.</p>
 
     {% if rulesets %}
     <form method="post" action="{% url 'jobs:apply_ruleset' job.pk %}" class="flex items-end gap-3">
@@ -82,12 +88,33 @@
         </select>
       </div>
       <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium whitespace-nowrap">
-        Apply Ruleset
+        Apply &amp; Process
       </button>
     </form>
     {% else %}
     <p class="text-sm text-gray-400">No active rulesets available. <a href="{% url 'rules:create' %}" class="text-blue-600 hover:underline">Create a ruleset</a>.</p>
     {% endif %}
   </div>
+
+  {# Download / Resend #}
+  {% if job.imposed_file %}
+  <div class="bg-white shadow rounded-lg p-6 mt-6">
+    <h2 class="text-lg font-semibold mb-1">Output File</h2>
+    <p class="text-sm text-gray-500 mb-4">The imposed PDF is ready. Download it for inspection or re-send it to the printer.</p>
+    <div class="flex gap-3">
+      <a href="{% url 'jobs:download' job.pk %}" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm font-medium">
+        Download Imposed PDF
+      </a>
+      {% if job.routing_preset %}
+      <form method="post" action="{% url 'jobs:resend' job.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 text-sm font-medium">
+          Re-send to Printer
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

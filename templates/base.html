@@ -33,6 +33,12 @@
 
   {# htmx — declarative AJAX without writing JS #}
   <script src="{% static 'js/htmx.min.js' %}"></script>
+  {# Pass Django CSRF token to all htmx requests #}
+  <script>
+    document.addEventListener('htmx:configRequest', function(evt) {
+      evt.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+    });
+  </script>
   {# Alpine.js — lightweight reactivity for dropdowns, toggles, etc. #}
   <script defer src="{% static 'js/alpine.min.js' %}"></script>
   {% block extra_js %}{% endblock %}

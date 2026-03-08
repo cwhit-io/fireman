@@ -65,8 +65,8 @@ class TestJobUploadView:
         # redirects to detail page
         assert response.status_code == 302
 
-    def test_upload_pdf_with_type_and_options(self, client, monkeypatch):
-        """Uploading a PDF with product type and duplex/unique flags saves them on the job."""
+    def test_upload_pdf_with_options(self, client, monkeypatch):
+        """Uploading a PDF with duplex/unique flags saves them on the job."""
         monkeypatch.setattr(
             "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
         )
@@ -79,14 +79,12 @@ class TestJobUploadView:
             reverse("jobs:upload"),
             {
                 "file": pdf,
-                "product_type": "flyer",
                 "is_double_sided": "on",
                 "pages_are_unique": "on",
             },
         )
         assert response.status_code == 302
         job = PrintJob.objects.latest("created_at")
-        assert job.product_type == "flyer"
         assert job.is_double_sided is True
         assert job.pages_are_unique is True
 

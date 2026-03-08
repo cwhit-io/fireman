@@ -14,4 +14,6 @@ urlpatterns = [
         name="apply_ruleset",
     ),
     path("<uuid:pk>/delete/", views.JobDeleteView.as_view(), name="delete"),
+    path("<uuid:pk>/download/", views.JobDownloadView.as_view(), name="download"),
+    path("<uuid:pk>/resend/", views.JobResendView.as_view(), name="resend"),
 ]
