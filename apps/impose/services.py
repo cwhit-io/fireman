@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import io
 import logging
+import xml.etree.ElementTree as ET
 from typing import IO
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,12 @@ _COMMON_BLEEDS_PT: tuple[float, ...] = (
 
 # Tolerance for dimension matching (pts).
 _DIM_TOL_PT: float = 3.0
+
+# mm → PDF points conversion factor.
+_MM_TO_PT: float = 72.0 / 25.4
+
+# SVG namespace used by python-barcode.
+_SVG_NS: str = "http://www.w3.org/2000/svg"
 
 
 def detect_source_trim(page) -> tuple[float, float, float, float]:
@@ -106,6 +113,169 @@ def detect_source_trim(page) -> tuple[float, float, float, float]:
 
 def _pts(inches: float) -> float:
     return inches * 72.0
+
+
+# ── Barcode rendering helpers ──────────────────────────────────────────────
+
+
+def _barcode_pdf_stream(
+    value: str,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+) -> bytes:
+    """Return PDF content-stream bytes that draw a Code 39 barcode.
+
+    Uses python-barcode's SVG output to obtain the bar positions, then
+    renders each bar as a filled PDF rectangle scaled to *width × height*
+    points at position *(x, y)* (bottom-left corner in PDF coordinate space).
+
+    Returns ``b""`` if *value* is empty or barcode generation fails.
+
+    .. note::
+        python-barcode's SVGWriter always outputs dimensions in millimetres.
+        This function relies on that behaviour; if the unit ever changes the
+        ``"mm"`` suffix check on line 160 will return early with an empty result.
+    """
+    if not value:
+        return b""
+
+    def _mm_attr(s: str) -> float:
+        """Parse a CSS-millimetre attribute string such as ``'3.740mm'``."""
+        stripped = s.replace("mm", "").strip()
+        if not stripped:
+            raise ValueError(s)
+        return float(stripped)
+
+    try:
+        import barcode as _bc
+        from barcode.writer import SVGWriter
+
+        code = _bc.get("code39", value, writer=SVGWriter())
+        buf = io.BytesIO()
+        code.write(buf)
+        buf.seek(0)
+        svg_bytes = buf.read()
+    except Exception:
+        logger.exception("Barcode generation failed for value %r", value)
+        return b""
+
+    try:
+        root = ET.fromstring(svg_bytes)
+    except ET.ParseError:
+        logger.warning("Barcode SVG parse error for value %r", value)
+        return b""
+
+    svg_w_str = root.get("width", "")
+    if not svg_w_str.endswith("mm"):
+        logger.warning(
+            "Unexpected SVG width unit %r for barcode %r; expected 'mm'",
+            svg_w_str,
+            value,
+        )
+        return b""
+    try:
+        svg_w_pt = _mm_attr(svg_w_str) * _MM_TO_PT
+    except ValueError:
+        return b""
+
+    if svg_w_pt <= 0:
+        return b""
+
+    x_scale = width / svg_w_pt
+
+    cmds: list[bytes] = [b"q", b"0 0 0 rg"]
+    for rect in root.iter(f"{{{_SVG_NS}}}rect"):
+        style = rect.get("style", "")
+        if "fill:black" not in style:
+            continue
+        try:
+            rx_pt = _mm_attr(rect.get("x", "0mm")) * _MM_TO_PT
+            rw_pt = _mm_attr(rect.get("width", "0mm")) * _MM_TO_PT
+        except ValueError:
+            continue
+        bar_x = x + rx_pt * x_scale
+        bar_w = rw_pt * x_scale
+        if bar_w <= 0:
+            continue
+        cmds.append(f"{bar_x:.3f} {y:.3f} {bar_w:.3f} {height:.3f} re f".encode())
+
+    if len(cmds) <= 2:
+        return b""
+
+    cmds.append(b"Q")
+    return b"\n".join(cmds)
+
+
+def _cut_marks_pdf_stream(
+    cells: list[tuple[float, float, float, float]],
+    bleed: float,
+    offset: float = 5.0,
+    length: float = 18.0,
+    line_width: float = 0.5,
+) -> bytes:
+    """Return PDF content-stream bytes for press cut marks at each cell corner.
+
+    *cells* is a list of ``(trim_left, trim_bottom, trim_w, trim_h)`` tuples,
+    all in PDF points.  *offset* is the gap between the bleed edge and the
+    start of the mark; *length* is how far the mark extends beyond the offset.
+    """
+    cmds: list[bytes] = [
+        b"q",
+        f"{line_width:.3f} w".encode(),
+        b"0 0 0 RG",
+    ]
+
+    for trim_left, trim_bottom, trim_w, trim_h in cells:
+        trim_right = trim_left + trim_w
+        trim_top = trim_bottom + trim_h
+
+        for cx, cy, dx, dy in (
+            (trim_left, trim_bottom, -1, -1),
+            (trim_right, trim_bottom, +1, -1),
+            (trim_left, trim_top, -1, +1),
+            (trim_right, trim_top, +1, +1),
+        ):
+            total = bleed + offset
+            # horizontal arm
+            hx1 = cx + dx * total
+            hx2 = cx + dx * (total + length)
+            cmds.append(
+                f"{hx1:.3f} {cy:.3f} m {hx2:.3f} {cy:.3f} l S".encode()
+            )
+            # vertical arm
+            vy1 = cy + dy * total
+            vy2 = cy + dy * (total + length)
+            cmds.append(
+                f"{cx:.3f} {vy1:.3f} m {cx:.3f} {vy2:.3f} l S".encode()
+            )
+
+    cmds.append(b"Q")
+    return b"\n".join(cmds)
+
+
+def _make_overlay_page(sheet_w: float, sheet_h: float, content_stream: bytes):
+    """Create a transparent PDF overlay page carrying *content_stream*.
+
+    The page has the same dimensions as the press sheet so it can be merged
+    directly onto an output sheet with ``page.merge_page()``.
+    """
+    from pypdf import PageObject, PdfReader, PdfWriter
+    from pypdf.generic import DecodedStreamObject, NameObject
+
+    stream = DecodedStreamObject()
+    stream.set_data(content_stream)
+
+    page = PageObject.create_blank_page(width=sheet_w, height=sheet_h)
+    page[NameObject("/Contents")] = stream
+
+    writer = PdfWriter()
+    writer.add_page(page)
+    buf = io.BytesIO()
+    writer.write(buf)
+    buf.seek(0)
+    return PdfReader(buf).pages[0]
 
 
 def impose_nup(
@@ -254,18 +424,23 @@ def impose_step_repeat(
     sheet_height: float,
     bleed: float = 0.0,
 ) -> None:
-    """Repeat a single source page *columns × rows* times (step-and-repeat)."""
-    from pypdf import PdfReader
+    """Repeat a single source page *columns × rows* times (step-and-repeat).
+
+    The first page of *input_pdf* is tiled to fill every cell on the sheet.
+    All other pages in the input are ignored.
+    """
+    from pypdf import PdfReader, PdfWriter
 
     reader = PdfReader(input_pdf)
     if not reader.pages:
         return
 
-    from pypdf import PdfWriter
-
+    per_sheet = columns * rows
     buf = io.BytesIO()
     w = PdfWriter()
-    w.add_page(reader.pages[0])
+    # Repeat the first page once per cell so impose_nup fills every slot.
+    for _ in range(per_sheet):
+        w.add_page(reader.pages[0])
     w.write(buf)
     buf.seek(0)
 
@@ -278,6 +453,71 @@ def impose_step_repeat(
         sheet_height=sheet_height,
         bleed=bleed,
     )
+
+
+def impose_double_sided_nup(
+    input_pdf: IO[bytes],
+    output_pdf: IO[bytes],
+    columns: int,
+    rows: int,
+    sheet_width: float,
+    sheet_height: float,
+    bleed: float = 0.0,
+    margin_top: float = 0.0,
+    margin_right: float = 0.0,
+    margin_bottom: float = 0.0,
+    margin_left: float = 0.0,
+    auto_rotate: bool = True,
+) -> None:
+    """Impose a double-sided job: each source page fills one output sheet.
+
+    For a two-page front/back postcard with an 8-up template this produces:
+
+    * Output sheet 1 — 8 copies of source page 1 (front)
+    * Output sheet 2 — 8 copies of source page 2 (back)
+
+    The output PDF can then be duplexed so that the front and back of every
+    printed piece align correctly.
+    """
+    from pypdf import PdfReader, PdfWriter
+
+    reader = PdfReader(input_pdf)
+    if not reader.pages:
+        return
+
+    per_sheet = columns * rows
+    final_writer = PdfWriter()
+
+    for src_page in reader.pages:
+        # Build a single-page PDF with per_sheet copies of this page.
+        single_buf = io.BytesIO()
+        w = PdfWriter()
+        for _ in range(per_sheet):
+            w.add_page(src_page)
+        w.write(single_buf)
+        single_buf.seek(0)
+
+        sheet_buf = io.BytesIO()
+        impose_nup(
+            single_buf,
+            sheet_buf,
+            columns=columns,
+            rows=rows,
+            sheet_width=sheet_width,
+            sheet_height=sheet_height,
+            bleed=bleed,
+            margin_top=margin_top,
+            margin_right=margin_right,
+            margin_bottom=margin_bottom,
+            margin_left=margin_left,
+            auto_rotate=auto_rotate,
+        )
+        sheet_buf.seek(0)
+        sheet_reader = PdfReader(sheet_buf)
+        for sheet_page in sheet_reader.pages:
+            final_writer.add_page(sheet_page)
+
+    final_writer.write(output_pdf)
 
 
 def impose_business_card_21up(
@@ -308,17 +548,38 @@ def impose_from_template(
     input_pdf: IO[bytes],
     output_pdf: IO[bytes],
     pages_are_unique: bool = True,
+    is_double_sided: bool = False,
     auto_rotate: bool = True,
+    barcode_value: str | None = None,
+    cut_marks: bool = False,
 ) -> None:
     """Dispatch imposition to the right function based on *template* settings.
 
-    When *pages_are_unique* is ``False`` (step-and-repeat / stack-cut for Duplo),
-    the first source page is repeated for every cell on the sheet, regardless of
-    the template's ``layout_type``.
+    Modes
+    -----
+    * ``pages_are_unique=False`` or ``layout_type == STEP_REPEAT``:
+      step-and-repeat — every cell on the sheet shows the same (first) page.
+    * ``is_double_sided=True`` and ``pages_are_unique=True``:
+      double-sided n-up — each source page fills one complete output sheet
+      (e.g. page 1 × 8-up → sheet 1, page 2 × 8-up → sheet 2) so the job
+      can be duplexed correctly.
+    * Otherwise: standard sequential n-up.
 
-    When *auto_rotate* is ``True`` each source page is rotated automatically to
-    match the cell orientation so a single template works for both landscape and
-    portrait sources.
+    Post-processing overlays
+    ------------------------
+    When *barcode_value* is a non-empty string **and** the template has
+    ``barcode_x``/``barcode_y`` coordinates, a Code 39 barcode is rendered on
+    every output sheet at the position defined by the template.
+
+    When *cut_marks* is ``True``, hairline crop marks are drawn at every cell
+    corner on every output sheet to guide the cutter operator.
+
+    Margin computation
+    ------------------
+    When the template specifies ``cut_width`` and ``cut_height``, the cell
+    size is derived from those dimensions (cut + 2 × bleed) and the grid is
+    centred on the sheet automatically.  If the cut-size grid would overflow
+    the sheet the template's explicit ``margin_*`` fields are used instead.
     """
     from apps.impose.models import ImpositionTemplate
 
@@ -327,31 +588,137 @@ def impose_from_template(
     sheet_h = float(template.sheet_height)
     bleed = float(template.bleed)
 
-    # Step-and-repeat / stack-cut: all cells show the same (first) page.
+    # ── Compute effective margins ──────────────────────────────────────────
+    cut_w = float(template.cut_width) if template.cut_width is not None else None
+    cut_h = float(template.cut_height) if template.cut_height is not None else None
+
+    if cut_w is not None and cut_h is not None:
+        cell_w_size = cut_w + 2 * bleed
+        cell_h_size = cut_h + 2 * bleed
+        grid_w = template.columns * cell_w_size
+        grid_h = template.rows * cell_h_size
+        if grid_w <= sheet_w and grid_h <= sheet_h:
+            # Centre grid symmetrically on the sheet.
+            eff_margin_left = (sheet_w - grid_w) / 2
+            eff_margin_right = eff_margin_left
+            eff_margin_top = (sheet_h - grid_h) / 2
+            eff_margin_bottom = eff_margin_top
+        else:
+            eff_margin_left = float(template.margin_left)
+            eff_margin_right = float(template.margin_right)
+            eff_margin_top = float(template.margin_top)
+            eff_margin_bottom = float(template.margin_bottom)
+    else:
+        eff_margin_left = float(template.margin_left)
+        eff_margin_right = float(template.margin_right)
+        eff_margin_top = float(template.margin_top)
+        eff_margin_bottom = float(template.margin_bottom)
+
+    # ── Run the core imposition ────────────────────────────────────────────
+    imposed_buf = io.BytesIO()
+
     if not pages_are_unique or lt == ImpositionTemplate.LayoutType.STEP_REPEAT:
         impose_step_repeat(
             input_pdf,
-            output_pdf,
+            imposed_buf,
             columns=template.columns,
             rows=template.rows,
             sheet_width=sheet_w,
             sheet_height=sheet_h,
             bleed=bleed,
         )
+    elif is_double_sided:
+        impose_double_sided_nup(
+            input_pdf,
+            imposed_buf,
+            columns=template.columns,
+            rows=template.rows,
+            sheet_width=sheet_w,
+            sheet_height=sheet_h,
+            bleed=bleed,
+            margin_top=eff_margin_top,
+            margin_right=eff_margin_right,
+            margin_bottom=eff_margin_bottom,
+            margin_left=eff_margin_left,
+            auto_rotate=auto_rotate,
+        )
     elif lt == ImpositionTemplate.LayoutType.BUSINESS_CARD:
-        impose_business_card_21up(input_pdf, output_pdf)
+        impose_business_card_21up(input_pdf, imposed_buf)
     else:
         impose_nup(
             input_pdf,
-            output_pdf,
+            imposed_buf,
             columns=template.columns,
             rows=template.rows,
             sheet_width=sheet_w,
             sheet_height=sheet_h,
             bleed=bleed,
-            margin_top=float(template.margin_top),
-            margin_right=float(template.margin_right),
-            margin_bottom=float(template.margin_bottom),
-            margin_left=float(template.margin_left),
+            margin_top=eff_margin_top,
+            margin_right=eff_margin_right,
+            margin_bottom=eff_margin_bottom,
+            margin_left=eff_margin_left,
             auto_rotate=auto_rotate,
         )
+
+    # ── Build overlay content streams (barcode + cut marks) ───────────────
+    has_barcode = (
+        barcode_value
+        and template.barcode_x is not None
+        and template.barcode_y is not None
+    )
+
+    if not has_barcode and not cut_marks:
+        imposed_buf.seek(0)
+        output_pdf.write(imposed_buf.read())
+        return
+
+    overlay_stream = b""
+
+    if has_barcode:
+        bx = float(template.barcode_x)
+        by = float(template.barcode_y)
+        bw = float(template.barcode_width)
+        bh = float(template.barcode_height)
+        overlay_stream += _barcode_pdf_stream(barcode_value, bx, by, bw, bh)
+
+    if cut_marks:
+        # Re-derive cell trim positions using the same formulas as impose_nup.
+        # When all margins are zero impose_nup auto-centres, which is a no-op
+        # (grid fills the sheet); the positions here match that behaviour.
+        cols = template.columns
+        num_rows = template.rows
+        cell_w = (sheet_w - eff_margin_left - eff_margin_right) / cols
+        cell_h = (sheet_h - eff_margin_top - eff_margin_bottom) / num_rows
+        cells = []
+        for r in range(num_rows):
+            for c in range(cols):
+                tl = eff_margin_left + c * cell_w + bleed
+                tb = sheet_h - eff_margin_top - (r + 1) * cell_h + bleed
+                tw = cell_w - 2 * bleed
+                th = cell_h - 2 * bleed
+                cells.append((tl, tb, tw, th))
+        if overlay_stream:
+            overlay_stream += b"\n"
+        overlay_stream += _cut_marks_pdf_stream(cells, bleed)
+
+    if not overlay_stream:
+        imposed_buf.seek(0)
+        output_pdf.write(imposed_buf.read())
+        return
+
+    # ── Merge overlay onto every output sheet ─────────────────────────────
+    from pypdf import PdfReader, PdfWriter
+
+    imposed_buf.seek(0)
+    reader = PdfReader(imposed_buf)
+    writer = PdfWriter()
+
+    # Add all pages to the writer first (required by pypdf for reliable merging).
+    for page in reader.pages:
+        writer.add_page(page)
+
+    overlay_page = _make_overlay_page(sheet_w, sheet_h, overlay_stream)
+    for page in writer.pages:
+        page.merge_page(overlay_page)
+
+    writer.write(output_pdf)
