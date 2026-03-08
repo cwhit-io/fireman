@@ -37,14 +37,15 @@ def impose_job_task(job_id: str, template_id: int | None = None) -> None:
         with job.file.open("rb") as fh:
             input_buf = io.BytesIO(fh.read())
         output_buf = io.BytesIO()
-        barcode_value = (
-            job.cutter_program.duplo_code
-            if job.cutter_program_id and job.cutter_program
-            else None
-        )
-        # Barcode position comes from the cutter program when configured;
-        # impose_from_template falls back to the template coords if not set.
-        cp = job.cutter_program if job.cutter_program_id else None
+        # Barcode comes from the template's linked cutter program (preferred),
+        # falling back to the job's own cutter program for backward compatibility.
+        cp = None
+        if tmpl.cutter_program_id:
+            cp = tmpl.cutter_program
+        elif job.cutter_program_id:
+            cp = job.cutter_program
+        barcode_value = cp.duplo_code if cp else None
+        # Barcode position: cutter program overrides template coords when set.
         barcode_x = float(cp.barcode_x) if cp and cp.barcode_x is not None else None
         barcode_y = float(cp.barcode_y) if cp and cp.barcode_y is not None else None
         barcode_width = float(cp.barcode_width) if cp else None

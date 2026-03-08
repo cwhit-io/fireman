@@ -4,7 +4,6 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import DeleteView, ListView
 
-from apps.cutter.models import CutterProgram
 from apps.impose.models import ImpositionTemplate
 from apps.routing.models import RoutingPreset
 
@@ -14,8 +13,7 @@ from .models import Rule
 def _build_form_context():
     """Return available action targets and choice lists for the ruleset form."""
     return {
-        "templates": ImpositionTemplate.objects.order_by("name"),
-        "cutters": CutterProgram.objects.filter(active=True).order_by("name"),
+        "templates": ImpositionTemplate.objects.select_related("cutter_program").order_by("name"),
         "presets": RoutingPreset.objects.filter(active=True).order_by("name"),
         "condition_types": Rule.ConditionType.choices,
     }
@@ -32,9 +30,6 @@ def _get_initial_form_values(rule=None):
             "imposition_template": str(rule.imposition_template_id)
             if rule.imposition_template_id
             else "",
-            "cutter_program": str(rule.cutter_program_id)
-            if rule.cutter_program_id
-            else "",
             "routing_preset": str(rule.routing_preset_id)
             if rule.routing_preset_id
             else "",
@@ -46,7 +41,6 @@ def _get_initial_form_values(rule=None):
         "condition_type": "",
         "condition_value": "",
         "imposition_template": "",
-        "cutter_program": "",
         "routing_preset": "",
         "active": "on",
     }
@@ -64,13 +58,12 @@ def _validate_rule_form(data):
     has_action = any(
         [
             data.get("imposition_template"),
-            data.get("cutter_program"),
             data.get("routing_preset"),
         ]
     )
     if not has_action:
         errors["actions"] = (
-            "At least one action (template, cutter, or preset) is required."
+            "At least one action (template or preset) is required."
         )
     return errors
 
@@ -114,7 +107,6 @@ class RuleCreateView(View):
                 condition_type=data["condition_type"],
                 condition_value=data["condition_value"].strip(),
                 imposition_template_id=_fk_or_none("imposition_template"),
-                cutter_program_id=_fk_or_none("cutter_program"),
                 routing_preset_id=_fk_or_none("routing_preset"),
                 active=data.get("active") == "on",
             )
@@ -156,7 +148,6 @@ class RuleEditView(View):
                 return int(val) if val else None
 
             rule.imposition_template_id = _fk_or_none("imposition_template")
-            rule.cutter_program_id = _fk_or_none("cutter_program")
             rule.routing_preset_id = _fk_or_none("routing_preset")
             rule.active = data.get("active") == "on"
             rule.save()
