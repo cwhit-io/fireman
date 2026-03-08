@@ -1,45 +1,63 @@
 {% extends "base.html" %}
 {% block title %}Upload Print Job{% endblock %}
 {% block content %}
-<div class="max-w-lg mx-auto px-4 py-8">
-  <h1 class="text-2xl font-bold mb-6">Upload Print Job</h1>
+<div class="max-w-xl mx-auto px-4 py-8">
+
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-900">Upload Print Job</h1>
+    <p class="text-gray-500 mt-1">Submit a PDF to be imposed and sent to the printer.</p>
+  </div>
+
   {% if messages %}
     {% for message in messages %}
       <div class="mb-4 p-3 rounded {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">{{ message }}</div>
     {% endfor %}
   {% endif %}
-  <div class="bg-white shadow rounded-lg p-6" x-data="uploadForm()">
+
+  <div class="bg-white shadow-md rounded-xl p-6" x-data="uploadForm()">
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
 
-      <div class="mb-5">
-        <label for="file" class="block text-sm font-medium text-gray-700 mb-1">PDF File <span class="text-red-500">*</span></label>
+      {# Step 1: File #}
+      <div class="mb-6">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">1</span>
+          <label for="file" class="text-sm font-semibold text-gray-700">Select PDF File <span class="text-red-500">*</span></label>
+        </div>
         <input type="file" name="file" id="file" accept=".pdf" required @change="onFileChange($event)"
-          class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-        <p class="mt-1 text-xs text-gray-500">Only PDF files are accepted. Errors will be repaired automatically when possible.</p>
+          class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
+        <p class="mt-1 text-xs text-gray-400">Only PDF files are accepted. Errors will be repaired automatically when possible.</p>
       </div>
 
-      <div class="mb-5">
-        <label for="ruleset_id" class="block text-sm font-medium text-gray-700 mb-1">Ruleset <span class="text-gray-400 text-xs font-normal">— optional</span></label>
+      {# Step 2: Preset/Ruleset #}
+      <div class="mb-6">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">2</span>
+          <label for="ruleset_id" class="text-sm font-semibold text-gray-700">Select Ruleset <span class="text-gray-400 text-xs font-normal">— optional</span></label>
+        </div>
         <select name="ruleset_id" id="ruleset_id"
-          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
           <option value="">— Auto-match by rules —</option>
           {% for ruleset in rulesets %}
           <option value="{{ ruleset.pk }}">[{{ ruleset.priority }}] {{ ruleset.name }}</option>
           {% endfor %}
         </select>
-        <p class="mt-1 text-xs text-gray-500">Leave blank to apply matching rules automatically, or choose a specific ruleset to override.</p>
+        <p class="mt-1 text-xs text-gray-400">Leave blank to apply matching rules automatically, or choose a specific ruleset to override.</p>
       </div>
 
-      <div x-show="showMultiPageOptions" class="mb-5 border border-gray-200 rounded-lg p-4 bg-gray-50" x-cloak>
-        <p class="text-sm font-medium text-gray-700 mb-3">Multi-page Options</p>
+      {# Step 3: Multi-page Options (shown after file is selected) #}
+      <div x-show="showMultiPageOptions" x-transition class="mb-6 border border-blue-100 rounded-lg p-4 bg-blue-50" x-cloak>
+        <div class="flex items-center gap-2 mb-3">
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">3</span>
+          <p class="text-sm font-semibold text-gray-700">Multi-page Options</p>
+        </div>
 
         <div class="flex items-center gap-3 mb-3" :class="!pagesUnique && 'opacity-40 pointer-events-none'">
           <input id="is_double_sided" name="is_double_sided" type="checkbox"
             :disabled="!pagesUnique"
             x-ref="doubleSided"
             class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-          <label for="is_double_sided" class="text-sm text-gray-700">Double-sided (duplex)</label>
+          <label for="is_double_sided" class="text-sm text-gray-700 font-medium">Double-sided (duplex)</label>
           <span x-show="!pagesUnique" class="text-xs text-gray-400 italic">not available for step-and-repeat</span>
         </div>
 
@@ -47,16 +65,20 @@
           <input id="pages_are_unique" name="pages_are_unique" type="checkbox" checked
             class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             @change="pagesUniqueChanged($event)">
-          <label for="pages_are_unique" class="text-sm text-gray-700">Pages are unique</label>
+          <label for="pages_are_unique" class="text-sm text-gray-700 font-medium">Pages are unique</label>
         </div>
-        <p class="text-xs text-gray-500 mt-1 ml-7" x-text="pagesUniqueHint"></p>
+        <p class="text-xs text-gray-500 mt-2 ml-7" x-text="pagesUniqueHint"></p>
       </div>
 
-      <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 font-medium">
+      {# Submit #}
+      <button type="submit"
+        class="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 font-bold text-base shadow-md flex items-center justify-center gap-2 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
         Upload &amp; Process
       </button>
     </form>
   </div>
+
   <div class="mt-4 text-center">
     <a href="{% url 'jobs:list' %}" class="text-blue-600 hover:underline text-sm">← Back to job list</a>
   </div>
@@ -77,7 +99,6 @@ function uploadForm() {
       this.pagesUnique = event.target.checked;
       if (!event.target.checked) {
         this.pagesUniqueHint = 'Step-and-repeat / stack-cut: all positions print the same content.';
-        // Double-sided is incompatible with step-and-repeat — clear it.
         this.$refs.doubleSided.checked = false;
       } else {
         this.pagesUniqueHint = 'Uncheck for step-and-repeat / stack-cut (Duplo) where all copies are the same.';

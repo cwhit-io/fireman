@@ -49,7 +49,14 @@ def process_job_task(job_id: str) -> None:
             buf_in.seek(0)
 
             buf_out = io.BytesIO()
-            cp = job.cutter_program if job.cutter_program_id else None
+            # Barcode comes from the template's linked cutter program (preferred),
+            # falling back to the job's own cutter program for backward compatibility.
+            cp = None
+            tmpl_obj = job.imposition_template
+            if tmpl_obj and tmpl_obj.cutter_program_id:
+                cp = tmpl_obj.cutter_program
+            elif job.cutter_program_id:
+                cp = job.cutter_program
             barcode_value = cp.duplo_code if cp else None
             barcode_x = float(cp.barcode_x) if cp and cp.barcode_x is not None else None
             barcode_y = float(cp.barcode_y) if cp and cp.barcode_y is not None else None
