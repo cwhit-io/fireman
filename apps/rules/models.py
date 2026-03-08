@@ -37,6 +37,32 @@ class Rule(models.Model):
         related_name="rules",
         help_text="Cutter / barcode program to assign",
     )
+    # Filter actions — narrow which imposition templates are applicable for this rule
+    cut_size = models.ForeignKey(
+        "impose.PrintSize",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="rules_cut",
+        help_text="Filter templates by this cut size",
+    )
+    sheet_size = models.ForeignKey(
+        "impose.PrintSize",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="rules_sheet",
+        help_text="Filter templates by this sheet size",
+    )
+    product_category = models.ForeignKey(
+        "impose.ProductCategory",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="rules",
+        help_text="Filter templates by this product category",
+    )
+
     routing_preset = models.ForeignKey(
         "routing.RoutingPreset",
         null=True,
