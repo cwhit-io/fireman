@@ -20,6 +20,7 @@ from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path
 
+from apps.pages.views import homepage
 from config.api import api
 
 urlpatterns = [
@@ -27,13 +28,12 @@ urlpatterns = [
     path("api/", api.urls),
     path("ping/", lambda r: HttpResponse("pong"), name="ping"),
     path("demo/", include("core.urls", namespace="core")),
+    path("", homepage, name="homepage"),
     path("jobs/", include("apps.jobs.urls", namespace="jobs")),
     path("rules/", include("apps.rules.urls", namespace="rules")),
     path("templates/", include("apps.impose.urls", namespace="impose")),
     path("presets/", include("apps.routing.urls", namespace="routing")),
     path("cutters/", include("apps.cutter.urls", namespace="cutter")),
-    # Wagtail catch-all — must be last
-    # Wagtail integration removed
 ]
 
 if settings.DEBUG:
