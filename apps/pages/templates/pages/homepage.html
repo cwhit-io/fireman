@@ -1,19 +1,86 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Welcome to Fireman{% endblock %}
+{% block title %}Meet Ember — your friendly print helper{% endblock %}
 
 {% block content %}
-<div class="flex flex-col items-center justify-center min-h-[60vh]">
-    <img src="{% static 'logo.png' %}" alt="Fireman Logo" class="w-24 h-24 rounded-full bg-white p-2 shadow mb-4" />
-    <h1 class="text-4xl font-bold mb-2">Welcome to Fireman</h1>
-    <p class="text-lg text-gray-600 mb-6">Your incident management dashboard</p>
-    <div class="flex flex-wrap gap-4 justify-center">
-        <a href="{% url 'jobs:list' %}" class="btn btn-primary">View Jobs</a>
-        <a href="{% url 'impose:list' %}" class="btn btn-secondary">Templates</a>
-        <a href="{% url 'cutter:list' %}" class="btn btn-secondary">Cutters</a>
-        <a href="{% url 'routing:list' %}" class="btn btn-secondary">Presets</a>
-        <a href="{% url 'rules:list' %}" class="btn btn-secondary">Rulesets</a>
+<div class="flex flex-col items-center justify-center min-h-[60vh] py-8">
+    <!-- Hero -->
+    <img src="{% static 'logo.png' %}" alt="Ember Logo" class="w-24 h-24 rounded-full bg-white p-2 shadow mb-4" />
+    <h1 class="text-4xl font-bold mb-2">Meet Ember — your friendly print helper.</h1>
+    <p class="text-lg text-gray-600 mb-6 max-w-xl text-center">
+        Prep your PDFs, avoid hotfolder headaches, and send jobs to the printer with confidence.
+    </p>
+    <div class="flex gap-4 mb-10">
+        <a href="#get-started" class="btn btn-primary text-lg">Get Started</a>
+        <a href="#how-it-works" class="btn btn-secondary text-lg">See How It Works</a>
     </div>
+
+    <!-- Trust/Value Strip -->
+    <div class="flex flex-wrap gap-4 justify-center mb-12">
+        <div class="badge badge-outline">Guided PDF prep (no guessing)</div>
+        <div class="badge badge-outline">Reliable job submission</div>
+        <div class="badge badge-outline">Clear status + error messages</div>
+        <div class="badge badge-outline">Made for busy teams</div>
+    </div>
+
+    <!-- How it works -->
+    <section id="how-it-works" class="w-full max-w-3xl mb-16">
+        <h2 class="text-2xl font-semibold mb-6 text-center">How it works</h2>
+        <div class="grid md:grid-cols-3 gap-8">
+            <div class="bg-base-200 rounded-lg p-6 flex flex-col items-center">
+                <div class="text-3xl mb-2">1️⃣</div>
+                <h3 class="font-bold mb-2">Add your PDF</h3>
+                <p class="text-center text-gray-600">Drag and drop or browse—Ember checks the basics right away.</p>
+            </div>
+            <div class="bg-base-200 rounded-lg p-6 flex flex-col items-center">
+                <div class="text-3xl mb-2">2️⃣</div>
+                <h3 class="font-bold mb-2">Confirm the details</h3>
+                <p class="text-center text-gray-600">Paper size, orientation, finishing, and more—simple prompts, not jargon.</p>
+            </div>
+            <div class="bg-base-200 rounded-lg p-6 flex flex-col items-center">
+                <div class="text-3xl mb-2">3️⃣</div>
+                <h3 class="font-bold mb-2">Send to print</h3>
+                <p class="text-center text-gray-600">Ember submits the job and shows progress, so you know it’s moving.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits -->
+    <section class="w-full max-w-3xl mb-16">
+        <h2 class="text-2xl font-semibold mb-6 text-center">Why teams love Ember</h2>
+        <div class="grid md:grid-cols-3 gap-8">
+            <div class="bg-base-100 rounded-lg p-6 shadow flex flex-col items-center">
+                <h3 class="font-bold mb-2">No more “Did it go through?”</h3>
+                <p class="text-center text-gray-600">Ember shows what’s happening and what to fix if something isn’t right.</p>
+            </div>
+            <div class="bg-base-100 rounded-lg p-6 shadow flex flex-col items-center">
+                <h3 class="font-bold mb-2">Less back-and-forth</h3>
+                <p class="text-center text-gray-600">Standardize settings with presets so everyone submits jobs the same way.</p>
+            </div>
+            <div class="bg-base-100 rounded-lg p-6 shadow flex flex-col items-center">
+                <h3 class="font-bold mb-2">Fewer reprints</h3>
+                <p class="text-center text-gray-600">Catch common PDF issues before they become wasted time and paper.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Feature highlights -->
+    <section class="w-full max-w-3xl mb-16">
+        <h2 class="text-2xl font-semibold mb-6 text-center">Feature highlights</h2>
+        <ul class="list-disc list-inside text-gray-700 space-y-2">
+            <li>One-click presets for your most common jobs</li>
+            <li>Job history so you can reprint quickly</li>
+            <li>Friendly warnings that explain what and why</li>
+            <li>Works alongside your current setup (no big workflow overhaul)</li>
+        </ul>
+    </section>
+
+    <!-- Closing CTA -->
+    <section id="get-started" class="w-full max-w-2xl text-center mt-12">
+        <h2 class="text-2xl font-bold mb-4">Ready to make printing feel easy again?</h2>
+        <p class="text-lg text-gray-600 mb-6">Start with Ember and send your next job in minutes.</p>
+        <a href="/jobs/" class="btn btn-primary btn-lg">Get Started</a>
+    </section>
 </div>
 {% endblock %}
