@@ -4,7 +4,7 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import DeleteView, ListView
 
-from apps.impose.models import ImpositionTemplate
+from apps.impose.models import ImpositionTemplate, PrintSize, ProductCategory
 from apps.routing.models import RoutingPreset
 
 from .models import Rule
@@ -13,9 +13,18 @@ from .models import Rule
 def _build_form_context():
     """Return available action targets and choice lists for the ruleset form."""
     return {
-        "templates": ImpositionTemplate.objects.select_related("cutter_program").order_by("name"),
+        "templates": ImpositionTemplate.objects.select_related(
+            "cutter_program", "product_category", "cut_size", "sheet_size"
+        ).order_by("name"),
         "presets": RoutingPreset.objects.filter(active=True).order_by("name"),
         "condition_types": Rule.ConditionType.choices,
+        "product_categories": ProductCategory.objects.order_by("name"),
+        "cut_sizes": PrintSize.objects.filter(
+            size_type__in=[PrintSize.SizeType.CUT, PrintSize.SizeType.BOTH]
+        ).order_by("name"),
+        "sheet_sizes": PrintSize.objects.filter(
+            size_type__in=[PrintSize.SizeType.SHEET, PrintSize.SizeType.BOTH]
+        ).order_by("name"),
     }
 
 
@@ -33,6 +42,9 @@ def _get_initial_form_values(rule=None):
             "routing_preset": str(rule.routing_preset_id)
             if rule.routing_preset_id
             else "",
+            "cut_size": str(rule.cut_size_id) if rule.cut_size_id else "",
+            "sheet_size": str(rule.sheet_size_id) if rule.sheet_size_id else "",
+            "product_category": str(rule.product_category_id) if rule.product_category_id else "",
             "active": "on" if rule.active else "",
         }
     return {
@@ -42,6 +54,9 @@ def _get_initial_form_values(rule=None):
         "condition_value": "",
         "imposition_template": "",
         "routing_preset": "",
+        "cut_size": "",
+        "sheet_size": "",
+        "product_category": "",
         "active": "on",
     }
 
@@ -108,6 +123,9 @@ class RuleCreateView(View):
                 condition_value=data["condition_value"].strip(),
                 imposition_template_id=_fk_or_none("imposition_template"),
                 routing_preset_id=_fk_or_none("routing_preset"),
+                cut_size_id=_fk_or_none("cut_size"),
+                sheet_size_id=_fk_or_none("sheet_size"),
+                product_category_id=_fk_or_none("product_category"),
                 active=data.get("active") == "on",
             )
             messages.success(request, f"Ruleset '{rule.name}' created.")
