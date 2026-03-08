@@ -57,14 +57,27 @@ class ImpositionTemplate(models.Model):
         decimal_places=3,
         null=True,
         blank=True,
-        help_text="Barcode X position in points",
+        help_text="Barcode X position in points (left edge of barcode block, from left of sheet)",
     )
     barcode_y = models.DecimalField(
         max_digits=8,
         decimal_places=3,
         null=True,
         blank=True,
-        help_text="Barcode Y position in points",
+        help_text="Barcode Y position in points (bottom edge of barcode block, from bottom of sheet)",
+    )
+    # DC-646 Code 39 barcode block size defaults: 1.25" × 0.35"
+    barcode_width = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        default=90.0,  # 1.25" × 72 pt/in = 90 pt
+        help_text="Code 39 barcode block width in points (DC-646 default: 90 pt = 1.25\")",
+    )
+    barcode_height = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        default=25.2,  # 0.35" × 72 pt/in = 25.2 pt
+        help_text="Code 39 barcode block height in points (DC-646 default: 25.2 pt = 0.35\")",
     )
     columns = models.PositiveSmallIntegerField(default=1)
     rows = models.PositiveSmallIntegerField(default=1)
