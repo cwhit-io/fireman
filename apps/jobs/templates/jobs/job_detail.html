@@ -96,12 +96,15 @@
     {% endif %}
   </div>
 
-  {# Download / Resend #}
+  {# Download / Resend / Preview #}
   {% if job.imposed_file %}
   <div class="bg-white shadow rounded-lg p-6 mt-6">
     <h2 class="text-lg font-semibold mb-1">Output File</h2>
-    <p class="text-sm text-gray-500 mb-4">The imposed PDF is ready. Download it for inspection or re-send it to the printer.</p>
-    <div class="flex gap-3">
+    <p class="text-sm text-gray-500 mb-4">The imposed PDF is ready. Preview it in your browser, download it for inspection, or re-send it to the printer.</p>
+    <div class="flex gap-3 flex-wrap">
+      <a href="{% url 'jobs:preview' job.pk %}" target="_blank" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+        Preview PDF
+      </a>
       <a href="{% url 'jobs:download' job.pk %}" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm font-medium">
         Download Imposed PDF
       </a>
