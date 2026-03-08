@@ -110,6 +110,7 @@ def process_job_task(job_id: str) -> None:
 
         job.status = PrintJob.Status.ROUTING
         job.save(update_fields=["status"])
+        tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
                 with job.imposed_file.open("rb") as fh:
@@ -126,7 +127,8 @@ def process_job_task(job_id: str) -> None:
             job.error_message = f"Routing failed: {exc}"
             job.save(update_fields=["status", "error_message"])
         finally:
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
