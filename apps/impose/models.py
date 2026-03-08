@@ -1,5 +1,7 @@
 from django.db import models
 
+POINTS_PER_INCH = 72.0
+
 
 class ImpositionTemplate(models.Model):
     """Defines how pages should be imposed onto a press sheet."""
@@ -44,7 +46,7 @@ class ImpositionTemplate(models.Model):
         """Convert stored points value to inches."""
         if pts is None:
             return None
-        return round(float(pts) / 72.0, 4)
+        return round(float(pts) / POINTS_PER_INCH, 4)
 
     @property
     def sheet_width_in(self):

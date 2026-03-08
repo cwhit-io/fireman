@@ -4,14 +4,14 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import DeleteView, ListView
 
-from .models import ImpositionTemplate
+from .models import POINTS_PER_INCH, ImpositionTemplate
 
 
 def _pts_to_in(pts):
     """Convert points to inches, rounded to 4 decimal places."""
     if pts is None:
         return ""
-    return round(float(pts) / 72.0, 4)
+    return round(float(pts) / POINTS_PER_INCH, 4)
 
 
 def _in_to_pts(inches_str):
@@ -20,7 +20,7 @@ def _in_to_pts(inches_str):
     if not s:
         return None
     try:
-        return float(s) * 72.0
+        return float(s) * POINTS_PER_INCH
     except (ValueError, TypeError):
         return None
 
