@@ -14,6 +14,7 @@ WORKDIR /app
 # - curl: useful for debugging and often required in builds
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cups-client \
+    cups-ipp-utils \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
