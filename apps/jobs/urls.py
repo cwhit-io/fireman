@@ -7,6 +7,7 @@ app_name = "jobs"
 urlpatterns = [
     path("", views.JobListView.as_view(), name="list"),
     path("upload/", views.JobUploadView.as_view(), name="upload"),
+    path("upload/rulesets/", views.JobUploadRulesetsView.as_view(), name="upload_rulesets"),
     path("<uuid:pk>/", views.JobDetailView.as_view(), name="detail"),
     path(
         "<uuid:pk>/apply-ruleset/",

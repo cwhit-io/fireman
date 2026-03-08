@@ -1,9 +1,11 @@
 from django.contrib import messages
 from django.core.files.base import ContentFile
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
+from apps.impose.models import ProductCategory
 from apps.rules.models import Rule
 
 from .models import PrintJob
@@ -16,6 +18,12 @@ class JobListView(ListView):
     template_name = "jobs/job_list.html"
     context_object_name = "jobs"
     paginate_by = 25
+
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            "imposition_template__sheet_size",
+            "cutter_program",
+        )
 
 
 class JobDetailView(DetailView):
@@ -33,17 +41,27 @@ class JobUploadView(View):
     template_name = "jobs/job_upload.html"
 
     @staticmethod
-    def _ruleset_context():
+    def _ruleset_context(category_id=None):
+        qs = Rule.objects.filter(active=True).order_by("name")
+        if category_id:
+            try:
+                qs = qs.filter(product_category_id=int(category_id))
+            except (ValueError, TypeError):
+                pass
         return {
-            "rulesets": Rule.objects.filter(active=True).order_by("name")
+            "rulesets": qs,
+            "product_categories": ProductCategory.objects.order_by("name"),
+            "selected_category": str(category_id) if category_id else "",
         }
 
     def get(self, request):
-        return render(request, self.template_name, self._ruleset_context())
+        category_id = request.GET.get("category", "").strip() or None
+        return render(request, self.template_name, self._ruleset_context(category_id))
 
     def post(self, request):
         file = request.FILES.get("file")
-        ctx = self._ruleset_context()
+        category_id = request.POST.get("category_id", "").strip() or None
+        ctx = self._ruleset_context(category_id)
         if not file:
             messages.error(request, "No file selected.")
             return render(request, self.template_name, ctx, status=400)
@@ -104,6 +122,25 @@ class JobUploadView(View):
         process_job_task.delay(str(job.pk))
         messages.success(request, f"Job '{job.name}' submitted successfully.")
         return redirect("jobs:detail", pk=job.pk)
+
+
+class JobUploadRulesetsView(View):
+    """HTMX endpoint: return filtered ruleset options for the upload form."""
+
+    def get(self, request):
+        from django.utils.html import escape
+
+        category_id = request.GET.get("category_id", "").strip() or None
+        qs = Rule.objects.filter(active=True).order_by("name")
+        if category_id:
+            try:
+                qs = qs.filter(product_category_id=int(category_id))
+            except (ValueError, TypeError):
+                pass
+        html = '<option value="">— Auto-match by rules —</option>'
+        for ruleset in qs:
+            html += f'<option value="{ruleset.pk}">{escape(ruleset.name)}</option>'
+        return HttpResponse(html)
 
 
 class JobApplyRulesetView(View):
