@@ -1,6 +1,7 @@
 """
 Rules engine: evaluate active rulesets against a PrintJob and apply matching actions.
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -91,9 +92,11 @@ def apply_rules(job) -> None:
     """Evaluate all active rulesets against *job* in priority order and save changes."""
     from apps.rules.models import Rule
 
-    rules = Rule.objects.filter(active=True).select_related(
-        "imposition_template", "cutter_program", "routing_preset"
-    ).order_by("priority")
+    rules = (
+        Rule.objects.filter(active=True)
+        .select_related("imposition_template", "cutter_program", "routing_preset")
+        .order_by("priority")
+    )
     changed = False
     for rule in rules:
         if _matches(rule, job):
@@ -101,4 +104,6 @@ def apply_rules(job) -> None:
             changed = True
 
     if changed:
-        job.save(update_fields=["imposition_template", "cutter_program", "routing_preset"])
+        job.save(
+            update_fields=["imposition_template", "cutter_program", "routing_preset"]
+        )

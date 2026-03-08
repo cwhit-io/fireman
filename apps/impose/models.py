@@ -18,16 +18,54 @@ class ImpositionTemplate(models.Model):
         CUSTOM = "custom", "Custom"
 
     name = models.CharField(max_length=100, unique=True)
-    layout_type = models.CharField(max_length=20, choices=LayoutType.choices)
-    sheet_width = models.DecimalField(max_digits=8, decimal_places=3, help_text="Points (1 pt = 1/72 in)")
-    sheet_height = models.DecimalField(max_digits=8, decimal_places=3, help_text="Points")
-    bleed = models.DecimalField(max_digits=6, decimal_places=3, default=0, help_text="Points")
+    layout_type = models.CharField(
+        max_length=20, choices=LayoutType.choices, blank=True, default="custom"
+    )
+    # Cut size — the finished (trimmed) product dimensions, excluding bleed
+    cut_width = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text="Finished cut width in points (1 pt = 1/72 in)",
+    )
+    cut_height = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text="Finished cut height in points",
+    )
+    sheet_width = models.DecimalField(
+        max_digits=8, decimal_places=3, help_text="Points (1 pt = 1/72 in)"
+    )
+    sheet_height = models.DecimalField(
+        max_digits=8, decimal_places=3, help_text="Points"
+    )
+    bleed = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        default=0,
+        help_text="Bleed in points (uniform, all sides)",
+    )
     margin_top = models.DecimalField(max_digits=6, decimal_places=3, default=0)
     margin_right = models.DecimalField(max_digits=6, decimal_places=3, default=0)
     margin_bottom = models.DecimalField(max_digits=6, decimal_places=3, default=0)
     margin_left = models.DecimalField(max_digits=6, decimal_places=3, default=0)
-    barcode_x = models.DecimalField(max_digits=8, decimal_places=3, null=True, blank=True, help_text="Barcode X position in points")
-    barcode_y = models.DecimalField(max_digits=8, decimal_places=3, null=True, blank=True, help_text="Barcode Y position in points")
+    barcode_x = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text="Barcode X position in points",
+    )
+    barcode_y = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text="Barcode Y position in points",
+    )
     columns = models.PositiveSmallIntegerField(default=1)
     rows = models.PositiveSmallIntegerField(default=1)
     notes = models.TextField(blank=True)
@@ -47,6 +85,23 @@ class ImpositionTemplate(models.Model):
         if pts is None:
             return None
         return round(float(pts) / POINTS_PER_INCH, 4)
+
+    @property
+    def cut_width_in(self):
+        return self._to_in(self.cut_width)
+
+    @property
+    def cut_height_in(self):
+        return self._to_in(self.cut_height)
+
+    @property
+    def cut_size_label(self):
+        """Human-readable cut size, e.g. '3.5 × 2 in'."""
+        w = self._to_in(self.cut_width)
+        h = self._to_in(self.cut_height)
+        if w is not None and h is not None:
+            return f"{w:g} × {h:g} in"
+        return "—"
 
     @property
     def sheet_width_in(self):

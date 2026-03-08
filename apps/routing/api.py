@@ -31,17 +31,20 @@ class RoutingPresetIn(Schema):
 @router.get("/presets", response=list[RoutingPresetOut])
 def list_presets(request):
     from apps.routing.models import RoutingPreset
+
     return list(RoutingPreset.objects.filter(active=True))
 
 
 @router.post("/presets", response=RoutingPresetOut)
 def create_preset(request, data: RoutingPresetIn):
     from apps.routing.models import RoutingPreset
+
     return RoutingPreset.objects.create(**data.dict())
 
 
 @router.post("/{job_id}/send")
 def send_job(request, job_id: str):
     from apps.routing.tasks import send_job_task
+
     send_job_task.delay(job_id)
     return {"queued": True, "job_id": job_id}

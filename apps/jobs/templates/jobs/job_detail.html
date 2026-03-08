@@ -28,7 +28,9 @@
       <div><dt class="text-sm text-gray-500">Created</dt><dd>{{ job.created_at|date:"M j, Y H:i" }}</dd></div>
       <div><dt class="text-sm text-gray-500">Page Count</dt><dd>{{ job.page_count|default:"—" }}</dd></div>
       <div><dt class="text-sm text-gray-500">Page Size</dt><dd>{{ job.page_size_label }}</dd></div>
-      <div><dt class="text-sm text-gray-500">Product Type</dt><dd>{{ job.product_type|default:"—" }}</dd></div>
+      <div><dt class="text-sm text-gray-500">Type</dt><dd>{{ job.get_product_type_display|default:"—" }}</dd></div>
+      <div><dt class="text-sm text-gray-500">Double-sided</dt><dd>{% if job.is_double_sided %}Yes{% else %}No{% endif %}</dd></div>
+      <div><dt class="text-sm text-gray-500">Unique pages</dt><dd>{% if job.pages_are_unique %}Yes (n-up){% else %}No (step-and-repeat / stack-cut){% endif %}</dd></div>
       <div class="col-span-2 border-t pt-3 mt-1">
         <dt class="text-sm text-gray-500 mb-2 font-medium">Applied Settings</dt>
         <dd class="grid grid-cols-3 gap-3">

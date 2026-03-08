@@ -4,6 +4,7 @@ Barcode generation for the Duplo DC-646 digital cutter.
 The DC-646 reads a QR code printed on the sheet to load the correct
 cutting program automatically.
 """
+
 from __future__ import annotations
 
 import io
@@ -72,11 +73,15 @@ def _build_image_pdf(
     img_len = len(jpeg_bytes)
 
     xobj = (
-        f"<</Type/XObject/Subtype/Image/Width {img_w}/Height {img_h}"
-        f"/ColorSpace/DeviceRGB/BitsPerComponent 8"
-        f"/Filter/DCTDecode/Length {img_len}>>\n"
-        f"stream\n"
-    ).encode() + jpeg_bytes + b"\nendstream"
+        (
+            f"<</Type/XObject/Subtype/Image/Width {img_w}/Height {img_h}"
+            f"/ColorSpace/DeviceRGB/BitsPerComponent 8"
+            f"/Filter/DCTDecode/Length {img_len}>>\n"
+            f"stream\n"
+        ).encode()
+        + jpeg_bytes
+        + b"\nendstream"
+    )
 
     content_stream = (
         f"q {num(draw_w)} 0 0 {num(draw_h)} {num(x)} {num(y)} cm /Im1 Do Q"
