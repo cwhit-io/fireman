@@ -83,9 +83,18 @@ def _in_to_pts(inches_str):
 def _build_form_context():
     from apps.cutter.models import CutterProgram
 
+    from .models import PrintSize, ProductCategory
+
     return {
         "layout_types": ImpositionTemplate.LayoutType.choices,
         "cutter_programs": CutterProgram.objects.filter(active=True).order_by("name"),
+        "product_categories": ProductCategory.objects.order_by("name"),
+        "cut_sizes": PrintSize.objects.filter(
+            size_type__in=[PrintSize.SizeType.CUT, PrintSize.SizeType.BOTH]
+        ).order_by("name"),
+        "sheet_sizes": PrintSize.objects.filter(
+            size_type__in=[PrintSize.SizeType.SHEET, PrintSize.SizeType.BOTH]
+        ).order_by("name"),
     }
 
 
@@ -94,6 +103,9 @@ def _get_initial_form_values(tmpl=None):
         return {
             "name": tmpl.name,
             "category": tmpl.category,
+            "product_category": str(tmpl.product_category_id) if tmpl.product_category_id else "",
+            "cut_size": str(tmpl.cut_size_id) if tmpl.cut_size_id else "",
+            "sheet_size": str(tmpl.sheet_size_id) if tmpl.sheet_size_id else "",
             "layout_type": tmpl.layout_type,
             "cut_width": _pts_to_in(tmpl.cut_width)
             if tmpl.cut_width is not None
@@ -121,6 +133,9 @@ def _get_initial_form_values(tmpl=None):
     return {
         "name": "",
         "category": "",
+        "product_category": "",
+        "cut_size": "",
+        "sheet_size": "",
         "layout_type": "custom",
         "cut_width": "",
         "cut_height": "",
@@ -175,9 +190,16 @@ def _template_from_post(data):
     except (ValueError, TypeError):
         rows = 1
 
+    def _int_or_none(key):
+        val = data.get(key, "").strip()
+        return int(val) if val else None
+
     return {
         "name": data.get("name", "").strip(),
         "category": data.get("category", "").strip(),
+        "product_category_id": _int_or_none("product_category"),
+        "cut_size_id": _int_or_none("cut_size"),
+        "sheet_size_id": _int_or_none("sheet_size"),
         "layout_type": data.get("layout_type", "custom") or "custom",
         "cut_width": _fld("cut_width"),
         "cut_height": _fld("cut_height"),
@@ -327,20 +349,39 @@ class TemplateListView(ListView):
     context_object_name = "templates"
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        cat = self.request.GET.get("category", "").strip()
-        if cat:
-            qs = qs.filter(category=cat)
+        from .models import ProductCategory
+
+        qs = super().get_queryset().select_related("product_category", "cut_size", "sheet_size")
+        # Filter by product_category FK (preferred)
+        cat_id = self.request.GET.get("product_category", "").strip()
+        if cat_id:
+            try:
+                qs = qs.filter(product_category_id=int(cat_id))
+            except (ValueError, TypeError):
+                pass
+        else:
+            # Legacy: filter by category CharField if ?category= is used
+            cat = self.request.GET.get("category", "").strip()
+            if cat:
+                qs = qs.filter(category=cat)
         return qs
 
     def get_context_data(self, **kwargs):
+        from .models import ProductCategory
+
         ctx = super().get_context_data(**kwargs)
+        # All product categories that have at least one template
+        ctx["product_categories"] = ProductCategory.objects.filter(
+            imposition_templates__isnull=False
+        ).distinct().order_by("name")
+        # Legacy category strings (for backward compatibility display)
         ctx["categories"] = (
             ImpositionTemplate.objects.exclude(category="")
             .values_list("category", flat=True)
             .distinct()
             .order_by("category")
         )
+        ctx["current_product_category"] = self.request.GET.get("product_category", "")
         ctx["current_category"] = self.request.GET.get("category", "")
         return ctx
 
