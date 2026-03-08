@@ -692,7 +692,10 @@ def impose_from_template(
     )
 
     has_barcode = (
-        barcode_value and eff_barcode_x is not None and eff_barcode_y is not None
+        barcode_value
+        and eff_barcode_x is not None
+        and eff_barcode_y is not None
+        and getattr(template, "print_barcode", True)
     )
 
     if not has_barcode and not cut_marks:
