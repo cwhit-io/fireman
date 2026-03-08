@@ -33,6 +33,7 @@ urlpatterns = [
     path("documents/", include(wagtaildocs_urls)),
     path("demo/", include("core.urls", namespace="core")),
     path("jobs/", include("apps.jobs.urls", namespace="jobs")),
+    path("rules/", include("apps.rules.urls", namespace="rules")),
     # Wagtail catch-all — must be last
     path("", include(wagtail_urls)),
 ]
