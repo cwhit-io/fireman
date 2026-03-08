@@ -13,16 +13,16 @@ class TestCutterProgramModel:
 
 
 class TestBarcodeGeneration:
-    def test_generate_qr_barcode_returns_png(self):
-        from apps.cutter.services import generate_qr_barcode
+    def test_generate_code39_barcode_returns_png(self):
+        from apps.cutter.services import generate_code39_barcode
 
-        png = generate_qr_barcode("TEST001")
+        png = generate_code39_barcode("123")
         assert png[:4] == b"\x89PNG"
 
     def test_barcode_pdf_snippet(self):
         from apps.cutter.services import barcode_pdf_snippet
 
-        pdf = barcode_pdf_snippet("PROG001", x=36, y=36, size=72)
+        pdf = barcode_pdf_snippet("001", x=36, y=36, width=90, height=25)
         assert pdf[:4] == b"%PDF"
 
 

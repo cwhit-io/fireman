@@ -6,7 +6,7 @@ from django.views import View
 from django.views.generic import DeleteView, ListView
 
 from .models import CutterProgram
-from .services import generate_qr_barcode
+from .services import generate_code39_barcode
 
 
 def _get_initial_form_values(program=None):
@@ -103,9 +103,9 @@ class ProgramDeleteView(DeleteView):
 
 
 class ProgramBarcodeView(View):
-    """Return a QR-code PNG for a cutter program's duplo_code."""
+    """Return a Code 39 barcode PNG for a cutter program's duplo_code."""
 
     def get(self, request, pk):
         program = get_object_or_404(CutterProgram, pk=pk)
-        png_bytes = generate_qr_barcode(program.duplo_code)
+        png_bytes = generate_code39_barcode(program.duplo_code)
         return HttpResponse(png_bytes, content_type="image/png")
