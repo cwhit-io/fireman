@@ -127,6 +127,9 @@ def impose_nup(
 
     All dimensions are in PDF points (72 pts = 1 inch).
 
+    The grid is automatically centered on the sheet when all four margins are
+    zero (the default).  Explicit margins override centering.
+
     Each source page is analysed with :func:`detect_source_trim` so that the
     correct trim area is used for scaling — regardless of whether the uploaded
     file has bleed already baked into the MediaBox, stores it via an explicit
@@ -148,10 +151,16 @@ def impose_nup(
     if not pages_up:
         return
 
-    printable_w = sheet_width - margin_left - margin_right
-    printable_h = sheet_height - margin_top - margin_bottom
-    cell_w = printable_w / columns
-    cell_h = printable_h / rows
+    # Cell size = bleed + trim + bleed
+    cell_w = (sheet_width - margin_left - margin_right) / columns
+    cell_h = (sheet_height - margin_top - margin_bottom) / rows
+
+    # When all margins are zero, auto-centre the grid on the sheet.
+    if margin_top == 0 and margin_right == 0 and margin_bottom == 0 and margin_left == 0:
+        grid_w = columns * cell_w
+        grid_h = rows * cell_h
+        margin_left = (sheet_width - grid_w) / 2
+        margin_top = (sheet_height - grid_h) / 2
 
     # Available area for the trim content inside each cell (excluding bleed border).
     cell_trim_w = cell_w - 2 * bleed

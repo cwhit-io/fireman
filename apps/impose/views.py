@@ -46,10 +46,6 @@ def _get_initial_form_values(tmpl=None):
             "sheet_width": _pts_to_in(tmpl.sheet_width),
             "sheet_height": _pts_to_in(tmpl.sheet_height),
             "bleed": _pts_to_in(tmpl.bleed),
-            "margin_top": _pts_to_in(tmpl.margin_top),
-            "margin_right": _pts_to_in(tmpl.margin_right),
-            "margin_bottom": _pts_to_in(tmpl.margin_bottom),
-            "margin_left": _pts_to_in(tmpl.margin_left),
             "columns": str(tmpl.columns),
             "rows": str(tmpl.rows),
             "barcode_x": _pts_to_in(tmpl.barcode_x)
@@ -70,10 +66,6 @@ def _get_initial_form_values(tmpl=None):
         "sheet_width": "",
         "sheet_height": "",
         "bleed": "0.125",
-        "margin_top": "0.25",
-        "margin_right": "0.25",
-        "margin_bottom": "0.25",
-        "margin_left": "0.25",
         "columns": "1",
         "rows": "1",
         "barcode_x": "",
@@ -128,10 +120,11 @@ def _template_from_post(data):
         "sheet_width": _fld("sheet_width"),
         "sheet_height": _fld("sheet_height"),
         "bleed": _fld("bleed") or 0,
-        "margin_top": _fld("margin_top") or 0,
-        "margin_right": _fld("margin_right") or 0,
-        "margin_bottom": _fld("margin_bottom") or 0,
-        "margin_left": _fld("margin_left") or 0,
+        # Margins are always 0 — layout is auto-centred on the sheet
+        "margin_top": 0,
+        "margin_right": 0,
+        "margin_bottom": 0,
+        "margin_left": 0,
         "columns": columns,
         "rows": rows,
         "barcode_x": _fld("barcode_x"),
@@ -147,6 +140,7 @@ def _build_preview_svg(data: dict) -> str:
     Build a to-scale SVG preview of the imposition layout.
 
     *data* is a dict of form values (all in inches as strings).
+    The grid is automatically centred on the sheet — no explicit margins.
     Returns an SVG string.
     """
 
@@ -159,10 +153,6 @@ def _build_preview_svg(data: dict) -> str:
     sheet_w = _f("sheet_width")
     sheet_h = _f("sheet_height")
     bleed = _f("bleed")
-    margin_top = _f("margin_top")
-    margin_right = _f("margin_right")
-    margin_bottom = _f("margin_bottom")
-    margin_left = _f("margin_left")
     cols = max(1, int(_f("columns", 1)))
     rows = max(1, int(_f("rows", 1)))
     cut_w = _f("cut_width")
@@ -183,25 +173,27 @@ def _build_preview_svg(data: dict) -> str:
     svg_w = sheet_w * scale
     svg_h = sheet_h * scale
 
-    printable_w = sheet_w - margin_left - margin_right
-    printable_h = sheet_h - margin_top - margin_bottom
-    # Use cut size for cell size if valid, else fall back to grid division
-    cell_w = cut_w + 2 * bleed if cut_w > 0 else (printable_w / cols if cols > 0 else 0)
-    cell_h = cut_h + 2 * bleed if cut_h > 0 else (printable_h / rows if rows > 0 else 0)
+    # Cell size = cut size + bleed on all sides
+    cell_w = cut_w + 2 * bleed if cut_w > 0 else sheet_w / cols
+    cell_h = cut_h + 2 * bleed if cut_h > 0 else sheet_h / rows
+
+    # Auto-centre the grid on the sheet
+    grid_w = cols * cell_w
+    grid_h = rows * cell_h
+    offset_x = (sheet_w - grid_w) / 2
+    offset_y = (sheet_h - grid_h) / 2
 
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{svg_w:.1f}" height="{svg_h:.1f}" viewBox="0 0 {svg_w:.1f} {svg_h:.1f}">',
         # Sheet background
         f'<rect width="{svg_w:.1f}" height="{svg_h:.1f}" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>',
-        # Margin area (printable zone)
-        f'<rect x="{margin_left * scale:.2f}" y="{margin_top * scale:.2f}" width="{printable_w * scale:.2f}" height="{printable_h * scale:.2f}" fill="none" stroke="#93c5fd" stroke-width="0.8" stroke-dasharray="4,2"/>',
     ]
 
     # Draw cells
     for r in range(rows):
         for c in range(cols):
-            cx = margin_left + c * cell_w
-            cy = margin_top + r * cell_h
+            cx = offset_x + c * cell_w
+            cy = offset_y + r * cell_h
             # Cell outer (including bleed)
             cell_x = cx * scale
             cell_y = cy * scale

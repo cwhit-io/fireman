@@ -1,7 +1,7 @@
 """
 Barcode generation for the Duplo DC-646 digital cutter.
 
-The DC-646 reads a QR code printed on the sheet to load the correct
+The DC-646 reads a Code 39 barcode printed on the sheet to load the correct
 cutting program automatically.
 """
 
@@ -14,20 +14,33 @@ from typing import IO
 logger = logging.getLogger(__name__)
 
 
-def generate_qr_barcode(data: str, box_size: int = 10, border: int = 2) -> bytes:
-    """Return a PNG byte string containing a QR code for *data*."""
-    import qrcode
+def generate_code39_barcode(data: str, width_px: int = 200, height_px: int = 60) -> bytes:
+    """Return a PNG byte string containing a Code 39 barcode for *data*.
 
-    qr = qrcode.QRCode(
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
-        box_size=box_size,
-        border=border,
-    )
-    qr.add_data(data)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
+    The image is rendered at *width_px* × *height_px* pixels and contains
+    only the barcode symbol (no text caption) to match the tight DC-646
+    placement area.
+    """
+    from barcode import Code39
+    from barcode.writer import ImageWriter
+
+    options = {
+        # Each Code 39 character encodes to ~16 modules; 20 modules for start/stop + quiet zones
+        "module_width": max(0.5, width_px / (len(data) * 16 + 20)),
+        "module_height": height_px / 25.4,
+        "quiet_zone": 1.0,
+        "font_size": 0,
+        "text_distance": 0,
+        "background": "white",
+        "foreground": "black",
+        "write_text": False,
+    }
+
+    writer = ImageWriter()
+    code = Code39(data, writer=writer, add_checksum=False)
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    code.write(buf, options=options)
+    buf.seek(0)
     return buf.getvalue()
 
 
@@ -35,24 +48,28 @@ def barcode_pdf_snippet(
     data: str,
     x: float,
     y: float,
-    size: float = 72.0,
+    width: float = 90.0,
+    height: float = 25.2,
 ) -> bytes:
     """
-    Return a minimal single-page PDF containing a QR barcode placed at (*x*, *y*).
+    Return a minimal single-page PDF containing a Code 39 barcode placed at (*x*, *y*).
 
-    *x*, *y*, *size* are in PDF points. The page is 1 pt × 1 pt (transparent
-    background) so it can be overlaid on the imposed sheet.
+    *x*, *y*, *width*, *height* are in PDF points (1 pt = 1/72 in).
+    The page uses a standard MediaBox so it can be overlaid on the imposed sheet.
     """
     from PIL import Image
 
-    png_bytes = generate_qr_barcode(data)
+    # Render at a resolution that gives clean bars (at least 3px per narrow module)
+    px_w = max(200, int(width * 3))
+    px_h = max(60, int(height * 3))
+    png_bytes = generate_code39_barcode(data, width_px=px_w, height_px=px_h)
 
     img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
     jpeg_buf = io.BytesIO()
     img.save(jpeg_buf, format="JPEG", quality=95)
     jpeg_bytes = jpeg_buf.getvalue()
 
-    pdf_content = _build_image_pdf(jpeg_bytes, img.width, img.height, x, y, size, size)
+    pdf_content = _build_image_pdf(jpeg_bytes, img.width, img.height, x, y, width, height)
     return pdf_content
 
 
@@ -134,15 +151,18 @@ def place_barcode_on_pdf(
     program_code: str,
     x: float,
     y: float,
-    size: float = 72.0,
+    width: float = 90.0,
+    height: float = 25.2,
 ) -> None:
     """
-    Overlay a DC-646 QR barcode at (*x*, *y*) on every page of *source_pdf*
+    Overlay a DC-646 Code 39 barcode at (*x*, *y*) on every page of *source_pdf*
     and write the result to *output_pdf*.
+
+    *x*, *y*, *width*, *height* are in PDF points (1 pt = 1/72 in).
     """
     from pypdf import PdfReader, PdfWriter, Transformation
 
-    barcode_pdf_bytes = barcode_pdf_snippet(program_code, x, y, size)
+    barcode_pdf_bytes = barcode_pdf_snippet(program_code, x, y, width, height)
     barcode_reader = PdfReader(io.BytesIO(barcode_pdf_bytes))
     barcode_page = barcode_reader.pages[0]
 
