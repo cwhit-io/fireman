@@ -90,6 +90,14 @@ class ImpositionTemplate(models.Model):
         default=True,
         help_text="Print the barcode overlay on this layout. Uncheck if the barcode position overlaps artwork (the barcode number will still appear in the filename sent to the Fiery).",
     )
+    cutter_program = models.ForeignKey(
+        "cutter.CutterProgram",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="imposition_templates",
+        help_text="Barcode program to stamp on each sheet when imposing this template.",
+    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
