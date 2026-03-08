@@ -37,7 +37,9 @@ def impose_job_task(job_id: str, template_id: int | None = None) -> None:
         with job.file.open("rb") as fh:
             input_buf = io.BytesIO(fh.read())
         output_buf = io.BytesIO()
-        impose_from_template(tmpl, input_buf, output_buf)
+        impose_from_template(
+            tmpl, input_buf, output_buf, pages_are_unique=job.pages_are_unique
+        )
         output_buf.seek(0)
         fname = f"imposed_{job.pk}.pdf"
         job.imposed_file.save(fname, ContentFile(output_buf.read()), save=False)

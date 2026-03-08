@@ -9,4 +9,5 @@ urlpatterns = [
     path("new/", views.ProgramCreateView.as_view(), name="create"),
     path("<int:pk>/edit/", views.ProgramEditView.as_view(), name="edit"),
     path("<int:pk>/delete/", views.ProgramDeleteView.as_view(), name="delete"),
+    path("<int:pk>/barcode.png", views.ProgramBarcodeView.as_view(), name="barcode"),
 ]

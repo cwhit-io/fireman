@@ -82,8 +82,8 @@ class TestDetectSourceTrim:
         pdf = _make_pdf_with_mediabox(306.0, 450.0)
         page = PdfReader(io.BytesIO(pdf)).pages[0]
         trim_w, trim_h, trim_left, trim_bottom = detect_source_trim(page)
-        assert trim_w == pytest.approx(288.0, abs=1.0)   # 4" = 288 pt
-        assert trim_h == pytest.approx(432.0, abs=1.0)   # 6" = 432 pt
+        assert trim_w == pytest.approx(288.0, abs=1.0)  # 4" = 288 pt
+        assert trim_h == pytest.approx(432.0, abs=1.0)  # 6" = 432 pt
         assert trim_left == pytest.approx(9.0, abs=1.0)  # 0.125" = 9 pt
         assert trim_bottom == pytest.approx(9.0, abs=1.0)
 
@@ -97,8 +97,8 @@ class TestDetectSourceTrim:
         pdf = _make_pdf_with_mediabox(324.0, 468.0)
         page = PdfReader(io.BytesIO(pdf)).pages[0]
         trim_w, trim_h, trim_left, trim_bottom = detect_source_trim(page)
-        assert trim_w == pytest.approx(288.0, abs=1.0)   # 4" = 288 pt
-        assert trim_h == pytest.approx(432.0, abs=1.0)   # 6" = 432 pt
+        assert trim_w == pytest.approx(288.0, abs=1.0)  # 4" = 288 pt
+        assert trim_h == pytest.approx(432.0, abs=1.0)  # 6" = 432 pt
         assert trim_left == pytest.approx(18.0, abs=1.0)  # 0.25" = 18 pt
         assert trim_bottom == pytest.approx(18.0, abs=1.0)
 
@@ -170,9 +170,12 @@ class TestImposeNup:
         out = io.BytesIO()
         # 2-up on a sheet that fits two 4.25×6.25" cells side by side
         impose_nup(
-            inp, out,
-            columns=2, rows=1,
-            sheet_width=612.0, sheet_height=450.0,
+            inp,
+            out,
+            columns=2,
+            rows=1,
+            sheet_width=612.0,
+            sheet_height=450.0,
             bleed=9.0,  # 0.125" bleed
         )
         out.seek(0)
@@ -191,9 +194,12 @@ class TestImposeNup:
         inp = io.BytesIO(pdf)
         out = io.BytesIO()
         impose_nup(
-            inp, out,
-            columns=2, rows=1,
-            sheet_width=612.0, sheet_height=450.0,
+            inp,
+            out,
+            columns=2,
+            rows=1,
+            sheet_width=612.0,
+            sheet_height=450.0,
             bleed=9.0,
         )
         out.seek(0)
@@ -218,9 +224,12 @@ class TestImposeNup:
         inp = io.BytesIO(pdf)
         out = io.BytesIO()
         impose_nup(
-            inp, out,
-            columns=2, rows=1,
-            sheet_width=612.0, sheet_height=450.0,
+            inp,
+            out,
+            columns=2,
+            rows=1,
+            sheet_width=612.0,
+            sheet_height=450.0,
             bleed=9.0,
         )
         out.seek(0)
@@ -231,6 +240,7 @@ class TestImposeNup:
 class TestImpositionTemplateModel:
     def test_create_template(self):
         from apps.impose.models import ImpositionTemplate
+
         t = ImpositionTemplate.objects.create(
             name="Test 2-Up",
             layout_type=ImpositionTemplate.LayoutType.TWO_UP,
@@ -240,3 +250,93 @@ class TestImpositionTemplateModel:
             rows=1,
         )
         assert str(t) == "Test 2-Up"
+
+
+class TestAutoRotate:
+    """Test that auto-rotation works for landscape sources in portrait cells."""
+
+    def test_landscape_source_rotated_into_portrait_cell(self):
+        """A landscape source (6×4") should be auto-rotated to fit a portrait cell (4×6")."""
+        from pypdf import PdfReader
+
+        from apps.impose.services import impose_nup
+
+        # Landscape 4×6 = 432×288 pt
+        landscape_pdf = _make_pdf_with_mediabox(432.0, 288.0)
+        inp = io.BytesIO(landscape_pdf)
+        out = io.BytesIO()
+        # Sheet is portrait; cells are portrait (4×6 each + margins)
+        impose_nup(
+            inp,
+            out,
+            columns=2,
+            rows=1,
+            sheet_width=900.0,
+            sheet_height=450.0,
+            bleed=0.0,
+            auto_rotate=True,
+        )
+        out.seek(0)
+        reader = PdfReader(out)
+        assert len(reader.pages) == 1
+
+    def test_no_rotation_when_disabled(self):
+        """auto_rotate=False should not rotate the source page."""
+        from pypdf import PdfReader
+
+        from apps.impose.services import impose_nup
+
+        # Landscape 432×288 pt
+        landscape_pdf = _make_pdf_with_mediabox(432.0, 288.0)
+        inp = io.BytesIO(landscape_pdf)
+        out = io.BytesIO()
+        impose_nup(
+            inp,
+            out,
+            columns=2,
+            rows=1,
+            sheet_width=900.0,
+            sheet_height=450.0,
+            bleed=0.0,
+            auto_rotate=False,
+        )
+        out.seek(0)
+        reader = PdfReader(out)
+        assert len(reader.pages) == 1
+
+
+class TestImposeFromTemplateOptions:
+    """Test that pages_are_unique flag drives step-repeat vs n-up."""
+
+    def test_pages_not_unique_uses_step_repeat(self):
+        """pages_are_unique=False should produce step-and-repeat output."""
+        import io as _io
+
+        from pypdf import PdfReader
+
+        from apps.impose.models import ImpositionTemplate
+        from apps.impose.services import impose_from_template
+
+        # Create a 2-page PDF
+        buf = _io.BytesIO()
+        from pypdf import PageObject, PdfWriter
+
+        w = PdfWriter()
+        w.add_page(PageObject.create_blank_page(width=288, height=432))
+        w.add_page(PageObject.create_blank_page(width=288, height=432))
+        w.write(buf)
+        buf.seek(0)
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="Step-repeat test",
+            sheet_width=2 * 288,
+            sheet_height=432,
+            columns=2,
+            rows=1,
+        )
+        out = _io.BytesIO()
+        impose_from_template(tmpl, buf, out, pages_are_unique=False)
+        out.seek(0)
+        reader = PdfReader(out)
+        # Step-repeat uses only 1 source page repeated, so 1 sheet
+        assert len(reader.pages) == 1

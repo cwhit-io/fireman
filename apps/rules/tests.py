@@ -18,10 +18,10 @@ def _make_rule(**kwargs):
     return Rule.objects.create(**defaults)
 
 
-
 class TestRuleModel:
     def test_create_rule(self):
         from apps.rules.models import Rule
+
         r = Rule.objects.create(
             name="Letter to 4-up",
             condition_type=Rule.ConditionType.PAGE_SIZE,
@@ -42,7 +42,7 @@ class TestRulesEngine:
         )
 
         class FakeJob:
-            page_width = 612   # 8.5 * 72
+            page_width = 612  # 8.5 * 72
             page_height = 792  # 11 * 72
 
         assert _matches(rule, FakeJob()) is True

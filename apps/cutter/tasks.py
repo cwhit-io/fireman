@@ -30,7 +30,8 @@ def add_barcode_task(job_id: str) -> None:
             input_buf = io.BytesIO(fh.read())
         output_buf = io.BytesIO()
         place_barcode_on_pdf(
-            input_buf, output_buf,
+            input_buf,
+            output_buf,
             program_code=job.cutter_program.duplo_code,
             x=x,
             y=y,

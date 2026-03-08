@@ -21,7 +21,7 @@
       <thead class="bg-gray-50">
         <tr>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Layout</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cut Size (in)</th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sheet Size (in)</th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grid</th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bleed (in)</th>
@@ -34,9 +34,7 @@
           <td class="px-4 py-3">
             <span class="font-medium text-sm">{{ tmpl.name }}</span>
           </td>
-          <td class="px-4 py-3 text-sm">
-            <span class="inline-block bg-blue-50 text-blue-700 rounded px-2 py-0.5 text-xs font-medium">{{ tmpl.get_layout_type_display }}</span>
-          </td>
+          <td class="px-4 py-3 text-sm font-mono text-gray-600">{{ tmpl.cut_size_label }}</td>
           <td class="px-4 py-3 text-sm font-mono text-gray-600">{{ tmpl.sheet_size_label }}</td>
           <td class="px-4 py-3 text-sm text-gray-600">{{ tmpl.columns }}×{{ tmpl.rows }}</td>
           <td class="px-4 py-3 text-sm font-mono text-gray-600">{{ tmpl.bleed_in|default:"0" }}</td>

@@ -14,14 +14,24 @@ class RoutingPreset(models.Model):
         GRAYSCALE = "grayscale", "Grayscale"
 
     name = models.CharField(max_length=100, unique=True)
-    printer_queue = models.CharField(max_length=200, default="fiery", help_text="LPD queue name or IPP URI")
-    media_type = models.CharField(max_length=100, blank=True, help_text="e.g. \'Coated\', \'Uncoated\'")
-    media_size = models.CharField(max_length=50, blank=True, help_text="e.g. \'12.5x19\'")
-    duplex = models.CharField(max_length=20, choices=DuplexMode.choices, default=DuplexMode.SIMPLEX)
-    color_mode = models.CharField(max_length=20, choices=ColorMode.choices, default=ColorMode.COLOR)
+    printer_queue = models.CharField(
+        max_length=200, default="fiery", help_text="LPD queue name or IPP URI"
+    )
+    media_type = models.CharField(
+        max_length=100, blank=True, help_text="e.g. 'Coated', 'Uncoated'"
+    )
+    media_size = models.CharField(max_length=50, blank=True, help_text="e.g. '12.5x19'")
+    duplex = models.CharField(
+        max_length=20, choices=DuplexMode.choices, default=DuplexMode.SIMPLEX
+    )
+    color_mode = models.CharField(
+        max_length=20, choices=ColorMode.choices, default=ColorMode.COLOR
+    )
     tray = models.CharField(max_length=50, blank=True)
     copies = models.PositiveSmallIntegerField(default=1)
-    extra_lpr_options = models.TextField(blank=True, help_text="Additional -o key=value options, one per line")
+    extra_lpr_options = models.TextField(
+        blank=True, help_text="Additional -o key=value options, one per line"
+    )
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
