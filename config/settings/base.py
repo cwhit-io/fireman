@@ -48,20 +48,9 @@ INSTALLED_APPS = [
     "apps.cutter",
     "apps.routing",
     "apps.rules",
-    # Wagtail
-    "wagtail.contrib.forms",
-    "wagtail.contrib.redirects",
-    "wagtail.embeds",
-    "wagtail.sites",
-    "wagtail.users",
-    "wagtail.snippets",
-    "wagtail.documents",
-    "wagtail.images",
-    "wagtail.search",
-    "wagtail.admin",
-    "wagtail",
     "modelcluster",
     "taggit",
+    # Wagtail and related apps removed
 ]
 
 AUTH_USER_MODEL = "core.User"
@@ -75,7 +64,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "wagtail.contrib.redirects.middleware.RedirectMiddleware",
+    # Wagtail middleware removed
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -201,8 +190,3 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
-
-# Wagtail
-WAGTAIL_SITE_NAME = env("WAGTAIL_SITE_NAME", default="My Site")
-WAGTAILADMIN_BASE_URL = env("WAGTAILADMIN_BASE_URL", default="http://localhost:8085")
-WAGTAIL_ENABLE_UPDATE_CHECK = False
