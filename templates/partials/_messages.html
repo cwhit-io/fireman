@@ -1,0 +1,26 @@
+{% if messages %}
+{# Django messages rendered as daisyUI alerts — positioned at top of viewport #}
+<div
+  class="fixed top-20 right-4 z-50 flex flex-col gap-2 w-full max-w-sm"
+  role="status"
+  aria-live="polite"
+  aria-atomic="false"
+>
+  {% for message in messages %}
+    {% if message.tags == 'error' or message.tags == 'danger' %}
+      <div role="alert" class="alert alert-error shadow-lg">
+    {% elif message.tags == 'success' %}
+      <div role="alert" class="alert alert-success shadow-lg">
+    {% elif message.tags == 'warning' %}
+      <div role="alert" class="alert alert-warning shadow-lg">
+    {% else %}
+      <div role="alert" class="alert alert-info shadow-lg">
+    {% endif %}
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+        </svg>
+        <span>{{ message }}</span>
+      </div>
+  {% endfor %}
+</div>
+{% endif %}

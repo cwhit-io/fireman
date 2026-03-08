@@ -1,42 +1,41 @@
 {% load static django_browser_reload %}
+{# Base layout shell — all pages extend this template #}
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="bumblebee">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}Django Template{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/output.css' %}">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="{% block meta_description %}Ember — your friendly print helper. Prep PDFs and send jobs with confidence.{% endblock %}" />
+  <title>{% block title %}Ember — Your Friendly Print Helper{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/output.css' %}">
+  {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-base-100 text-base-content min-h-screen">
+<body class="bg-base-100 text-base-content min-h-screen flex flex-col">
 
-    <div class="navbar bg-base-200 shadow-sm px-4">
-        <div class="flex-1">
-            <a href="/" class="btn btn-ghost text-xl font-bold flex items-center gap-2">
-                <img src="{% static 'logo.png' %}" alt="Logo" class="w-8 h-8 rounded-full bg-white p-1" />
-                Fireman
-            </a>
-            <div class="hidden sm:flex ml-2 gap-1">
-                <a href="{% url 'jobs:list' %}" class="btn btn-ghost btn-sm">Jobs</a>
-                <a href="{% url 'impose:list' %}" class="btn btn-ghost btn-sm">Templates</a>
-                <a href="{% url 'cutter:list' %}" class="btn btn-ghost btn-sm">Cutters</a>
-                <a href="{% url 'routing:list' %}" class="btn btn-ghost btn-sm">Presets</a>
-                <a href="{% url 'rules:list' %}" class="btn btn-ghost btn-sm">Rulesets</a>
-            </div>
-        </div>
-        <div class="flex-none">
-            {% block nav_actions %}{% endblock %}
-        </div>
-    </div>
+  {# Skip link for keyboard / screen-reader users #}
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] btn btn-sm btn-primary">
+    Skip to content
+  </a>
 
-    <main class="container mx-auto px-4 py-8">
-        {% block content %}{% endblock %}
-    </main>
+  {# Sticky navbar injected as a partial #}
+  {% include "partials/_navbar.html" %}
 
-    <!-- htmx -->
-    <script src="{% static 'js/htmx.min.js' %}"></script>
-    <!-- Alpine.js -->
-    <script defer src="{% static 'js/alpine.min.js' %}"></script>
-    {% block extra_js %}{% endblock %}
-    {% if debug %}{% django_browser_reload_script %}{% endif %}
+  {# Toast / Django messages overlay #}
+  {% include "partials/_messages.html" %}
+
+  {# Page content — grows to fill available vertical space #}
+  <main id="main-content" class="flex-1 {% block main_class %}{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  {# Site footer #}
+  {% include "partials/_footer.html" %}
+
+  {# htmx — declarative AJAX without writing JS #}
+  <script src="{% static 'js/htmx.min.js' %}"></script>
+  {# Alpine.js — lightweight reactivity for dropdowns, toggles, etc. #}
+  <script defer src="{% static 'js/alpine.min.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+  {% if debug %}{% django_browser_reload_script %}{% endif %}
 </body>
 </html>
