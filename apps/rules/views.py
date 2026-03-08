@@ -29,9 +29,15 @@ def _get_initial_form_values(rule=None):
             "priority": str(rule.priority),
             "condition_type": rule.condition_type,
             "condition_value": rule.condition_value,
-            "imposition_template": str(rule.imposition_template_id) if rule.imposition_template_id else "",
-            "cutter_program": str(rule.cutter_program_id) if rule.cutter_program_id else "",
-            "routing_preset": str(rule.routing_preset_id) if rule.routing_preset_id else "",
+            "imposition_template": str(rule.imposition_template_id)
+            if rule.imposition_template_id
+            else "",
+            "cutter_program": str(rule.cutter_program_id)
+            if rule.cutter_program_id
+            else "",
+            "routing_preset": str(rule.routing_preset_id)
+            if rule.routing_preset_id
+            else "",
             "active": "on" if rule.active else "",
         }
     return {
@@ -55,13 +61,17 @@ def _validate_rule_form(data):
     if not data.get("condition_value", "").strip():
         errors["condition_value"] = "Condition value is required."
     # At least one action must be selected
-    has_action = any([
-        data.get("imposition_template"),
-        data.get("cutter_program"),
-        data.get("routing_preset"),
-    ])
+    has_action = any(
+        [
+            data.get("imposition_template"),
+            data.get("cutter_program"),
+            data.get("routing_preset"),
+        ]
+    )
     if not has_action:
-        errors["actions"] = "At least one action (template, cutter, or preset) is required."
+        errors["actions"] = (
+            "At least one action (template, cutter, or preset) is required."
+        )
     return errors
 
 

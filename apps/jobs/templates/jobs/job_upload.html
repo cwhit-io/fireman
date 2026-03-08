@@ -5,18 +5,50 @@
   <h1 class="text-2xl font-bold mb-6">Upload Print Job</h1>
   {% if messages %}
     {% for message in messages %}
-      <div class="mb-4 p-3 rounded {% if message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ message }}</div>
+      <div class="mb-4 p-3 rounded {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">{{ message }}</div>
     {% endfor %}
   {% endif %}
-  <div class="bg-white shadow rounded-lg p-6">
+  <div class="bg-white shadow rounded-lg p-6" x-data="uploadForm()">
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
-      <div class="mb-4">
-        <label for="file" class="block text-sm font-medium text-gray-700 mb-1">PDF File</label>
-        <input type="file" name="file" id="file" accept=".pdf" required
+
+      <div class="mb-5">
+        <label for="file" class="block text-sm font-medium text-gray-700 mb-1">PDF File <span class="text-red-500">*</span></label>
+        <input type="file" name="file" id="file" accept=".pdf" required @change="onFileChange($event)"
           class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-        <p class="mt-1 text-xs text-gray-500">Only PDF files are accepted.</p>
+        <p class="mt-1 text-xs text-gray-500">Only PDF files are accepted. Errors will be repaired automatically when possible.</p>
       </div>
+
+      <div class="mb-5">
+        <label for="product_type" class="block text-sm font-medium text-gray-700 mb-1">Type <span class="text-red-500">*</span></label>
+        <select name="product_type" id="product_type" required
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">— Select type —</option>
+          {% for value, label in job_types %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+        <p class="mt-1 text-xs text-gray-500">Select the product type for this job.</p>
+      </div>
+
+      <div x-show="showMultiPageOptions" class="mb-5 border border-gray-200 rounded-lg p-4 bg-gray-50" x-cloak>
+        <p class="text-sm font-medium text-gray-700 mb-3">Multi-page Options</p>
+
+        <div class="flex items-center gap-3 mb-3">
+          <input id="is_double_sided" name="is_double_sided" type="checkbox"
+            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          <label for="is_double_sided" class="text-sm text-gray-700">Double-sided (duplex)</label>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <input id="pages_are_unique" name="pages_are_unique" type="checkbox" checked
+            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            @change="pagesUniqueChanged($event)">
+          <label for="pages_are_unique" class="text-sm text-gray-700">Pages are unique</label>
+        </div>
+        <p class="text-xs text-gray-500 mt-1 ml-7" x-text="pagesUniqueHint"></p>
+      </div>
+
       <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 font-medium">
         Upload &amp; Process
       </button>
@@ -26,4 +58,25 @@
     <a href="{% url 'jobs:list' %}" class="text-blue-600 hover:underline text-sm">← Back to job list</a>
   </div>
 </div>
+<script>
+function uploadForm() {
+  return {
+    showMultiPageOptions: false,
+    pagesUniqueHint: 'Uncheck for step-and-repeat / stack-cut (Duplo) where all copies are the same.',
+    onFileChange(event) {
+      const file = event.target.files[0];
+      if (file) {
+        this.showMultiPageOptions = true;
+      }
+    },
+    pagesUniqueChanged(event) {
+      if (!event.target.checked) {
+        this.pagesUniqueHint = 'Step-and-repeat / stack-cut: all positions print the same content.';
+      } else {
+        this.pagesUniqueHint = 'Uncheck for step-and-repeat / stack-cut (Duplo) where all copies are the same.';
+      }
+    }
+  };
+}
+</script>
 {% endblock %}

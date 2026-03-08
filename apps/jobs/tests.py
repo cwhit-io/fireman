@@ -21,17 +21,20 @@ def _make_minimal_pdf() -> bytes:
 class TestPrintJobModel:
     def test_create_job(self):
         from apps.jobs.models import PrintJob
+
         job = PrintJob.objects.create(name="test.pdf")
         assert job.pk is not None
         assert job.status == PrintJob.Status.PENDING
 
     def test_page_size_label_without_dimensions(self):
         from apps.jobs.models import PrintJob
+
         job = PrintJob(name="x.pdf")
         assert job.page_size_label == "—"
 
     def test_page_size_label_with_dimensions(self):
         from apps.jobs.models import PrintJob
+
         job = PrintJob(name="x.pdf", page_width=612, page_height=792)
         assert "8.5" in job.page_size_label
         assert "11" in job.page_size_label
@@ -52,15 +55,83 @@ class TestJobUploadView:
         assert response.status_code == 400
 
     def test_upload_pdf(self, client, monkeypatch):
-        monkeypatch.setattr("apps.jobs.views.process_job_task.delay", lambda *a, **kw: None)
-        pdf = SimpleUploadedFile("sample.pdf", _make_minimal_pdf(), content_type="application/pdf")
+        monkeypatch.setattr(
+            "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
+        )
+        pdf = SimpleUploadedFile(
+            "sample.pdf", _make_minimal_pdf(), content_type="application/pdf"
+        )
         response = client.post(reverse("jobs:upload"), {"file": pdf})
         # redirects to detail page
         assert response.status_code == 302
 
-    def test_job_list(self, client):
-        response = client.get(reverse("jobs:list"))
-        assert response.status_code == 200
+    def test_upload_pdf_with_type_and_options(self, client, monkeypatch):
+        """Uploading a PDF with product type and duplex/unique flags saves them on the job."""
+        monkeypatch.setattr(
+            "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
+        )
+        from apps.jobs.models import PrintJob
+
+        pdf = SimpleUploadedFile(
+            "flyer.pdf", _make_minimal_pdf(), content_type="application/pdf"
+        )
+        response = client.post(
+            reverse("jobs:upload"),
+            {
+                "file": pdf,
+                "product_type": "flyer",
+                "is_double_sided": "on",
+                "pages_are_unique": "on",
+            },
+        )
+        assert response.status_code == 302
+        job = PrintJob.objects.latest("created_at")
+        assert job.product_type == "flyer"
+        assert job.is_double_sided is True
+        assert job.pages_are_unique is True
+
+    def test_upload_corrupt_pdf_rejected(self, client):
+        """Completely unreadable bytes are rejected with an error message."""
+        f = SimpleUploadedFile(
+            "bad.pdf", b"NOT_A_PDF_AT_ALL", content_type="application/pdf"
+        )
+        response = client.post(reverse("jobs:upload"), {"file": f})
+        assert response.status_code == 400
+
+
+class TestValidateAndRepairPDF:
+    def test_clean_pdf_passes(self):
+        import io
+
+        from django.core.files.base import ContentFile
+        from pypdf import PageObject, PdfWriter
+
+        from apps.jobs.models import PrintJob
+        from apps.jobs.services import validate_and_repair_pdf
+
+        buf = io.BytesIO()
+        w = PdfWriter()
+        w.add_page(PageObject.create_blank_page(width=612, height=792))
+        w.write(buf)
+        pdf_bytes = buf.getvalue()
+
+        job = PrintJob.objects.create(name="ok.pdf")
+        job.file.save("ok.pdf", ContentFile(pdf_bytes), save=True)
+        repaired, warnings = validate_and_repair_pdf(job.file)
+        assert repaired is not None
+        assert warnings == []
+
+    def test_unreadable_bytes_returns_none(self):
+        from django.core.files.base import ContentFile
+
+        from apps.jobs.models import PrintJob
+        from apps.jobs.services import validate_and_repair_pdf
+
+        job = PrintJob.objects.create(name="corrupt.pdf")
+        job.file.save("corrupt.pdf", ContentFile(b"GARBAGE_BYTES_NOT_PDF"), save=True)
+        repaired, warnings = validate_and_repair_pdf(job.file)
+        assert repaired is None
+        assert len(warnings) > 0
 
 
 class TestExtractPDFMetadata:

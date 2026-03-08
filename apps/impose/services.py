@@ -1,6 +1,7 @@
 """
 Imposition services — wrap PyPDF to place input pages onto press sheets.
 """
+
 from __future__ import annotations
 
 import io
@@ -28,11 +29,11 @@ _STANDARD_TRIM_SIZES_PT: dict[str, tuple[float, float]] = {
 
 # Common bleed amounts in PDF points to probe when inferring trim from MediaBox.
 _COMMON_BLEEDS_PT: tuple[float, ...] = (
-    9.0,                   # 0.125" (1/8") — industry standard
-    4.5,                   # 0.0625" (1/16")
-    3 * 72 / 25.4,         # 3 mm ≈ 8.504 pt
-    5 * 72 / 25.4,         # 5 mm ≈ 14.173 pt
-    18.0,                  # 0.25" (1/4")
+    9.0,  # 0.125" (1/8") — industry standard
+    4.5,  # 0.0625" (1/16")
+    3 * 72 / 25.4,  # 3 mm ≈ 8.504 pt
+    5 * 72 / 25.4,  # 5 mm ≈ 14.173 pt
+    18.0,  # 0.25" (1/4")
 )
 
 # Tolerance for dimension matching (pts).
@@ -119,6 +120,7 @@ def impose_nup(
     margin_right: float = 0.0,
     margin_bottom: float = 0.0,
     margin_left: float = 0.0,
+    auto_rotate: bool = True,
 ) -> None:
     """
     Tile *columns × rows* source pages onto new press sheets and write to *output_pdf*.
@@ -129,6 +131,12 @@ def impose_nup(
     correct trim area is used for scaling — regardless of whether the uploaded
     file has bleed already baked into the MediaBox, stores it via an explicit
     TrimBox/BleedBox, or omits it entirely.
+
+    When *auto_rotate* is ``True`` (the default), each source page is
+    automatically rotated 90° to match the cell orientation — for example a
+    landscape postcard source will be rotated to portrait when the imposition
+    cells are portrait.  This removes the need to create separate templates for
+    landscape and portrait versions of the same product.
     """
     from pypdf import PageObject, PdfReader, PdfWriter, Transformation
 
@@ -161,33 +169,66 @@ def impose_nup(
             row = idx // columns
 
             # Detect the actual trim dimensions of the source page.
-            src_trim_w, src_trim_h, src_trim_left, src_trim_bottom = detect_source_trim(src)
+            src_trim_w, src_trim_h, src_trim_left, src_trim_bottom = detect_source_trim(
+                src
+            )
 
-            # Scale so the source trim fits the cell trim area (aspect-ratio preserved).
-            scale_x = cell_trim_w / src_trim_w if src_trim_w else 1.0
-            scale_y = cell_trim_h / src_trim_h if src_trim_h else 1.0
-            scale = min(scale_x, scale_y)
-
-            # Centre the scaled trim within the cell trim area.
-            center_x = (cell_trim_w - src_trim_w * scale) / 2
-            center_y = (cell_trim_h - src_trim_h * scale) / 2
+            # Auto-rotate: if source orientation doesn't match cell orientation, rotate 90°.
+            rotated = False
+            if auto_rotate:
+                cell_is_portrait = cell_trim_h >= cell_trim_w
+                src_is_portrait = src_trim_h >= src_trim_w
+                if cell_is_portrait != src_is_portrait:
+                    rotated = True
 
             # Bottom-left corner of the cell's trim area on the sheet.
             cell_trim_left = margin_left + col * cell_w + bleed
             cell_trim_bottom = sheet_height - margin_top - (row + 1) * cell_h + bleed
 
-            # Desired position for the source trim's bottom-left corner on the sheet.
-            target_trim_left = cell_trim_left + center_x
-            target_trim_bottom = cell_trim_bottom + center_y
+            if rotated:
+                # 90° CW rotation: (x, y) → (y, −x)
+                # After scaling by s: (x,y) → (s*y + tx, −s*x + ty)
+                # Effective dimensions after rotation: width=trim_h, height=trim_w
+                rot_trim_w = src_trim_h
+                rot_trim_h = src_trim_w
 
-            # Transformation: scale(s) then translate(tx, ty).
-            # After scale(s): source point (x, y) → (s·x, s·y).
-            # After translate(tx, ty): → (s·x + tx, s·y + ty).
-            # We need: s·src_trim_left + tx = target_trim_left.
-            tx = target_trim_left - scale * src_trim_left
-            ty = target_trim_bottom - scale * src_trim_bottom
+                scale_x = cell_trim_w / rot_trim_w if rot_trim_w else 1.0
+                scale_y = cell_trim_h / rot_trim_h if rot_trim_h else 1.0
+                scale = min(scale_x, scale_y)
 
-            transform = Transformation().scale(scale).translate(tx, ty)
+                center_x = (cell_trim_w - rot_trim_w * scale) / 2
+                center_y = (cell_trim_h - rot_trim_h * scale) / 2
+
+                target_left = cell_trim_left + center_x
+                target_bottom = cell_trim_bottom + center_y
+
+                # After 90° CW scale+rotate: bottom-left of rotated content on sheet:
+                #   left  = s*src_trim_bottom + tx  → tx = target_left − s*src_trim_bottom
+                #   bottom = −s*(src_trim_left+src_trim_w) + ty → ty = target_bottom + s*(src_trim_left+src_trim_w)
+                tx = target_left - scale * src_trim_bottom
+                ty = target_bottom + scale * (src_trim_left + src_trim_w)
+                # Matrix: x′ = 0·x + s·y + tx,  y′ = −s·x + 0·y + ty
+                transform = Transformation(ctm=(0, -scale, scale, 0, tx, ty))
+            else:
+                # Scale so the source trim fits the cell trim area (aspect-ratio preserved).
+                scale_x = cell_trim_w / src_trim_w if src_trim_w else 1.0
+                scale_y = cell_trim_h / src_trim_h if src_trim_h else 1.0
+                scale = min(scale_x, scale_y)
+
+                # Centre the scaled trim within the cell trim area.
+                center_x = (cell_trim_w - src_trim_w * scale) / 2
+                center_y = (cell_trim_h - src_trim_h * scale) / 2
+
+                # Desired position for the source trim's bottom-left corner on the sheet.
+                target_trim_left = cell_trim_left + center_x
+                target_trim_bottom = cell_trim_bottom + center_y
+
+                # Transformation: scale(s) then translate(tx, ty).
+                tx = target_trim_left - scale * src_trim_left
+                ty = target_trim_bottom - scale * src_trim_bottom
+
+                transform = Transformation().scale(scale).translate(tx, ty)
+
             sheet.merge_transformed_page(src, transform)
 
         writer.add_page(sheet)
@@ -253,8 +294,23 @@ def impose_business_card_21up(
     )
 
 
-def impose_from_template(template, input_pdf: IO[bytes], output_pdf: IO[bytes]) -> None:
-    """Dispatch imposition to the right function based on *template.layout_type*."""
+def impose_from_template(
+    template,
+    input_pdf: IO[bytes],
+    output_pdf: IO[bytes],
+    pages_are_unique: bool = True,
+    auto_rotate: bool = True,
+) -> None:
+    """Dispatch imposition to the right function based on *template* settings.
+
+    When *pages_are_unique* is ``False`` (step-and-repeat / stack-cut for Duplo),
+    the first source page is repeated for every cell on the sheet, regardless of
+    the template's ``layout_type``.
+
+    When *auto_rotate* is ``True`` each source page is rotated automatically to
+    match the cell orientation so a single template works for both landscape and
+    portrait sources.
+    """
     from apps.impose.models import ImpositionTemplate
 
     lt = template.layout_type
@@ -262,9 +318,11 @@ def impose_from_template(template, input_pdf: IO[bytes], output_pdf: IO[bytes]) 
     sheet_h = float(template.sheet_height)
     bleed = float(template.bleed)
 
-    if lt == ImpositionTemplate.LayoutType.STEP_REPEAT:
+    # Step-and-repeat / stack-cut: all cells show the same (first) page.
+    if not pages_are_unique or lt == ImpositionTemplate.LayoutType.STEP_REPEAT:
         impose_step_repeat(
-            input_pdf, output_pdf,
+            input_pdf,
+            output_pdf,
             columns=template.columns,
             rows=template.rows,
             sheet_width=sheet_w,
@@ -275,7 +333,8 @@ def impose_from_template(template, input_pdf: IO[bytes], output_pdf: IO[bytes]) 
         impose_business_card_21up(input_pdf, output_pdf)
     else:
         impose_nup(
-            input_pdf, output_pdf,
+            input_pdf,
+            output_pdf,
             columns=template.columns,
             rows=template.rows,
             sheet_width=sheet_w,
@@ -285,4 +344,5 @@ def impose_from_template(template, input_pdf: IO[bytes], output_pdf: IO[bytes]) 
             margin_right=float(template.margin_right),
             margin_bottom=float(template.margin_bottom),
             margin_left=float(template.margin_left),
+            auto_rotate=auto_rotate,
         )

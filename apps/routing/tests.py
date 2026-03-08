@@ -6,6 +6,7 @@ pytestmark = pytest.mark.django_db
 class TestRoutingPresetModel:
     def test_create_preset(self):
         from apps.routing.models import RoutingPreset
+
         p = RoutingPreset.objects.create(name="Coated Stock", printer_queue="fiery_q1")
         assert str(p) == "Coated Stock"
 
