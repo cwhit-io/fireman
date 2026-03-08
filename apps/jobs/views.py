@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
-from django.views.generic import DetailView, ListView
+from django.views.generic import DeleteView, DetailView, ListView
 
 from apps.rules.models import Rule
 
@@ -72,7 +72,20 @@ class JobApplyRulesetView(View):
 
         # Apply the ruleset actions directly (bypass condition matching)
         from apps.rules.engine import _apply
+
         _apply(ruleset, job)
-        job.save(update_fields=["imposition_template", "cutter_program", "routing_preset"])
+        job.save(
+            update_fields=["imposition_template", "cutter_program", "routing_preset"]
+        )
         messages.success(request, f"Ruleset '{ruleset.name}' applied to job.")
         return redirect("jobs:detail", pk=pk)
+
+
+class JobDeleteView(DeleteView):
+    model = PrintJob
+    template_name = "jobs/job_confirm_delete.html"
+    success_url = "/jobs/"
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, "Job deleted.")
+        return super().delete(request, *args, **kwargs)
