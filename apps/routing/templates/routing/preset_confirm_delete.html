@@ -3,7 +3,7 @@
 {% block content %}
 <div class="max-w-lg mx-auto px-4 py-8">
   <div class="mb-4">
-    <a href="{% url 'routing:list' %}" class="text-blue-600 hover:underline">← Back to Presets</a>
+    <a href="{% if next %}{{ next }}{% else %}{% url 'routing:list' %}{% endif %}" class="text-blue-600 hover:underline">← Back to Presets</a>
   </div>
   <div class="bg-white shadow rounded-lg p-6">
     <h1 class="text-2xl font-bold mb-2 text-red-700">Delete Printer Preset</h1>
@@ -21,11 +21,12 @@
     </div>
     <form method="post">
       {% csrf_token %}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
       <div class="flex gap-3">
         <button type="submit" class="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 text-sm font-medium">
           Yes, delete this preset
         </button>
-        <a href="{% url 'routing:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
+        <a href="{% if next %}{{ next }}{% else %}{% url 'routing:list' %}{% endif %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
       </div>
     </form>
   </div>
