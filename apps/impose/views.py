@@ -58,6 +58,8 @@ def _get_initial_form_values(tmpl=None):
             "barcode_y": _pts_to_in(tmpl.barcode_y)
             if tmpl.barcode_y is not None
             else "",
+            "barcode_width": _pts_to_in(tmpl.barcode_width),
+            "barcode_height": _pts_to_in(tmpl.barcode_height),
             "notes": tmpl.notes,
         }
     return {
@@ -76,6 +78,8 @@ def _get_initial_form_values(tmpl=None):
         "rows": "1",
         "barcode_x": "",
         "barcode_y": "",
+        "barcode_width": "1.25",   # DC-646 default: 1.25" wide (3-digit Code 39)
+        "barcode_height": "0.35",  # DC-646 default: 0.35" tall
         "notes": "",
     }
 
@@ -132,6 +136,8 @@ def _template_from_post(data):
         "rows": rows,
         "barcode_x": _fld("barcode_x"),
         "barcode_y": _fld("barcode_y"),
+        "barcode_width": _fld("barcode_width") or 90.0,    # 1.25" default
+        "barcode_height": _fld("barcode_height") or 25.2,  # 0.35" default
         "notes": data.get("notes", "").strip(),
     }
 
@@ -161,6 +167,8 @@ def _build_preview_svg(data: dict) -> str:
     rows = max(1, int(_f("rows", 1)))
     barcode_x = _f("barcode_x", -1)
     barcode_y = _f("barcode_y", -1)
+    barcode_w_in = _f("barcode_width", 1.25)   # DC-646 default: 1.25"
+    barcode_h_in = _f("barcode_height", 0.35)  # DC-646 default: 0.35"
     has_barcode = bool(data.get("barcode_x") and data.get("barcode_y"))
 
     if sheet_w <= 0 or sheet_h <= 0:
@@ -216,16 +224,28 @@ def _build_preview_svg(data: dict) -> str:
             )
 
     # Draw barcode marker if position is set
+    # DC-646 Code 39 specs: configurable width × height (default 1.25" × 0.35")
     if has_barcode and barcode_x >= 0 and barcode_y >= 0:
         bx = barcode_x * scale
-        # PDF Y origin is bottom-left; SVG is top-left
-        by = (sheet_h - barcode_y - 0.5) * scale
-        bsize = max(8.0, 0.5 * scale)  # ~0.5" barcode
+        # SVG Y axis is top-down; barcode_y is from bottom of sheet
+        by = (sheet_h - barcode_y - barcode_h_in) * scale
+        bw = barcode_w_in * scale
+        bh = barcode_h_in * scale
         lines.append(
-            f'<rect x="{bx:.1f}" y="{by - bsize:.1f}" width="{bsize:.1f}" height="{bsize:.1f}" fill="#f97316" fill-opacity="0.8" stroke="#ea580c" stroke-width="1"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" fill="#f97316" fill-opacity="0.8" stroke="#ea580c" stroke-width="1"/>'
         )
+        # Vertical bars to suggest Code 39 pattern
+        num_bars = 9
+        if num_bars > 0 and bw > 0:
+            bar_gap = bw / (num_bars * 2 - 1)
+            for i in range(num_bars):
+                bar_x = bx + i * bar_gap * 2
+                bar_w = bar_gap if i % 3 else bar_gap * 1.5
+                lines.append(
+                    f'<rect x="{bar_x:.1f}" y="{by:.1f}" width="{bar_w:.1f}" height="{bh:.1f}" fill="#ea580c" fill-opacity="0.5"/>'
+                )
         lines.append(
-            f'<text x="{bx + bsize / 2:.1f}" y="{by - bsize - 3:.1f}" text-anchor="middle" font-size="8" fill="#ea580c">QR</text>'
+            f'<text x="{bx + bw / 2:.1f}" y="{by - 3:.1f}" text-anchor="middle" font-size="8" fill="#ea580c">Code 39 (DC-646)</text>'
         )
 
     # Dimension labels
@@ -261,7 +281,7 @@ class TemplateCreateView(View):
         # HTMX live preview request — return only the SVG fragment
         if request.headers.get("HX-Request") and request.POST.get("_preview"):
             return HttpResponse(
-                _build_preview_svg(dict(data)), content_type="image/svg+xml"
+                _build_preview_svg(dict(data)), content_type="text/html"
             )
 
         errors = _validate_template_form(data)
@@ -297,7 +317,7 @@ class TemplateEditView(View):
         # HTMX live preview request — return only the SVG fragment
         if request.headers.get("HX-Request") and request.POST.get("_preview"):
             return HttpResponse(
-                _build_preview_svg(dict(data)), content_type="image/svg+xml"
+                _build_preview_svg(dict(data)), content_type="text/html"
             )
 
         errors = _validate_template_form(data)
