@@ -6,10 +6,8 @@ def process_job_task(job_id: str) -> None:
     """
     Full processing pipeline for a print job:
     1. Extract PDF metadata (page count / size)
-    2. Apply matching rules (assign template / cutter / preset)
-    3. Impose the PDF using the assigned template
-    4. Overlay the Code 39 cutter barcode (if a cutter program is set)
-    5. Send the imposed PDF to the printer (if a routing preset is set)
+    2. Impose the PDF using the assigned template
+    3. Send the imposed PDF to the printer (if a routing preset is set)
     """
     import io
 
@@ -31,14 +29,7 @@ def process_job_task(job_id: str) -> None:
     if job.status == PrintJob.Status.ERROR:
         return
 
-    # Run the rules engine (only if no template assigned yet)
-    from apps.rules.engine import apply_rules
-
-    apply_rules(job)
-    # Re-load to pick up any FK assignments made by apply_rules
-    job.refresh_from_db()
-
-    # ── Step 3: Imposition ────────────────────────────────────────────────
+    # ── Step 2: Imposition ────────────────────────────────────────────────
     if job.imposition_template_id:
         try:
             from apps.impose.services import impose_from_template
@@ -94,7 +85,7 @@ def process_job_task(job_id: str) -> None:
             job.save(update_fields=["status", "error_message"])
             return
 
-    # ── Step 4: Send to printer ───────────────────────────────────────────
+    # ── Step 3: Send to printer ───────────────────────────────────────────
     if job.routing_preset_id and job.imposed_file:
         import os
         import tempfile

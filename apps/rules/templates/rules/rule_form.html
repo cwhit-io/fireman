@@ -9,22 +9,7 @@
   <div class="bg-white shadow rounded-lg p-6">
     <h1 class="text-2xl font-bold mb-6">{% if rule %}Edit Ruleset{% else %}New Ruleset{% endif %}</h1>
 
-    <form method="post"
-      x-data="{
-        conditionType: '{{ values.condition_type }}',
-        conditionHints: {
-          'page_size':    'Width × Height in inches — e.g. 8.5x11 (letter) or 11x17 (tabloid).',
-          'page_count':   'Exact number or comparison: >=4, <=10, >2, <8 — e.g. >=4',
-          'filename':     'Glob pattern (case-insensitive) — e.g. *invoice* or order_*.pdf',
-          'product_type': 'Exact product type string — e.g. business_card'
-        },
-        conditionPlaceholders: {
-          'page_size':    '8.5x11',
-          'page_count':   '>=4',
-          'filename':     '*invoice*',
-          'product_type': 'business_card'
-        }
-      }">
+    <form method="post">
       {% csrf_token %}
 
       {# Name #}
@@ -32,57 +17,78 @@
         <label class="block text-sm font-medium text-gray-700 mb-1" for="id_name">Ruleset Name <span class="text-red-500">*</span></label>
         <input id="id_name" name="name" type="text" required
           value="{{ values.name }}"
-          placeholder="e.g. Letter 4-up Postcards"
+          placeholder="e.g. Business Card 21-up"
           class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
             {% if errors.name %}border-red-400{% else %}border-gray-300{% endif %}">
         {% if errors.name %}<p class="text-red-600 text-xs mt-1">{{ errors.name }}</p>{% endif %}
       </div>
 
-      {# Priority #}
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_priority">Priority</label>
-        <input id="id_priority" name="priority" type="number" min="1" max="999"
-          value="{{ values.priority }}"
-          class="w-24 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-        <p class="text-gray-500 text-xs mt-1">Lower number = higher priority. Rulesets are evaluated from lowest to highest.</p>
-      </div>
-
       <hr class="my-5 border-gray-200">
 
-      {# Condition Type #}
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_condition_type">Condition Type <span class="text-red-500">*</span></label>
-        <select id="id_condition_type" name="condition_type" required
-          x-model="conditionType"
-          class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
-            {% if errors.condition_type %}border-red-400{% else %}border-gray-300{% endif %}">
-          <option value="">— Select a condition —</option>
-          {% for value, label in condition_types %}
-          <option value="{{ value }}" {% if values.condition_type == value %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-        {% if errors.condition_type %}<p class="text-red-600 text-xs mt-1">{{ errors.condition_type }}</p>{% endif %}
+      {# Size / Category filters #}
+      <div class="mb-2">
+        <p class="text-sm font-medium text-gray-700">Size &amp; Category</p>
+        <p class="text-gray-500 text-xs mt-1">Selecting a size or category narrows the template list below to matching options.</p>
       </div>
 
-      {# Condition Value #}
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_condition_value">Condition Value <span class="text-red-500">*</span></label>
-        <input id="id_condition_value" name="condition_value" type="text" required
-          value="{{ values.condition_value }}"
-          :placeholder="conditionPlaceholders[conditionType] || 'Enter value…'"
-          class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
-            {% if errors.condition_value %}border-red-400{% else %}border-gray-300{% endif %}">
-        <p class="text-gray-500 text-xs mt-1" x-show="conditionType && conditionHints[conditionType]"
-          x-text="conditionHints[conditionType]"></p>
-        {% if errors.condition_value %}<p class="text-red-600 text-xs mt-1">{{ errors.condition_value }}</p>{% endif %}
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+        {# Product Category #}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1" for="id_product_category">Category</label>
+          <select id="id_product_category" name="product_category"
+            hx-post="{% if rule %}{% url 'rules:edit' rule.pk %}{% else %}{% url 'rules:create' %}{% endif %}"
+            hx-include="[name='csrfmiddlewaretoken'],[name='cut_size'],[name='sheet_size'],[name='product_category']"
+            hx-vals='{"_filter_templates": "1"}'
+            hx-target="#id_imposition_template"
+            hx-swap="innerHTML"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">— Any —</option>
+            {% for cat in product_categories %}
+            <option value="{{ cat.pk }}" {% if values.product_category == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {# Cut Size #}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1" for="id_cut_size">Cut Size</label>
+          <select id="id_cut_size" name="cut_size"
+            hx-post="{% if rule %}{% url 'rules:edit' rule.pk %}{% else %}{% url 'rules:create' %}{% endif %}"
+            hx-include="[name='csrfmiddlewaretoken'],[name='cut_size'],[name='sheet_size'],[name='product_category']"
+            hx-vals='{"_filter_templates": "1"}'
+            hx-target="#id_imposition_template"
+            hx-swap="innerHTML"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">— Any —</option>
+            {% for sz in cut_sizes %}
+            <option value="{{ sz.pk }}" {% if values.cut_size == sz.pk|stringformat:'s' %}selected{% endif %}>{{ sz.name }} ({{ sz.label }})</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {# Sheet Size #}
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1" for="id_sheet_size">Sheet Size</label>
+          <select id="id_sheet_size" name="sheet_size"
+            hx-post="{% if rule %}{% url 'rules:edit' rule.pk %}{% else %}{% url 'rules:create' %}{% endif %}"
+            hx-include="[name='csrfmiddlewaretoken'],[name='cut_size'],[name='sheet_size'],[name='product_category']"
+            hx-vals='{"_filter_templates": "1"}'
+            hx-target="#id_imposition_template"
+            hx-swap="innerHTML"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">— Any —</option>
+            {% for sz in sheet_sizes %}
+            <option value="{{ sz.pk }}" {% if values.sheet_size == sz.pk|stringformat:'s' %}selected{% endif %}>{{ sz.name }} ({{ sz.label }})</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
 
       <hr class="my-5 border-gray-200">
 
       <div class="mb-2">
-        <p class="text-sm font-medium text-gray-700">Actions <span class="text-red-500">*</span></p>
-        <p class="text-gray-500 text-xs mt-1">Select one or more actions to apply when the condition matches.</p>
-        {% if errors.actions %}<p class="text-red-600 text-xs mt-1">{{ errors.actions }}</p>{% endif %}
+        <p class="text-sm font-medium text-gray-700">Actions</p>
+        <p class="text-gray-500 text-xs mt-1">Select the template and/or printer preset to apply when this ruleset is used.</p>
       </div>
 
       {# Gangup / Imposition Template #}
@@ -93,15 +99,7 @@
         </label>
         <select id="id_imposition_template" name="imposition_template"
           class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-          <option value="">— None —</option>
-          {% for tmpl in templates %}
-          <option value="{{ tmpl.pk }}"
-            {% if values.imposition_template == tmpl.pk|stringformat:'s' %}selected{% endif %}>
-            {{ tmpl.name }} ({{ tmpl.get_layout_type_display }}){% if tmpl.cutter_program %} · barcode {{ tmpl.cutter_program.duplo_code }}{% endif %}
-          </option>
-          {% empty %}
-          <option value="" disabled>No imposition templates configured yet</option>
-          {% endfor %}
+          {% include "rules/_template_options.html" %}
         </select>
         <p class="text-gray-400 text-xs mt-1">The barcode program is set on the imposition template. <a href="{% url 'impose:create' %}" class="text-blue-600 hover:underline">Manage templates →</a></p>
       </div>
@@ -134,7 +132,7 @@
           class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           {% if values.active == 'on' or values.active == True %}checked{% endif %}>
         <label for="id_active" class="text-sm font-medium text-gray-700">Ruleset is active</label>
-        <span class="text-gray-400 text-xs">(inactive rulesets are skipped during job processing)</span>
+        <span class="text-gray-400 text-xs">(inactive rulesets are hidden from the job upload screen)</span>
       </div>
 
       {# Submit #}

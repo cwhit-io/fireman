@@ -10,14 +10,29 @@ from apps.routing.models import RoutingPreset
 from .models import Rule
 
 
-def _build_form_context():
-    """Return available action targets and choice lists for the ruleset form."""
+def _build_form_context(cut_size_id=None, sheet_size_id=None, product_category_id=None):
+    """Return available action targets and choice lists for the ruleset form.
+
+    When size/category filter IDs are provided the template list is narrowed to
+    only those that match all supplied filters.
+    """
+    templates_qs = ImpositionTemplate.objects.select_related(
+        "cutter_program", "product_category", "cut_size", "sheet_size"
+    ).order_by("name")
+
+    if cut_size_id:
+        templates_qs = templates_qs.filter(cut_size_id=cut_size_id)
+    if sheet_size_id:
+        templates_qs = templates_qs.filter(sheet_size_id=sheet_size_id)
+    if product_category_id:
+        templates_qs = templates_qs.filter(product_category_id=product_category_id)
+
     return {
-        "templates": ImpositionTemplate.objects.select_related(
+        "templates": templates_qs,
+        "all_templates": ImpositionTemplate.objects.select_related(
             "cutter_program", "product_category", "cut_size", "sheet_size"
         ).order_by("name"),
         "presets": RoutingPreset.objects.filter(active=True).order_by("name"),
-        "condition_types": Rule.ConditionType.choices,
         "product_categories": ProductCategory.objects.order_by("name"),
         "cut_sizes": PrintSize.objects.filter(
             size_type__in=[PrintSize.SizeType.CUT, PrintSize.SizeType.BOTH]
@@ -33,9 +48,6 @@ def _get_initial_form_values(rule=None):
     if rule:
         return {
             "name": rule.name,
-            "priority": str(rule.priority),
-            "condition_type": rule.condition_type,
-            "condition_value": rule.condition_value,
             "imposition_template": str(rule.imposition_template_id)
             if rule.imposition_template_id
             else "",
@@ -49,9 +61,6 @@ def _get_initial_form_values(rule=None):
         }
     return {
         "name": "",
-        "priority": "10",
-        "condition_type": "",
-        "condition_value": "",
         "imposition_template": "",
         "routing_preset": "",
         "cut_size": "",
@@ -65,22 +74,12 @@ def _validate_rule_form(data):
     errors = {}
     if not data.get("name", "").strip():
         errors["name"] = "Name is required."
-    if not data.get("condition_type", ""):
-        errors["condition_type"] = "Condition type is required."
-    if not data.get("condition_value", "").strip():
-        errors["condition_value"] = "Condition value is required."
-    # At least one action must be selected
-    has_action = any(
-        [
-            data.get("imposition_template"),
-            data.get("routing_preset"),
-        ]
-    )
-    if not has_action:
-        errors["actions"] = (
-            "At least one action (template or preset) is required."
-        )
     return errors
+
+
+def _fk_or_none(data, key):
+    val = data.get(key, "").strip()
+    return int(val) if val else None
 
 
 class RuleListView(ListView):
@@ -90,8 +89,9 @@ class RuleListView(ListView):
 
     def get_queryset(self):
         return Rule.objects.select_related(
-            "imposition_template", "cutter_program", "routing_preset"
-        ).order_by("priority", "name")
+            "imposition_template", "cutter_program", "routing_preset",
+            "product_category", "cut_size", "sheet_size",
+        ).order_by("name")
 
 
 class RuleCreateView(View):
@@ -104,34 +104,42 @@ class RuleCreateView(View):
 
     def post(self, request):
         data = request.POST
+
+        # HTMX filter request — re-render only the template dropdown
+        if request.headers.get("HX-Request") and data.get("_filter_templates"):
+            ctx = _build_form_context(
+                cut_size_id=_fk_or_none(data, "cut_size"),
+                sheet_size_id=_fk_or_none(data, "sheet_size"),
+                product_category_id=_fk_or_none(data, "product_category"),
+            )
+            ctx["values"] = dict(data)
+            from django.template.loader import render_to_string
+            from django.http import HttpResponse
+            html = render_to_string(
+                "rules/_template_options.html", ctx, request=request
+            )
+            return HttpResponse(html)
+
         errors = _validate_rule_form(data)
 
         if not errors:
-            try:
-                priority = int(data.get("priority", 10))
-            except (ValueError, TypeError):
-                priority = 10
-
-            def _fk_or_none(key):
-                val = data.get(key, "").strip()
-                return int(val) if val else None
-
             rule = Rule.objects.create(
                 name=data["name"].strip(),
-                priority=priority,
-                condition_type=data["condition_type"],
-                condition_value=data["condition_value"].strip(),
-                imposition_template_id=_fk_or_none("imposition_template"),
-                routing_preset_id=_fk_or_none("routing_preset"),
-                cut_size_id=_fk_or_none("cut_size"),
-                sheet_size_id=_fk_or_none("sheet_size"),
-                product_category_id=_fk_or_none("product_category"),
+                imposition_template_id=_fk_or_none(data, "imposition_template"),
+                routing_preset_id=_fk_or_none(data, "routing_preset"),
+                cut_size_id=_fk_or_none(data, "cut_size"),
+                sheet_size_id=_fk_or_none(data, "sheet_size"),
+                product_category_id=_fk_or_none(data, "product_category"),
                 active=data.get("active") == "on",
             )
             messages.success(request, f"Ruleset '{rule.name}' created.")
             return redirect("rules:list")
 
-        ctx = _build_form_context()
+        ctx = _build_form_context(
+            cut_size_id=_fk_or_none(data, "cut_size"),
+            sheet_size_id=_fk_or_none(data, "sheet_size"),
+            product_category_id=_fk_or_none(data, "product_category"),
+        )
         ctx["values"] = dict(data)
         ctx["errors"] = errors
         return render(request, self.template_name, ctx, status=400)
@@ -142,7 +150,11 @@ class RuleEditView(View):
 
     def get(self, request, pk):
         rule = get_object_or_404(Rule, pk=pk)
-        ctx = _build_form_context()
+        ctx = _build_form_context(
+            cut_size_id=rule.cut_size_id,
+            sheet_size_id=rule.sheet_size_id,
+            product_category_id=rule.product_category_id,
+        )
         ctx["rule"] = rule
         ctx["values"] = _get_initial_form_values(rule)
         return render(request, self.template_name, ctx)
@@ -150,29 +162,41 @@ class RuleEditView(View):
     def post(self, request, pk):
         rule = get_object_or_404(Rule, pk=pk)
         data = request.POST
+
+        # HTMX filter request — re-render only the template dropdown
+        if request.headers.get("HX-Request") and data.get("_filter_templates"):
+            ctx = _build_form_context(
+                cut_size_id=_fk_or_none(data, "cut_size"),
+                sheet_size_id=_fk_or_none(data, "sheet_size"),
+                product_category_id=_fk_or_none(data, "product_category"),
+            )
+            ctx["values"] = dict(data)
+            from django.template.loader import render_to_string
+            from django.http import HttpResponse
+            html = render_to_string(
+                "rules/_template_options.html", ctx, request=request
+            )
+            return HttpResponse(html)
+
         errors = _validate_rule_form(data)
 
         if not errors:
             rule.name = data["name"].strip()
-            try:
-                rule.priority = int(data.get("priority", 10))
-            except (ValueError, TypeError):
-                rule.priority = 10
-            rule.condition_type = data["condition_type"]
-            rule.condition_value = data["condition_value"].strip()
-
-            def _fk_or_none(key):
-                val = data.get(key, "").strip()
-                return int(val) if val else None
-
-            rule.imposition_template_id = _fk_or_none("imposition_template")
-            rule.routing_preset_id = _fk_or_none("routing_preset")
+            rule.imposition_template_id = _fk_or_none(data, "imposition_template")
+            rule.routing_preset_id = _fk_or_none(data, "routing_preset")
+            rule.cut_size_id = _fk_or_none(data, "cut_size")
+            rule.sheet_size_id = _fk_or_none(data, "sheet_size")
+            rule.product_category_id = _fk_or_none(data, "product_category")
             rule.active = data.get("active") == "on"
             rule.save()
             messages.success(request, f"Ruleset '{rule.name}' updated.")
             return redirect("rules:list")
 
-        ctx = _build_form_context()
+        ctx = _build_form_context(
+            cut_size_id=_fk_or_none(data, "cut_size"),
+            sheet_size_id=_fk_or_none(data, "sheet_size"),
+            product_category_id=_fk_or_none(data, "product_category"),
+        )
         ctx["rule"] = rule
         ctx["values"] = dict(data)
         ctx["errors"] = errors

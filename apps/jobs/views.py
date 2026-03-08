@@ -25,7 +25,7 @@ class JobDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["rulesets"] = Rule.objects.filter(active=True).order_by("priority", "name")
+        ctx["rulesets"] = Rule.objects.filter(active=True).order_by("name")
         return ctx
 
 
@@ -35,7 +35,7 @@ class JobUploadView(View):
     @staticmethod
     def _ruleset_context():
         return {
-            "rulesets": Rule.objects.filter(active=True).order_by("priority", "name")
+            "rulesets": Rule.objects.filter(active=True).order_by("name")
         }
 
     def get(self, request):
@@ -78,7 +78,7 @@ class JobUploadView(View):
         for w in pdf_warnings:
             messages.warning(request, w)
 
-        # Apply an explicit ruleset if selected, otherwise let auto-matching run
+        # Apply an explicit ruleset if selected
         ruleset_id = request.POST.get("ruleset_id", "").strip()
         if ruleset_id:
             try:
@@ -98,7 +98,7 @@ class JobUploadView(View):
             except (Rule.DoesNotExist, ValueError):
                 messages.warning(
                     request,
-                    "Selected ruleset not found; rules will be applied automatically.",
+                    "Selected ruleset not found.",
                 )
 
         process_job_task.delay(str(job.pk))

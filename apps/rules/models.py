@@ -2,23 +2,10 @@ from django.db import models
 
 
 class Rule(models.Model):
-    """Auto-routing ruleset that matches job attributes and applies one or more actions."""
-
-    class ConditionType(models.TextChoices):
-        PAGE_SIZE = "page_size", "Page Size (W×H in)"
-        PAGE_COUNT = "page_count", "Page Count"
-        FILENAME = "filename", "Filename Pattern"
-        PRODUCT_TYPE = "product_type", "Product Type"
+    """Named ruleset that assigns actions (template, cutter, printer) to a print job."""
 
     name = models.CharField(max_length=100)
     active = models.BooleanField(default=True)
-    priority = models.PositiveSmallIntegerField(
-        default=10, help_text="Lower number = higher priority"
-    )
-    condition_type = models.CharField(max_length=30, choices=ConditionType.choices)
-    condition_value = models.CharField(
-        max_length=255, help_text="Value to match (exact or pattern)"
-    )
 
     # Actions — any combination may be applied from a single ruleset
     imposition_template = models.ForeignKey(
@@ -37,14 +24,14 @@ class Rule(models.Model):
         related_name="rules",
         help_text="Cutter / barcode program to assign",
     )
-    # Filter actions — narrow which imposition templates are applicable for this rule
+    # Size / category filters — used to select appropriate imposition templates
     cut_size = models.ForeignKey(
         "impose.PrintSize",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="rules_cut",
-        help_text="Filter templates by this cut size",
+        help_text="Cut size (finished product dimensions) for this ruleset",
     )
     sheet_size = models.ForeignKey(
         "impose.PrintSize",
@@ -52,7 +39,7 @@ class Rule(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="rules_sheet",
-        help_text="Filter templates by this sheet size",
+        help_text="Sheet size (press sheet dimensions) for this ruleset",
     )
     product_category = models.ForeignKey(
         "impose.ProductCategory",
@@ -60,7 +47,7 @@ class Rule(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="rules",
-        help_text="Filter templates by this product category",
+        help_text="Product category for this ruleset (e.g. Bookmarks, Postcards)",
     )
 
     routing_preset = models.ForeignKey(
@@ -75,9 +62,9 @@ class Rule(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["priority", "name"]
+        ordering = ["name"]
         verbose_name = "Ruleset"
         verbose_name_plural = "Rulesets"
 
     def __str__(self):
-        return f"[{self.priority}] {self.name}: {self.condition_type}={self.condition_value}"
+        return self.name
