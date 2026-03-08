@@ -1,6 +1,24 @@
 import pytest
+from django.urls import reverse
 
 pytestmark = pytest.mark.django_db
+
+
+def _make_rule(**kwargs):
+    from apps.rules.models import Rule
+
+    defaults = {
+        "name": "Test Rule",
+        "condition_type": Rule.ConditionType.PAGE_SIZE,
+        "condition_value": "612x792",
+        "action_type": Rule.ActionType.APPLY_TEMPLATE,
+        "action_value": "1",
+        "priority": 10,
+        "active": True,
+    }
+    defaults.update(kwargs)
+    return Rule.objects.create(**defaults)
+
 
 
 class TestRuleModel:
@@ -113,3 +131,117 @@ class TestRulesEngine:
         apply_rules(job)
         job.refresh_from_db()
         assert job.imposition_template_id == tmpl.pk
+
+
+class TestRuleViews:
+    def test_list_view(self, client):
+        _make_rule(name="My Rule")
+        url = reverse("rules:list")
+        response = client.get(url)
+        assert response.status_code == 200
+        assert b"My Rule" in response.content
+
+    def test_list_view_empty(self, client):
+        url = reverse("rules:list")
+        response = client.get(url)
+        assert response.status_code == 200
+        assert b"No rules defined" in response.content
+
+    def test_create_view_get(self, client):
+        url = reverse("rules:create")
+        response = client.get(url)
+        assert response.status_code == 200
+        assert b"New Rule" in response.content
+
+    def test_create_view_post_valid(self, client):
+        from apps.rules.models import Rule
+
+        url = reverse("rules:create")
+        data = {
+            "name": "Invoice Rule",
+            "priority": "5",
+            "condition_type": Rule.ConditionType.FILENAME,
+            "condition_value": "*invoice*",
+            "action_type": Rule.ActionType.APPLY_TEMPLATE,
+            "action_value": "42",
+            "active": "on",
+        }
+        response = client.post(url, data)
+        assert response.status_code == 302
+        assert Rule.objects.filter(name="Invoice Rule").exists()
+
+    def test_create_view_post_missing_name(self, client):
+        from apps.rules.models import Rule
+
+        url = reverse("rules:create")
+        data = {
+            "name": "",
+            "priority": "5",
+            "condition_type": Rule.ConditionType.FILENAME,
+            "condition_value": "*invoice*",
+            "action_type": Rule.ActionType.APPLY_TEMPLATE,
+            "action_value": "42",
+        }
+        response = client.post(url, data)
+        assert response.status_code == 400
+        assert b"Name is required" in response.content
+
+    def test_edit_view_get(self, client):
+        rule = _make_rule(name="Edit Me")
+        url = reverse("rules:edit", args=[rule.pk])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert b"Edit Me" in response.content
+
+    def test_edit_view_post_valid(self, client):
+        from apps.rules.models import Rule
+
+        rule = _make_rule(name="Old Name")
+        url = reverse("rules:edit", args=[rule.pk])
+        data = {
+            "name": "New Name",
+            "priority": "3",
+            "condition_type": Rule.ConditionType.PAGE_SIZE,
+            "condition_value": "612x792",
+            "action_type": Rule.ActionType.APPLY_TEMPLATE,
+            "action_value": "1",
+            "active": "on",
+        }
+        response = client.post(url, data)
+        assert response.status_code == 302
+        rule.refresh_from_db()
+        assert rule.name == "New Name"
+        assert rule.priority == 3
+
+    def test_delete_view_get(self, client):
+        rule = _make_rule(name="Delete Me")
+        url = reverse("rules:delete", args=[rule.pk])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert b"Delete Me" in response.content
+
+    def test_delete_view_post(self, client):
+        from apps.rules.models import Rule
+
+        rule = _make_rule(name="Bye")
+        pk = rule.pk
+        url = reverse("rules:delete", args=[pk])
+        response = client.post(url)
+        assert response.status_code == 302
+        assert not Rule.objects.filter(pk=pk).exists()
+
+    def test_toggle_view_disables_active_rule(self, client):
+        rule = _make_rule(active=True)
+        url = reverse("rules:toggle", args=[rule.pk])
+        response = client.post(url)
+        assert response.status_code == 302
+        rule.refresh_from_db()
+        assert rule.active is False
+
+    def test_toggle_view_enables_inactive_rule(self, client):
+        rule = _make_rule(active=False)
+        url = reverse("rules:toggle", args=[rule.pk])
+        response = client.post(url)
+        assert response.status_code == 302
+        rule.refresh_from_db()
+        assert rule.active is True
