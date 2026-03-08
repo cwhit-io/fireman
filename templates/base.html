@@ -14,7 +14,10 @@
             <a href="/" class="btn btn-ghost text-xl font-bold">🔥 Fireman</a>
             <div class="hidden sm:flex ml-2 gap-1">
                 <a href="{% url 'jobs:list' %}" class="btn btn-ghost btn-sm">Jobs</a>
-                <a href="{% url 'rules:list' %}" class="btn btn-ghost btn-sm">Rules</a>
+                <a href="{% url 'impose:list' %}" class="btn btn-ghost btn-sm">Templates</a>
+                <a href="{% url 'cutter:list' %}" class="btn btn-ghost btn-sm">Cutters</a>
+                <a href="{% url 'routing:list' %}" class="btn btn-ghost btn-sm">Presets</a>
+                <a href="{% url 'rules:list' %}" class="btn btn-ghost btn-sm">Rulesets</a>
             </div>
         </div>
         <div class="flex-none">
