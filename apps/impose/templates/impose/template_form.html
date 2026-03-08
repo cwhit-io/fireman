@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}{% if template %}Edit Template: {{ template.name }}{% else %}New Imposition Template{% endif %}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+  <div class="mb-4">
+    <a href="{% url 'impose:list' %}" class="text-blue-600 hover:underline">← Back to Templates</a>
+  </div>
+
+  <div class="bg-white shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold mb-1">{% if template %}Edit Template{% else %}New Imposition Template{% endif %}</h1>
+    <p class="text-sm text-gray-500 mb-6">All dimensions are entered in <strong>inches</strong>.</p>
+
+    <form method="post">
+      {% csrf_token %}
+
+      {# Name #}
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_name">Template Name <span class="text-red-500">*</span></label>
+        <input id="id_name" name="name" type="text" required
+          value="{{ values.name }}"
+          placeholder="e.g. Business Card 21-up 12.5×19"
+          class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
+            {% if errors.name %}border-red-400{% else %}border-gray-300{% endif %}">
+        {% if errors.name %}<p class="text-red-600 text-xs mt-1">{{ errors.name }}</p>{% endif %}
+      </div>
+
+      {# Layout Type #}
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_layout_type">Layout Type <span class="text-red-500">*</span></label>
+        <select id="id_layout_type" name="layout_type" required
+          class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
+            {% if errors.layout_type %}border-red-400{% else %}border-gray-300{% endif %}">
+          <option value="">— Select layout type —</option>
+          {% for value, label in layout_types %}
+          <option value="{{ value }}" {% if values.layout_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.layout_type %}<p class="text-red-600 text-xs mt-1">{{ errors.layout_type }}</p>{% endif %}
+      </div>
+
+      <hr class="my-5 border-gray-200">
+
+      {# Sheet Dimensions #}
+      <div class="mb-4">
+        <p class="text-sm font-medium text-gray-700 mb-3">Sheet Dimensions (inches) <span class="text-red-500">*</span></p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_sheet_width">Width</label>
+            <input id="id_sheet_width" name="sheet_width" type="number" step="0.0001" min="0.1" required
+              value="{{ values.sheet_width }}"
+              placeholder="12.5"
+              class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
+                {% if errors.sheet_width %}border-red-400{% else %}border-gray-300{% endif %}">
+            {% if errors.sheet_width %}<p class="text-red-600 text-xs mt-1">{{ errors.sheet_width }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_sheet_height">Height</label>
+            <input id="id_sheet_height" name="sheet_height" type="number" step="0.0001" min="0.1" required
+              value="{{ values.sheet_height }}"
+              placeholder="19"
+              class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
+                {% if errors.sheet_height %}border-red-400{% else %}border-gray-300{% endif %}">
+            {% if errors.sheet_height %}<p class="text-red-600 text-xs mt-1">{{ errors.sheet_height }}</p>{% endif %}
+          </div>
+        </div>
+        <p class="text-gray-400 text-xs mt-1">Common sizes: Letter 8.5×11, Tabloid 11×17, 12.5×19</p>
+      </div>
+
+      {# Bleed #}
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_bleed">Bleed (inches)</label>
+        <input id="id_bleed" name="bleed" type="number" step="0.0001" min="0"
+          value="{{ values.bleed }}"
+          placeholder="0.125"
+          class="w-48 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <p class="text-gray-400 text-xs mt-1">Standard bleed: 0.125 in (⅛")</p>
+      </div>
+
+      <hr class="my-5 border-gray-200">
+
+      {# Margins #}
+      <div class="mb-5">
+        <p class="text-sm font-medium text-gray-700 mb-3">Margins (inches)</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_margin_top">Top</label>
+            <input id="id_margin_top" name="margin_top" type="number" step="0.0001" min="0"
+              value="{{ values.margin_top }}"
+              placeholder="0.25"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_margin_right">Right</label>
+            <input id="id_margin_right" name="margin_right" type="number" step="0.0001" min="0"
+              value="{{ values.margin_right }}"
+              placeholder="0.25"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_margin_bottom">Bottom</label>
+            <input id="id_margin_bottom" name="margin_bottom" type="number" step="0.0001" min="0"
+              value="{{ values.margin_bottom }}"
+              placeholder="0.25"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_margin_left">Left</label>
+            <input id="id_margin_left" name="margin_left" type="number" step="0.0001" min="0"
+              value="{{ values.margin_left }}"
+              placeholder="0.25"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-5 border-gray-200">
+
+      {# Grid #}
+      <div class="mb-5">
+        <p class="text-sm font-medium text-gray-700 mb-3">Grid</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_columns">Columns</label>
+            <input id="id_columns" name="columns" type="number" min="1" max="100"
+              value="{{ values.columns }}"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_rows">Rows</label>
+            <input id="id_rows" name="rows" type="number" min="1" max="100"
+              value="{{ values.rows }}"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-5 border-gray-200">
+
+      {# Barcode Position #}
+      <div class="mb-5">
+        <p class="text-sm font-medium text-gray-700 mb-1">Barcode Position (inches) <span class="text-gray-400 text-xs font-normal">— optional</span></p>
+        <p class="text-gray-400 text-xs mb-3">Leave blank if no barcode overlay is needed.</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_barcode_x">X position</label>
+            <input id="id_barcode_x" name="barcode_x" type="number" step="0.0001" min="0"
+              value="{{ values.barcode_x }}"
+              placeholder=""
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_barcode_y">Y position</label>
+            <input id="id_barcode_y" name="barcode_y" type="number" step="0.0001" min="0"
+              value="{{ values.barcode_y }}"
+              placeholder=""
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+        </div>
+      </div>
+
+      {# Notes #}
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_notes">Notes</label>
+        <textarea id="id_notes" name="notes" rows="3"
+          placeholder="Optional notes about this template…"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">{{ values.notes }}</textarea>
+      </div>
+
+      {# Submit #}
+      <div class="flex gap-3">
+        <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+          {% if template %}Save Changes{% else %}Create Template{% endif %}
+        </button>
+        <a href="{% url 'impose:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

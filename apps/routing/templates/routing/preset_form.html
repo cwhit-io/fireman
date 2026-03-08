@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{% if preset %}Edit Preset: {{ preset.name }}{% else %}New Printer Preset{% endif %}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+  <div class="mb-4">
+    <a href="{% url 'routing:list' %}" class="text-blue-600 hover:underline">← Back to Presets</a>
+  </div>
+
+  <div class="bg-white shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold mb-6">{% if preset %}Edit Printer Preset{% else %}New Printer Preset{% endif %}</h1>
+
+    <form method="post">
+      {% csrf_token %}
+
+      {# Name #}
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_name">Preset Name <span class="text-red-500">*</span></label>
+        <input id="id_name" name="name" type="text" required
+          value="{{ values.name }}"
+          placeholder="e.g. Fiery Color Coated"
+          class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
+            {% if errors.name %}border-red-400{% else %}border-gray-300{% endif %}">
+        {% if errors.name %}<p class="text-red-600 text-xs mt-1">{{ errors.name }}</p>{% endif %}
+      </div>
+
+      {# Printer Queue #}
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_printer_queue">Printer Queue <span class="text-red-500">*</span></label>
+        <input id="id_printer_queue" name="printer_queue" type="text" required
+          value="{{ values.printer_queue }}"
+          placeholder="fiery"
+          class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
+            {% if errors.printer_queue %}border-red-400{% else %}border-gray-300{% endif %}">
+        <p class="text-gray-400 text-xs mt-1">LPD queue name (e.g. <code>fiery</code>) or IPP URI (e.g. <code>ipp://192.168.1.10/ipp/print</code>)</p>
+        {% if errors.printer_queue %}<p class="text-red-600 text-xs mt-1">{{ errors.printer_queue }}</p>{% endif %}
+      </div>
+
+      <hr class="my-5 border-gray-200">
+
+      {# Media #}
+      <div class="mb-5">
+        <p class="text-sm font-medium text-gray-700 mb-3">Media</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_media_type">Media Type</label>
+            <input id="id_media_type" name="media_type" type="text"
+              value="{{ values.media_type }}"
+              placeholder="Coated"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <p class="text-gray-400 text-xs mt-1">e.g. Coated, Uncoated, Gloss</p>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_media_size">Media Size</label>
+            <input id="id_media_size" name="media_size" type="text"
+              value="{{ values.media_size }}"
+              placeholder="12.5x19"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <p class="text-gray-400 text-xs mt-1">e.g. 12.5x19, Letter, Tabloid</p>
+          </div>
+        </div>
+      </div>
+
+      {# Tray #}
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_tray">Tray</label>
+        <input id="id_tray" name="tray" type="text"
+          value="{{ values.tray }}"
+          placeholder=""
+          class="w-48 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+
+      <hr class="my-5 border-gray-200">
+
+      {# Print Settings #}
+      <div class="mb-5">
+        <p class="text-sm font-medium text-gray-700 mb-3">Print Settings</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_duplex">Duplex Mode</label>
+            <select id="id_duplex" name="duplex"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+              {% for value, label in duplex_modes %}
+              <option value="{{ value }}" {% if values.duplex == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="id_color_mode">Color Mode</label>
+            <select id="id_color_mode" name="color_mode"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+              {% for value, label in color_modes %}
+              <option value="{{ value }}" {% if values.color_mode == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {# Copies #}
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_copies">Copies</label>
+        <input id="id_copies" name="copies" type="number" min="1" max="9999"
+          value="{{ values.copies }}"
+          class="w-24 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+
+      {# Extra LPR Options #}
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_extra_lpr_options">Extra LPR Options</label>
+        <textarea id="id_extra_lpr_options" name="extra_lpr_options" rows="3"
+          placeholder="e.g. MediaColor=Blue&#10;StapleLocation=UpperLeft"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400">{{ values.extra_lpr_options }}</textarea>
+        <p class="text-gray-400 text-xs mt-1">Additional <code>-o key=value</code> options, one per line.</p>
+      </div>
+
+      <hr class="my-5 border-gray-200">
+
+      {# Active #}
+      <div class="mb-6 flex items-center gap-3">
+        <input id="id_active" name="active" type="checkbox"
+          class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          {% if values.active == 'on' or values.active == True %}checked{% endif %}>
+        <label for="id_active" class="text-sm font-medium text-gray-700">Preset is active</label>
+        <span class="text-gray-400 text-xs">(inactive presets are hidden from ruleset selection)</span>
+      </div>
+
+      {# Submit #}
+      <div class="flex gap-3">
+        <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+          {% if preset %}Save Changes{% else %}Create Preset{% endif %}
+        </button>
+        <a href="{% url 'routing:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

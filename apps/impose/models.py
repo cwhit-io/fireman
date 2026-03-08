@@ -1,5 +1,7 @@
 from django.db import models
 
+POINTS_PER_INCH = 72.0
+
 
 class ImpositionTemplate(models.Model):
     """Defines how pages should be imposed onto a press sheet."""
@@ -39,3 +41,46 @@ class ImpositionTemplate(models.Model):
 
     def __str__(self):
         return self.name
+
+    def _to_in(self, pts):
+        """Convert stored points value to inches."""
+        if pts is None:
+            return None
+        return round(float(pts) / POINTS_PER_INCH, 4)
+
+    @property
+    def sheet_width_in(self):
+        return self._to_in(self.sheet_width)
+
+    @property
+    def sheet_height_in(self):
+        return self._to_in(self.sheet_height)
+
+    @property
+    def bleed_in(self):
+        return self._to_in(self.bleed)
+
+    @property
+    def margin_top_in(self):
+        return self._to_in(self.margin_top)
+
+    @property
+    def margin_right_in(self):
+        return self._to_in(self.margin_right)
+
+    @property
+    def margin_bottom_in(self):
+        return self._to_in(self.margin_bottom)
+
+    @property
+    def margin_left_in(self):
+        return self._to_in(self.margin_left)
+
+    @property
+    def sheet_size_label(self):
+        """Human-readable sheet size, e.g. '12.5 × 19 in'."""
+        w = self._to_in(self.sheet_width)
+        h = self._to_in(self.sheet_height)
+        if w is not None and h is not None:
+            return f"{w:g} × {h:g} in"
+        return "—"
