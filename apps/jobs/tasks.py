@@ -71,7 +71,8 @@ def process_job_task(job_id: str) -> None:
             from pathlib import Path as _Path
 
             stem = _Path(job.name).stem if job.name else f"job_{job.pk}"
-            imposed_name = f"{stem}_imposed.pdf"
+            barcode_suffix = f"_{barcode_value}" if barcode_value else ""
+            imposed_name = f"{stem}{barcode_suffix}_imposed.pdf"
             job.imposed_file.save(imposed_name, ContentFile(buf_out.read()), save=True)
             job.status = PrintJob.Status.IMPOSED
             job.save(update_fields=["status"])
@@ -106,7 +107,7 @@ def process_job_task(job_id: str) -> None:
 
             preset_name = job.routing_preset.name if job.routing_preset else "preset"
             raw_name = _Path(job.name).stem if job.name else f"job-{job.pk}"
-            job_title = f"{preset_name}_{raw_name}"
+            job_title = f"{preset_name}_{raw_name}{barcode_suffix}"
             send_to_fiery_lpr(tmp_path, job.routing_preset, title=job_title)
             job.status = PrintJob.Status.SENT
             job.save(update_fields=["status"])

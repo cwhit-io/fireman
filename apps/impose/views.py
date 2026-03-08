@@ -28,7 +28,7 @@ _PT_FIELDS = [
     "barcode_width",
     "barcode_height",
 ]
-_PLAIN_FIELDS = ["name", "layout_type", "columns", "rows", "notes"]
+_PLAIN_FIELDS = ["name", "category", "layout_type", "columns", "rows", "notes", "print_barcode"]
 
 
 def _template_to_dict(tmpl: ImpositionTemplate) -> dict:
@@ -53,6 +53,12 @@ def _dict_to_template_fields(d: dict) -> dict:
     for f in ["barcode_width", "barcode_height"]:
         if fields[f] is None:
             fields[f] = 90.0 if f == "barcode_width" else 25.2
+    # Boolean field — default to True for legacy exports that pre-date the field
+    if fields.get("print_barcode") is None:
+        fields["print_barcode"] = True
+    # category defaults to empty string
+    if fields.get("category") is None:
+        fields["category"] = ""
     return fields
 
 
@@ -84,6 +90,7 @@ def _get_initial_form_values(tmpl=None):
     if tmpl:
         return {
             "name": tmpl.name,
+            "category": tmpl.category,
             "layout_type": tmpl.layout_type,
             "cut_width": _pts_to_in(tmpl.cut_width)
             if tmpl.cut_width is not None
@@ -104,10 +111,12 @@ def _get_initial_form_values(tmpl=None):
             else "",
             "barcode_width": _pts_to_in(tmpl.barcode_width),
             "barcode_height": _pts_to_in(tmpl.barcode_height),
+            "print_barcode": tmpl.print_barcode,
             "notes": tmpl.notes,
         }
     return {
         "name": "",
+        "category": "",
         "layout_type": "custom",
         "cut_width": "",
         "cut_height": "",
@@ -120,6 +129,7 @@ def _get_initial_form_values(tmpl=None):
         "barcode_y": "",
         "barcode_width": "1.25",  # DC-646 default: 1.25" wide (3-digit Code 39)
         "barcode_height": "0.35",  # DC-646 default: 0.35" tall
+        "print_barcode": True,
         "notes": "",
     }
 
@@ -162,6 +172,7 @@ def _template_from_post(data):
 
     return {
         "name": data.get("name", "").strip(),
+        "category": data.get("category", "").strip(),
         "layout_type": data.get("layout_type", "custom") or "custom",
         "cut_width": _fld("cut_width"),
         "cut_height": _fld("cut_height"),
@@ -179,6 +190,7 @@ def _template_from_post(data):
         "barcode_y": _fld("barcode_y"),
         "barcode_width": _fld("barcode_width") or 90.0,  # 1.25" default
         "barcode_height": _fld("barcode_height") or 25.2,  # 0.35" default
+        "print_barcode": data.get("print_barcode") == "on",
         "notes": data.get("notes", "").strip(),
     }
 
@@ -307,6 +319,24 @@ class TemplateListView(ListView):
     model = ImpositionTemplate
     template_name = "impose/template_list.html"
     context_object_name = "templates"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        cat = self.request.GET.get("category", "").strip()
+        if cat:
+            qs = qs.filter(category=cat)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["categories"] = (
+            ImpositionTemplate.objects.exclude(category="")
+            .values_list("category", flat=True)
+            .distinct()
+            .order_by("category")
+        )
+        ctx["current_category"] = self.request.GET.get("category", "")
+        return ctx
 
 
 class TemplateCreateView(View):
