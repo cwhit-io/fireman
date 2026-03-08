@@ -29,47 +29,46 @@
         <p class="mt-1 text-xs text-gray-400">Only PDF files are accepted. Errors will be repaired automatically when possible.</p>
       </div>
 
-      {# Step 2: Product Category filter + Ruleset #}
+      {# Step 2: Product Category (required) #}
       <div class="mb-6">
         <div class="flex items-center gap-2 mb-2">
           <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">2</span>
-          <label class="text-sm font-semibold text-gray-700">Select Ruleset <span class="text-gray-400 text-xs font-normal">— optional</span></label>
+          <label for="category_id" class="text-sm font-semibold text-gray-700">Select Category <span class="text-red-500">*</span></label>
         </div>
+        <select name="category_id" id="category_id" required
+          hx-get="{% url 'jobs:upload_rulesets' %}"
+          hx-trigger="change"
+          hx-target="#ruleset_id"
+          hx-swap="innerHTML"
+          hx-include="[name='category_id']"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+          <option value="" disabled selected>— Select a category —</option>
+          {% for cat in product_categories %}
+          <option value="{{ cat.pk }}" {% if selected_category == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
 
-        {# Product category filter (drives ruleset list via HTMX) #}
-        {% if product_categories %}
-        <div class="mb-3">
-          <label for="category_id" class="block text-xs font-medium text-gray-600 mb-1">Filter by product category</label>
-          <select name="category_id" id="category_id"
-            hx-get="{% url 'jobs:upload_rulesets' %}"
-            hx-trigger="change"
-            hx-target="#ruleset_id"
-            hx-swap="innerHTML"
-            hx-include="[name='category_id']"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-            <option value="">— All categories —</option>
-            {% for cat in product_categories %}
-            <option value="{{ cat.pk }}" {% if selected_category == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
-            {% endfor %}
-          </select>
+      {# Step 3: Ruleset (required, filtered by category via HTMX) #}
+      <div class="mb-6">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">3</span>
+          <label for="ruleset_id" class="text-sm font-semibold text-gray-700">Select Ruleset <span class="text-red-500">*</span></label>
         </div>
-        {% endif %}
-
-        <label for="ruleset_id" class="block text-xs font-medium text-gray-600 mb-1">Ruleset</label>
-        <select name="ruleset_id" id="ruleset_id"
+        <select name="ruleset_id" id="ruleset_id" required
           class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-          <option value="">— Auto-match by rules —</option>
+          <option value="" disabled selected>— Select a category first —</option>
           {% for ruleset in rulesets %}
           <option value="{{ ruleset.pk }}">{{ ruleset.name }}</option>
           {% endfor %}
         </select>
-        <p class="mt-1 text-xs text-gray-400">Leave blank to apply matching rules automatically, or choose a specific ruleset to override.</p>
+        <p class="mt-1 text-xs text-gray-400">Select a category above to filter rulesets.</p>
       </div>
 
-      {# Step 3: Multi-page Options (shown after file is selected) #}
+      {# Step 4: Multi-page Options (shown after file is selected) #}
       <div x-show="showMultiPageOptions" x-transition class="mb-6 border border-blue-100 rounded-lg p-4 bg-blue-50" x-cloak>
         <div class="flex items-center gap-2 mb-3">
-          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">3</span>
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">4</span>
           <p class="text-sm font-semibold text-gray-700">Multi-page Options</p>
         </div>
 

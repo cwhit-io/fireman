@@ -20,9 +20,13 @@ class JobListView(ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        return super().get_queryset().select_related(
-            "imposition_template__sheet_size",
-            "cutter_program",
+        return (
+            super()
+            .get_queryset()
+            .select_related(
+                "imposition_template__sheet_size",
+                "cutter_program",
+            )
         )
 
 
@@ -42,12 +46,15 @@ class JobUploadView(View):
 
     @staticmethod
     def _ruleset_context(category_id=None):
-        qs = Rule.objects.filter(active=True).order_by("name")
         if category_id:
             try:
-                qs = qs.filter(product_category_id=int(category_id))
+                qs = Rule.objects.filter(
+                    active=True, product_category_id=int(category_id)
+                ).order_by("name")
             except (ValueError, TypeError):
-                pass
+                qs = Rule.objects.none()
+        else:
+            qs = Rule.objects.none()
         return {
             "rulesets": qs,
             "product_categories": ProductCategory.objects.order_by("name"),
@@ -67,6 +74,9 @@ class JobUploadView(View):
             return render(request, self.template_name, ctx, status=400)
         if not file.name.lower().endswith(".pdf"):
             messages.error(request, "Only PDF files are accepted.")
+            return render(request, self.template_name, ctx, status=400)
+        if not category_id:
+            messages.error(request, "Please select a category.")
             return render(request, self.template_name, ctx, status=400)
 
         # Validate and optionally repair the PDF before saving
@@ -96,28 +106,30 @@ class JobUploadView(View):
         for w in pdf_warnings:
             messages.warning(request, w)
 
-        # Apply an explicit ruleset if selected
+        # Apply the required ruleset
         ruleset_id = request.POST.get("ruleset_id", "").strip()
-        if ruleset_id:
-            try:
-                ruleset = Rule.objects.select_related(
-                    "imposition_template", "cutter_program", "routing_preset"
-                ).get(pk=int(ruleset_id))
-                from apps.rules.engine import _apply
+        if not ruleset_id:
+            messages.error(request, "Please select a ruleset.")
+            job.delete()
+            return render(request, self.template_name, ctx, status=400)
+        try:
+            ruleset = Rule.objects.select_related(
+                "imposition_template", "cutter_program", "routing_preset"
+            ).get(pk=int(ruleset_id))
+            from apps.rules.engine import _apply
 
-                _apply(ruleset, job)
-                job.save(
-                    update_fields=[
-                        "imposition_template",
-                        "cutter_program",
-                        "routing_preset",
-                    ]
-                )
-            except (Rule.DoesNotExist, ValueError):
-                messages.warning(
-                    request,
-                    "Selected ruleset not found.",
-                )
+            _apply(ruleset, job)
+            job.save(
+                update_fields=[
+                    "imposition_template",
+                    "cutter_program",
+                    "routing_preset",
+                ]
+            )
+        except (Rule.DoesNotExist, ValueError):
+            messages.error(request, "Selected ruleset not found.")
+            job.delete()
+            return render(request, self.template_name, ctx, status=400)
 
         process_job_task.delay(str(job.pk))
         messages.success(request, f"Job '{job.name}' submitted successfully.")
@@ -137,7 +149,7 @@ class JobUploadRulesetsView(View):
                 qs = qs.filter(product_category_id=int(category_id))
             except (ValueError, TypeError):
                 pass
-        html = '<option value="">— Auto-match by rules —</option>'
+        html = '<option value="" disabled selected>— Select ruleset —</option>'
         for ruleset in qs:
             html += f'<option value="{ruleset.pk}">{escape(ruleset.name)}</option>'
         return HttpResponse(html)
