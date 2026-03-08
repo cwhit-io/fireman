@@ -78,7 +78,7 @@ def _get_initial_form_values(tmpl=None):
         "rows": "1",
         "barcode_x": "",
         "barcode_y": "",
-        "barcode_width": "1.25",   # DC-646 default: 1.25" wide (3-digit Code 39)
+        "barcode_width": "1.25",  # DC-646 default: 1.25" wide (3-digit Code 39)
         "barcode_height": "0.35",  # DC-646 default: 0.35" tall
         "notes": "",
     }
@@ -136,7 +136,7 @@ def _template_from_post(data):
         "rows": rows,
         "barcode_x": _fld("barcode_x"),
         "barcode_y": _fld("barcode_y"),
-        "barcode_width": _fld("barcode_width") or 90.0,    # 1.25" default
+        "barcode_width": _fld("barcode_width") or 90.0,  # 1.25" default
         "barcode_height": _fld("barcode_height") or 25.2,  # 0.35" default
         "notes": data.get("notes", "").strip(),
     }
@@ -165,9 +165,11 @@ def _build_preview_svg(data: dict) -> str:
     margin_left = _f("margin_left")
     cols = max(1, int(_f("columns", 1)))
     rows = max(1, int(_f("rows", 1)))
+    cut_w = _f("cut_width")
+    cut_h = _f("cut_height")
     barcode_x = _f("barcode_x", -1)
     barcode_y = _f("barcode_y", -1)
-    barcode_w_in = _f("barcode_width", 1.25)   # DC-646 default: 1.25"
+    barcode_w_in = _f("barcode_width", 1.25)  # DC-646 default: 1.25"
     barcode_h_in = _f("barcode_height", 0.35)  # DC-646 default: 0.35"
     has_barcode = bool(data.get("barcode_x") and data.get("barcode_y"))
 
@@ -183,8 +185,9 @@ def _build_preview_svg(data: dict) -> str:
 
     printable_w = sheet_w - margin_left - margin_right
     printable_h = sheet_h - margin_top - margin_bottom
-    cell_w = printable_w / cols if cols > 0 else 0
-    cell_h = printable_h / rows if rows > 0 else 0
+    # Use cut size for cell size if valid, else fall back to grid division
+    cell_w = cut_w + 2 * bleed if cut_w > 0 else (printable_w / cols if cols > 0 else 0)
+    cell_h = cut_h + 2 * bleed if cut_h > 0 else (printable_h / rows if rows > 0 else 0)
 
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{svg_w:.1f}" height="{svg_h:.1f}" viewBox="0 0 {svg_w:.1f} {svg_h:.1f}">',
