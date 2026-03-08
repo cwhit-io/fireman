@@ -11,9 +11,12 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
-def _build_lpr_command(preset, pdf_path: str) -> list[str]:
+def _build_lpr_command(preset, pdf_path: str, title: str = "") -> list[str]:
     """Build the lpr command list for the given preset."""
     cmd = ["lpr", "-P", preset.printer_queue, "-#", str(preset.copies)]
+
+    if title:
+        cmd += ["-T", title]
 
     if preset.media_size:
         cmd += ["-o", f"media={preset.media_size}"]
@@ -40,7 +43,7 @@ def _build_lpr_command(preset, pdf_path: str) -> list[str]:
 
 
 def send_to_fiery_lpr(
-    pdf_path: str, preset, dry_run: bool = False
+    pdf_path: str, preset, dry_run: bool = False, title: str = ""
 ) -> subprocess.CompletedProcess | None:
     """
     Send *pdf_path* to Fiery via lpr using *preset*.
@@ -51,7 +54,7 @@ def send_to_fiery_lpr(
     if not shutil.which("lpr"):
         raise OSError("lpr is not available on this system.")
 
-    cmd = _build_lpr_command(preset, pdf_path)
+    cmd = _build_lpr_command(preset, pdf_path, title=title)
     logger.info("Sending to Fiery via lpr: %s", " ".join(cmd))
 
     if dry_run:
@@ -62,7 +65,7 @@ def send_to_fiery_lpr(
 
 
 def send_to_fiery_ipp(
-    pdf_path: str, printer_uri: str, preset, dry_run: bool = False
+    pdf_path: str, printer_uri: str, preset, dry_run: bool = False, title: str = ""
 ) -> subprocess.CompletedProcess | None:
     """
     Send *pdf_path* to Fiery via IPP using `lp`.
@@ -70,7 +73,10 @@ def send_to_fiery_ipp(
     if not shutil.which("lp"):
         raise OSError("lp is not available on this system.")
 
-    cmd = ["lp", "-d", printer_uri, "-n", str(preset.copies), pdf_path]
+    cmd = ["lp", "-d", printer_uri, "-n", str(preset.copies)]
+    if title:
+        cmd += ["-t", title]
+    cmd.append(pdf_path)
     logger.info("Sending to Fiery via IPP: %s", " ".join(cmd))
 
     if dry_run:

@@ -527,9 +527,9 @@ class TestBarcodeOverlay:
         out_no_bc = io.BytesIO()
         impose_from_template(tmpl, io.BytesIO(pdf), out_no_bc)
 
-        # With barcode
+        # With barcode — use a numeric value so the TIF file can be resolved
         out_bc = io.BytesIO()
-        impose_from_template(tmpl, io.BytesIO(pdf), out_bc, barcode_value="JOB001")
+        impose_from_template(tmpl, io.BytesIO(pdf), out_bc, barcode_value="1")
 
         # Both produce 1 sheet
         assert len(PdfReader(io.BytesIO(out_no_bc.getvalue())).pages) == 1

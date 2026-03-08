@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import io
 import logging
-import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import IO
 
 logger = logging.getLogger(__name__)
@@ -42,9 +42,6 @@ _DIM_TOL_PT: float = 3.0
 
 # mm → PDF points conversion factor.
 _MM_TO_PT: float = 72.0 / 25.4
-
-# SVG namespace used by python-barcode.
-_SVG_NS: str = "http://www.w3.org/2000/svg"
 
 
 def detect_source_trim(page) -> tuple[float, float, float, float]:
@@ -115,97 +112,93 @@ def _pts(inches: float) -> float:
     return inches * 72.0
 
 
-# ── Barcode rendering helpers ──────────────────────────────────────────────
+# ── Barcode TIF helpers ────────────────────────────────────────────────────
 
 
-def _barcode_pdf_stream(
-    value: str,
+def _resolve_barcode_tif(barcode_value: str) -> str | None:
+    """Return the absolute path to the pre-generated barcode TIF for *barcode_value*.
+
+    The ``barcodes/`` directory at the project root contains files named
+    ``001.tif`` – ``250.tif``.  *barcode_value* is coerced to an integer,
+    zero-padded to three digits, and used as the filename stem.
+
+    Returns ``None`` if the value is not numeric or the file does not exist.
+    """
+    from django.conf import settings
+
+    try:
+        num = int(barcode_value)
+    except (TypeError, ValueError):
+        logger.warning(
+            "barcode_value %r is not numeric; cannot resolve TIF", barcode_value
+        )
+        return None
+
+    tif_path = Path(settings.BASE_DIR) / "barcodes" / f"{num:03d}.tif"
+    if not tif_path.exists():
+        logger.warning("Barcode TIF not found: %s", tif_path)
+        return None
+
+    return str(tif_path)
+
+
+def _barcode_tif_overlay_page(
+    tif_path: str,
     x: float,
     y: float,
     width: float,
     height: float,
-) -> bytes:
-    """Return PDF content-stream bytes that draw a Code 39 barcode.
+    sheet_w: float,
+    sheet_h: float,
+):
+    """Return a PDF page (sheet-sized) with the barcode TIF placed at *(x, y)*.
 
-    Uses python-barcode's SVG output to obtain the bar positions, then
-    renders each bar as a filled PDF rectangle scaled to *width × height*
-    points at position *(x, y)* (bottom-left corner in PDF coordinate space).
-
-    Returns ``b""`` if *value* is empty or barcode generation fails.
-
-    .. note::
-        python-barcode's SVGWriter always outputs dimensions in millimetres.
-        This function relies on that behaviour; if the unit ever changes the
-        ``"mm"`` suffix check on line 160 will return early with an empty result.
+    The image is scaled to *width × height* points.  The returned page can be
+    merged directly onto an output sheet with ``page.merge_page(overlay)``.
+    Returns ``None`` if the image cannot be embedded.
     """
-    if not value:
-        return b""
+    try:
+        from PIL import Image
+    except ImportError:
+        logger.error("Pillow is required for TIF barcode embedding.")
+        return None
 
-    def _mm_attr(s: str) -> float:
-        """Parse a CSS-millimetre attribute string such as ``'3.740mm'``."""
-        stripped = s.replace("mm", "").strip()
-        if not stripped:
-            raise ValueError(s)
-        return float(stripped)
+    from pypdf import PageObject, PdfReader, PdfWriter, Transformation
 
     try:
-        import barcode as _bc
-        from barcode.writer import SVGWriter
-
-        code = _bc.get("code39", value, writer=SVGWriter())
-        buf = io.BytesIO()
-        code.write(buf)
-        buf.seek(0)
-        svg_bytes = buf.read()
+        img = Image.open(tif_path)
+        # Normalise to grayscale; handles 1-bit, palette, CMYK, etc.
+        img = img.convert("L")
+        pdf_buf = io.BytesIO()
+        img.save(pdf_buf, format="PDF")
+        pdf_buf.seek(0)
     except Exception:
-        logger.exception("Barcode generation failed for value %r", value)
-        return b""
+        logger.exception("Failed to convert barcode TIF %r to PDF", tif_path)
+        return None
 
-    try:
-        root = ET.fromstring(svg_bytes)
-    except ET.ParseError:
-        logger.warning("Barcode SVG parse error for value %r", value)
-        return b""
+    img_reader = PdfReader(pdf_buf)
+    if not img_reader.pages:
+        return None
 
-    svg_w_str = root.get("width", "")
-    if not svg_w_str.endswith("mm"):
-        logger.warning(
-            "Unexpected SVG width unit %r for barcode %r; expected 'mm'",
-            svg_w_str,
-            value,
-        )
-        return b""
-    try:
-        svg_w_pt = _mm_attr(svg_w_str) * _MM_TO_PT
-    except ValueError:
-        return b""
+    img_page = img_reader.pages[0]
+    img_w = float(img_page.mediabox.width)
+    img_h = float(img_page.mediabox.height)
+    if img_w <= 0 or img_h <= 0:
+        return None
 
-    if svg_w_pt <= 0:
-        return b""
+    sx = width / img_w
+    sy = height / img_h
 
-    x_scale = width / svg_w_pt
+    sheet_page = PageObject.create_blank_page(width=sheet_w, height=sheet_h)
+    transform = Transformation().scale(sx, sy).translate(x, y)
+    sheet_page.merge_transformed_page(img_page, transform)
 
-    cmds: list[bytes] = [b"q", b"0 0 0 rg"]
-    for rect in root.iter(f"{{{_SVG_NS}}}rect"):
-        style = rect.get("style", "")
-        if "fill:black" not in style:
-            continue
-        try:
-            rx_pt = _mm_attr(rect.get("x", "0mm")) * _MM_TO_PT
-            rw_pt = _mm_attr(rect.get("width", "0mm")) * _MM_TO_PT
-        except ValueError:
-            continue
-        bar_x = x + rx_pt * x_scale
-        bar_w = rw_pt * x_scale
-        if bar_w <= 0:
-            continue
-        cmds.append(f"{bar_x:.3f} {y:.3f} {bar_w:.3f} {height:.3f} re f".encode())
-
-    if len(cmds) <= 2:
-        return b""
-
-    cmds.append(b"Q")
-    return b"\n".join(cmds)
+    writer = PdfWriter()
+    writer.add_page(sheet_page)
+    out_buf = io.BytesIO()
+    writer.write(out_buf)
+    out_buf.seek(0)
+    return PdfReader(out_buf).pages[0]
 
 
 def _cut_marks_pdf_stream(
@@ -688,7 +681,7 @@ def impose_from_template(
             auto_rotate=auto_rotate,
         )
 
-    # ── Build overlay content streams (barcode + cut marks) ───────────────
+    # ── Build overlays (barcode TIF + cut marks) ──────────────────────────
     has_barcode = (
         barcode_value
         and template.barcode_x is not None
@@ -700,19 +693,23 @@ def impose_from_template(
         output_pdf.write(imposed_buf.read())
         return
 
-    overlay_stream = b""
+    barcode_overlay = None
 
     if has_barcode:
-        bx = float(template.barcode_x)
-        by = float(template.barcode_y)
-        bw = float(template.barcode_width)
-        bh = float(template.barcode_height)
-        overlay_stream += _barcode_pdf_stream(barcode_value, bx, by, bw, bh)
+        tif_path = _resolve_barcode_tif(barcode_value)
+        if tif_path:
+            bx = float(template.barcode_x)
+            by = float(template.barcode_y)
+            bw = float(template.barcode_width)
+            bh = float(template.barcode_height)
+            barcode_overlay = _barcode_tif_overlay_page(
+                tif_path, bx, by, bw, bh, sheet_w, sheet_h
+            )
+
+    cut_overlay = None
 
     if cut_marks:
         # Re-derive cell trim positions using the same formulas as impose_nup.
-        # When all margins are zero impose_nup auto-centres, which is a no-op
-        # (grid fills the sheet); the positions here match that behaviour.
         cols = template.columns
         num_rows = template.rows
         cell_w = (sheet_w - eff_margin_left - eff_margin_right) / cols
@@ -725,11 +722,20 @@ def impose_from_template(
                 tw = cell_w - 2 * bleed
                 th = cell_h - 2 * bleed
                 cells.append((tl, tb, tw, th))
-        if overlay_stream:
-            overlay_stream += b"\n"
-        overlay_stream += _cut_marks_pdf_stream(cells, bleed)
+        cut_overlay = _make_overlay_page(
+            sheet_w, sheet_h, _cut_marks_pdf_stream(cells, bleed)
+        )
 
-    if not overlay_stream:
+    # Combine barcode + cut marks into a single overlay page.
+    combined_overlay = None
+    if barcode_overlay is not None:
+        combined_overlay = barcode_overlay
+        if cut_overlay is not None:
+            combined_overlay.merge_page(cut_overlay)
+    elif cut_overlay is not None:
+        combined_overlay = cut_overlay
+
+    if combined_overlay is None:
         imposed_buf.seek(0)
         output_pdf.write(imposed_buf.read())
         return
@@ -741,12 +747,10 @@ def impose_from_template(
     reader = PdfReader(imposed_buf)
     writer = PdfWriter()
 
-    # Add all pages to the writer first (required by pypdf for reliable merging).
     for page in reader.pages:
         writer.add_page(page)
 
-    overlay_page = _make_overlay_page(sheet_w, sheet_h, overlay_stream)
     for page in writer.pages:
-        page.merge_page(overlay_page)
+        page.merge_page(combined_overlay)
 
     writer.write(output_pdf)
