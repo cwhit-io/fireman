@@ -156,6 +156,24 @@ class JobDeleteView(DeleteView):
         return super().form_valid(form)
 
 
+class JobPreviewView(View):
+    """Serve the imposed PDF inline for browser preview before sending to printer."""
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        job = get_object_or_404(PrintJob, pk=pk)
+        if not job.imposed_file:
+            raise Http404("No imposed file available for this job.")
+        response = FileResponse(
+            job.imposed_file.open("rb"),
+            as_attachment=False,
+            filename=f"preview_{job.name}",
+            content_type="application/pdf",
+        )
+        return response
+
+
 class JobDownloadView(View):
     """Serve the imposed PDF for download."""
 

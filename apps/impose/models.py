@@ -18,6 +18,11 @@ class ImpositionTemplate(models.Model):
         CUSTOM = "custom", "Custom"
 
     name = models.CharField(max_length=100, unique=True)
+    category = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Optional category for grouping templates (e.g. 'Business Cards', 'Postcards')",
+    )
     layout_type = models.CharField(
         max_length=20, choices=LayoutType.choices, blank=True, default="custom"
     )
@@ -81,6 +86,10 @@ class ImpositionTemplate(models.Model):
     )
     columns = models.PositiveSmallIntegerField(default=1)
     rows = models.PositiveSmallIntegerField(default=1)
+    print_barcode = models.BooleanField(
+        default=True,
+        help_text="Print the barcode overlay on this layout. Uncheck if the barcode position overlaps artwork (the barcode number will still appear in the filename sent to the Fiery).",
+    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
