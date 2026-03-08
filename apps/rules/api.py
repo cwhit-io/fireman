@@ -6,12 +6,12 @@ router = Router(tags=["rules"])
 class RuleOut(Schema):
     id: int
     name: str
-    priority: int
-    condition_type: str
-    condition_value: str
     imposition_template_id: int | None = None
     cutter_program_id: int | None = None
     routing_preset_id: int | None = None
+    cut_size_id: int | None = None
+    sheet_size_id: int | None = None
+    product_category_id: int | None = None
     active: bool
 
     class Config:
@@ -20,12 +20,12 @@ class RuleOut(Schema):
 
 class RuleIn(Schema):
     name: str
-    priority: int = 10
-    condition_type: str
-    condition_value: str
     imposition_template_id: int | None = None
     cutter_program_id: int | None = None
     routing_preset_id: int | None = None
+    cut_size_id: int | None = None
+    sheet_size_id: int | None = None
+    product_category_id: int | None = None
 
 
 @router.get("/", response=list[RuleOut])

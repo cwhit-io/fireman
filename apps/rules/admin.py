@@ -7,14 +7,14 @@ from .models import Rule
 class RuleAdmin(admin.ModelAdmin):
     list_display = [
         "name",
-        "priority",
-        "condition_type",
-        "condition_value",
+        "product_category",
+        "cut_size",
+        "sheet_size",
         "imposition_template",
         "cutter_program",
         "routing_preset",
         "active",
     ]
-    list_filter = ["active", "condition_type"]
-    search_fields = ["name", "condition_value"]
-    ordering = ["priority", "name"]
+    list_filter = ["active", "product_category", "cut_size", "sheet_size"]
+    search_fields = ["name"]
+    ordering = ["name"]

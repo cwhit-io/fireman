@@ -22,15 +22,28 @@
           </div>
 
           <div class="mb-5">
-            <label class="block text-sm font-medium text-gray-700 mb-1" for="id_category">Category <span class="text-gray-400 text-xs font-normal">— optional, for grouping</span></label>
-            <input id="id_category" name="category" type="text" value="{{ values.category }}" placeholder="e.g. Business Cards, Postcards, Rack Cards" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <p class="text-gray-400 text-xs mt-1">Used to filter and group templates in the list.</p>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="id_product_category">Product Category <span class="text-gray-400 text-xs font-normal">— optional, from lookup table</span></label>
+            <select id="id_product_category" name="product_category" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+              <option value="">— None —</option>
+              {% for cat in product_categories %}
+              <option value="{{ cat.pk }}" {% if values.product_category == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+            <p class="text-gray-400 text-xs mt-1">Links this template to a product category (e.g. Business Cards, Postcards). <a href="/admin/impose/productcategory/add/" class="text-blue-600 hover:underline" target="_blank">Add category →</a></p>
           </div>
 
           <hr class="my-5 border-gray-200">
 
           <div class="mb-4">
-            <p class="text-sm font-medium text-gray-700 mb-1">Cut Size (inches) <span class="text-gray-400 text-xs font-normal">— finished product size, no bleed</span></p>
+            <p class="text-sm font-medium text-gray-700 mb-1">Cut Size <span class="text-gray-400 text-xs font-normal">— pick from lookup table <em>or</em> enter inches below</span></p>
+            <select id="id_cut_size" name="cut_size" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 mb-2">
+              <option value="">— None —</option>
+              {% for sz in cut_sizes %}
+              <option value="{{ sz.pk }}" {% if values.cut_size == sz.pk|stringformat:'s' %}selected{% endif %}>{{ sz.name }} ({{ sz.label }})</option>
+              {% endfor %}
+            </select>
+            <p class="text-gray-400 text-xs mb-2">Select a named size or enter custom dimensions below. <a href="/admin/impose/printsize/add/" class="text-blue-600 hover:underline" target="_blank">Add size →</a></p>
+            <p class="text-sm font-medium text-gray-600 mb-2">Custom dimensions (inches):</p>
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs text-gray-500 mb-1" for="id_cut_width">Width</label>
@@ -53,7 +66,15 @@
           <hr class="my-5 border-gray-200">
 
           <div class="mb-4">
-            <p class="text-sm font-medium text-gray-700 mb-3">Sheet Size (inches) <span class="text-red-500">*</span></p>
+            <p class="text-sm font-medium text-gray-700 mb-1">Sheet Size <span class="text-red-500">*</span> <span class="text-gray-400 text-xs font-normal">— pick from lookup table <em>or</em> enter inches below</span></p>
+            <select id="id_sheet_size" name="sheet_size" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 mb-2">
+              <option value="">— None —</option>
+              {% for sz in sheet_sizes %}
+              <option value="{{ sz.pk }}" {% if values.sheet_size == sz.pk|stringformat:'s' %}selected{% endif %}>{{ sz.name }} ({{ sz.label }})</option>
+              {% endfor %}
+            </select>
+            <p class="text-gray-400 text-xs mb-2">Select a named sheet size or enter custom dimensions below. <a href="/admin/impose/printsize/add/" class="text-blue-600 hover:underline" target="_blank">Add size →</a></p>
+            <p class="text-sm font-medium text-gray-600 mb-2">Custom dimensions (inches):</p>
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs text-gray-500 mb-1" for="id_sheet_width">Width</label>
