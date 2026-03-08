@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Delete Rule: {{ rule.name }}{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-8">
+  <div class="mb-4">
+    <a href="{% url 'rules:list' %}" class="text-blue-600 hover:underline">← Back to Rules</a>
+  </div>
+  <div class="bg-white shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold mb-2 text-red-700">Delete Rule</h1>
+    <p class="text-gray-600 mb-6">
+      Are you sure you want to delete <strong>{{ rule.name }}</strong>?
+      This action cannot be undone.
+    </p>
+    <div class="bg-gray-50 rounded p-4 mb-6 text-sm text-gray-600">
+      <dl class="grid grid-cols-2 gap-2">
+        <div><dt class="font-medium">Condition</dt><dd>{{ rule.get_condition_type_display }}: <code>{{ rule.condition_value }}</code></dd></div>
+        <div><dt class="font-medium">Action</dt><dd>{{ rule.get_action_type_display }}: <code>{{ rule.action_value }}</code></dd></div>
+        <div><dt class="font-medium">Priority</dt><dd>{{ rule.priority }}</dd></div>
+        <div><dt class="font-medium">Active</dt><dd>{% if rule.active %}Yes{% else %}No{% endif %}</dd></div>
+      </dl>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="flex gap-3">
+        <button type="submit" class="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 text-sm font-medium">
+          Yes, delete this rule
+        </button>
+        <a href="{% url 'rules:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

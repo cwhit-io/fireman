@@ -11,7 +11,11 @@
 
     <div class="navbar bg-base-200 shadow-sm px-4">
         <div class="flex-1">
-            <a href="/" class="btn btn-ghost text-xl">Django Template</a>
+            <a href="/" class="btn btn-ghost text-xl font-bold">🔥 Fireman</a>
+            <div class="hidden sm:flex ml-2 gap-1">
+                <a href="{% url 'jobs:list' %}" class="btn btn-ghost btn-sm">Jobs</a>
+                <a href="{% url 'rules:list' %}" class="btn btn-ghost btn-sm">Rules</a>
+            </div>
         </div>
         <div class="flex-none">
             {% block nav_actions %}{% endblock %}
