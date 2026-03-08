@@ -3,7 +3,7 @@
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 py-8">
   <div class="mb-4">
-    <a href="{% url 'routing:list' %}" class="text-blue-600 hover:underline">← Back to Presets</a>
+    <a href="{% if next %}{{ next }}{% else %}{% url 'routing:list' %}{% endif %}" class="text-blue-600 hover:underline">← Back to Presets</a>
   </div>
 
   <div class="bg-white shadow rounded-lg p-6">
@@ -11,6 +11,7 @@
 
     <form method="post">
       {% csrf_token %}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 
       {# ── Preset Identity ─────────────────────────────────────────────── #}
       <div class="grid grid-cols-2 gap-4 mb-5">
@@ -113,7 +114,7 @@
         <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 text-sm font-medium">
           {% if preset %}Save Changes{% else %}Create Preset{% endif %}
         </button>
-        <a href="{% url 'routing:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
+        <a href="{% if next %}{{ next }}{% else %}{% url 'routing:list' %}{% endif %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
         {% if preset %}
         <button type="button" id="test-conn-btn"
           data-url="{% url 'routing:test_connection' preset.pk %}"
