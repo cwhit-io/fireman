@@ -122,13 +122,19 @@
             </button>
             <a href="{% if next %}{{ next }}{% else %}{% url 'routing:list' %}{% endif %}" class="btn btn-ghost">Cancel</a>
           </div>
-          {% if preset %}
-          <button type="button" id="test-conn-btn"
-            data-url="{% url 'routing:test_connection' preset.pk %}"
-            class="btn btn-outline">
-            Test Printer Connection
-          </button>
-          {% endif %}
+          <div class="flex gap-3">
+            {% if preset %}
+            <form method="post" action="{% url 'routing:duplicate' preset.pk %}" class="inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline">Duplicate Preset</button>
+            </form>
+            <button type="button" id="test-conn-btn"
+              data-url="{% url 'routing:test_connection' preset.pk %}"
+              class="btn btn-outline">
+              Test Printer Connection
+            </button>
+            {% endif %}
+          </div>
         </div>
 
         {% if preset %}
@@ -136,8 +142,6 @@
         {% endif %}
       </form>
     </div>
-  </div>
-    </form>
   </div>
 </div>
 

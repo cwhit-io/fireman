@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Job: {{ job.name }}{% endblock %}
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-8 pb-28" x-data="{ showChange: false, showDeleteModal: false, showBarcodeInfo: false, showHowModal: false }">
+<div class="max-w-4xl mx-auto px-4 py-8 pb-28" x-data="{ showChange: false, showDeleteModal: false, showBarcodeInfo: false, showHowModal: false, showRenameModal: false }">
 
   {# 1. Breadcrumb + Job Identity #}
   <div class="breadcrumbs text-sm mb-2">
@@ -13,6 +13,7 @@
 
   <div class="flex items-center gap-3 mb-6 flex-wrap">
     <h1 class="text-2xl font-bold">{{ job.name|default:job.pk }}</h1>
+    <button type="button" @click="showRenameModal = true" class="btn btn-xs btn-ghost" title="Edit job name">✏️</button>
     {% if job.status == 'sent' %}
     <span class="badge badge-success">{{ job.get_status_display }}</span>
     {% elif job.status == 'error' %}
@@ -31,11 +32,9 @@
   {% endfor %}
   {% endif %}
 
-  {# 2. Primary Action Bar — replaced by sticky footer; spacer removed #}
-
   {# 3. Quantity Input — step-and-repeat jobs only #}
   {% if per_sheet and not job.pages_are_unique %}
-  <div class="bg-base-100 p-4 rounded-lg mb-6 border border-base-300">
+  <div class="bg-base-200 border border-base-300 p-4 rounded-lg mb-6">
     <div class="w-full">
       <p class="font-bold mb-2">Finished pieces needed</p>
       <form method="post" action="{% url 'jobs:calc_sheets' job.pk %}" class="flex flex-wrap items-end gap-2">
@@ -101,7 +100,7 @@
           <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">2</span>
           <div>
             <p class="font-semibold text-sm mb-1">Find on Fiery</p>
-            <kbd class="kbd">{{ job.name|default:job.pk }}</kbd>
+            <kbd class="kbd">{{ fiery_name|default:job.name|default:job.pk }}</kbd>
           </div>
         </div>
       </li>
@@ -151,8 +150,6 @@
   </div>
   {% endif %}
 
-  {# 5. Job Specs merged into Job Details below #}
-
   {# Change Template inline form #}
   <div x-show="showChange" x-transition x-cloak class="card card-bordered bg-base-100 shadow mb-6">
     <div class="card-body">
@@ -178,7 +175,7 @@
     </div>
   </div>
 
-  {# 7. Collapsible Job Details — closed by default #}
+  {# Collapsible Job Details #}
   <div class="collapse collapse-arrow bg-base-100 border border-base-300 shadow mb-6">
     <input type="checkbox">
     <div class="collapse-title font-semibold">Job Details</div>
@@ -191,7 +188,8 @@
           <tr><th>Imposition</th><td>{% if job.pages_are_unique %}N-up (unique pages){% else %}Step-and-repeat{% endif %}</td></tr>
           {% if job.imposition_template %}<tr><th>Template</th><td>{{ job.imposition_template.name }}</td></tr>{% endif %}
           {% if job.cutter_program %}<tr><th>Cutter Code</th><td class="font-semibold">{% if job.cutter_program.duplo_code %}#{{ job.cutter_program.duplo_code }}{% else %}{{ job.cutter_program }}{% endif %}</td></tr>{% endif %}
-          {% if job.routing_preset %}<tr><th>Printer</th><td>{{ job.routing_preset }}</td></tr>{% endif %}
+          {% if job.routing_preset %}<tr><th>Printer Preset</th><td>{{ job.routing_preset }}</td></tr>{% endif %}
+          {% if fiery_name %}<tr><th>Fiery Name</th><td class="font-mono text-sm">{{ fiery_name }}</td></tr>{% endif %}
           <tr><th>Page Count</th><td>{{ job.page_count|default:"—" }}</td></tr>
           <tr><th>Page Size</th><td>{{ job.page_size_label }}</td></tr>
           <tr><th>Type</th><td>{{ job.get_product_type_display|default:"—" }}</td></tr>
@@ -209,6 +207,7 @@
       {# Action buttons at bottom of accordion #}
       <div class="card-actions justify-end mt-4 pt-4 border-t border-base-300">
         <button @click="showChange = !showChange" class="btn btn-sm btn-outline">Change Template</button>
+        <button type="button" @click="showRenameModal = true" class="btn btn-sm btn-outline">Rename</button>
         {% if user.is_authenticated %}
         <form method="post" action="{% url 'jobs:toggle_save' job.pk %}" class="inline">
           {% csrf_token %}
@@ -223,6 +222,26 @@
         <button type="button" @click="showDeleteModal = true" class="btn btn-sm btn-error btn-outline">Delete</button>
       </div>
     </div>
+  </div>
+
+  {# Rename Modal #}
+  <div class="modal" :class="{ 'modal-open': showRenameModal }" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg">Rename Job</h3>
+      <p class="py-2 text-sm text-base-content/60">Change the display name for this job. This also affects the title shown on the Fiery.</p>
+      <form method="post" action="{% url 'jobs:rename' job.pk %}">
+        {% csrf_token %}
+        <div class="form-control mt-2">
+          <label class="label" for="id_rename_name"><span class="label-text">Job Name</span></label>
+          <input id="id_rename_name" name="name" type="text" required value="{{ job.name }}" class="input input-bordered" placeholder="Enter a name for this job">
+        </div>
+        <div class="modal-action">
+          <button type="submit" class="btn btn-primary">Save Name</button>
+          <button type="button" class="btn btn-ghost" @click="showRenameModal = false">Cancel</button>
+        </div>
+      </form>
+    </div>
+    <div class="modal-backdrop" @click="showRenameModal = false"></div>
   </div>
 
   {# Delete Confirmation Modal #}
@@ -325,11 +344,20 @@
 {# Sticky bottom action bar — always visible #}
 {% if job.imposed_file %}
 <div class="fixed bottom-0 left-0 right-0 z-40 bg-neutral text-neutral-content border-t border-base-300 shadow-lg" role="region" aria-label="Action toolbar">
-  <div class="max-w-4xl mx-auto px-4 py-3 flex gap-3 items-center justify-end">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex gap-3 items-center justify-end flex-wrap">
     <a href="{% url 'jobs:preview' job.pk %}" target="_blank" class="btn btn-ghost">Preview PDF</a>
     {% if job.routing_preset %}
-      <form method="post" action="{% url 'jobs:resend' job.pk %}" class="inline">
+      <form method="post" action="{% url 'jobs:resend' job.pk %}" class="flex items-center gap-2 flex-wrap" x-data="{ showDuplex: false }">
         {% csrf_token %}
+        <label class="flex items-center gap-1 text-sm cursor-pointer select-none">
+          <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" @change="showDuplex = $event.target.checked">
+          <span>Override duplex</span>
+        </label>
+        <select name="duplex_override" x-show="showDuplex" x-cloak class="select select-sm select-bordered bg-neutral text-neutral-content border-neutral-content/30 min-w-[9rem]">
+          <option value="duplex_long">Duplex Long-Edge</option>
+          <option value="duplex_short">Duplex Short-Edge</option>
+          <option value="simplex">Simplex (1-sided)</option>
+        </select>
         <button type="submit" class="btn btn-primary">Send to Printer</button>
       </form>
     {% else %}

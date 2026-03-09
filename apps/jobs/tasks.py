@@ -90,6 +90,7 @@ def process_job_task(job_id: str) -> None:
         import os
         import tempfile
 
+        from apps.jobs.services import compute_fiery_name
         from apps.routing.services import send_to_fiery_lpr
 
         job.status = PrintJob.Status.ROUTING
@@ -101,11 +102,7 @@ def process_job_task(job_id: str) -> None:
                     tmp.write(fh.read())
                 tmp_path = tmp.name
 
-            from pathlib import Path as _Path
-
-            preset_name = job.routing_preset.name if job.routing_preset else "preset"
-            raw_name = _Path(job.name).stem if job.name else f"job-{job.pk}"
-            job_title = f"{preset_name}_{raw_name}{barcode_suffix}"
+            job_title = compute_fiery_name(job)
             send_to_fiery_lpr(tmp_path, job.routing_preset, title=job_title)
             job.status = PrintJob.Status.SENT
             job.save(update_fields=["status"])

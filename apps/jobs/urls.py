@@ -25,5 +25,6 @@ urlpatterns = [
     path(
         "<uuid:pk>/toggle-save/", views.JobToggleSaveView.as_view(), name="toggle_save"
     ),
+    path("<uuid:pk>/rename/", views.JobRenameView.as_view(), name="rename"),
     path("<uuid:pk>/calc-sheets/", views.calc_sheets, name="calc_sheets"),
 ]
