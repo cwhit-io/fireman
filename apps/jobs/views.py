@@ -156,10 +156,13 @@ class JobUploadTemplatesView(View):
                 pass
         html = '<option value="" disabled selected>— Select template —</option>'
         for tmpl in qs:
-            if category_id and tmpl.cut_size:
-                label = escape(tmpl.cut_size.label)
-            elif category_id and (tmpl.cut_width and tmpl.cut_height):
-                label = escape(tmpl.cut_size_label)
+            if category_id:
+                if tmpl.cut_size:
+                    label = escape(tmpl.cut_size.label)
+                elif tmpl.cut_width and tmpl.cut_height:
+                    label = escape(tmpl.cut_size_label)
+                else:
+                    label = escape(tmpl.name)
             else:
                 label = escape(tmpl.name)
             html += f'<option value="{tmpl.pk}">{label}</option>'
