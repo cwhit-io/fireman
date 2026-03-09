@@ -12,40 +12,40 @@
 {% block content %}
 
 {# ── §1 HERO ─────────────────────────────────────── #}
-<section class="relative bg-gradient-to-br from-base-100 via-base-200 to-base-100 py-20 md:py-28" aria-labelledby="hero-headline">
-  <div class="max-w-6xl mx-auto px-4">
-    <div class="grid lg:grid-cols-2 gap-12 items-center">
+<section class="relative bg-gradient-to-br from-base-100 via-base-200 to-base-100 py-12 md:py-20 lg:py-28" aria-labelledby="hero-headline">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6">
+    <div class="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
 
-      <div>
-        <div class="flex flex-wrap gap-2 mb-6">
-          <span class="badge badge-primary badge-outline">Guided PDF prep (no guessing)</span>
-          <span class="badge badge-primary badge-outline">Reliable job submission</span>
-          <span class="badge badge-primary badge-outline">Clear status + error messages</span>
-          <span class="badge badge-primary badge-outline">Made for busy teams</span>
+      <div class="text-center lg:text-left">
+        <div class="flex flex-wrap justify-center lg:justify-start gap-2 mb-4 md:mb-6">
+          <span class="badge badge-primary badge-outline text-xs">Guided PDF prep</span>
+          <span class="badge badge-primary badge-outline text-xs">Reliable job submission</span>
+          <span class="badge badge-primary badge-outline text-xs hidden sm:inline-flex">Clear status + error messages</span>
+          <span class="badge badge-primary badge-outline text-xs hidden sm:inline-flex">Made for busy teams</span>
         </div>
 
-        <h1 id="hero-headline" class="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight mb-6">
+        <h1 id="hero-headline" class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight mb-4 md:mb-6">
           Meet <span class="text-primary">Ember</span> — your friendly print helper.
         </h1>
 
-        <p class="text-lg md:text-xl text-base-content/70 mb-8 max-w-xl leading-relaxed">
+        <p class="text-base md:text-lg lg:text-xl text-base-content/70 mb-6 md:mb-8 max-w-xl mx-auto lg:mx-0 leading-relaxed">
           Prep PDFs, avoid hotfolder headaches, and send jobs to the printer with&nbsp;confidence.
         </p>
 
-        <div class="flex flex-wrap gap-4">
-          <a href="{% url 'jobs:list' %}" class="btn btn-primary btn-lg shadow-md">Get Started</a>
-          <a href="#how-it-works" class="btn btn-secondary btn-lg btn-outline">See how it works</a>
+        <div class="flex flex-wrap justify-center lg:justify-start gap-3 md:gap-4">
+          <a href="{% url 'jobs:list' %}" class="btn btn-primary btn-md md:btn-lg shadow-md">Get Started</a>
+          <a href="#how-it-works" class="btn btn-secondary btn-md md:btn-lg btn-outline">See how it works</a>
         </div>
       </div>
 
-      {# Mascot card — hi.png as a friendly illustration beside the hero copy #}
-      <div class="flex justify-center lg:justify-end">
+      {# Mascot card — dog1.png as a friendly illustration beside the hero copy #}
+      <div class="hidden md:flex justify-center lg:justify-end">
         <div>
-          <figure class="px-6 pt-8">
-            <img src="{% static 'hi.png' %}" alt="Ember mascot — a cheerful dog ready to help with your print jobs"/>
+          <figure class="px-6 pt-6">
+            <img src="{% static 'dog1.png' %}" alt="Ember mascot — a cheerful dog ready to help with your print jobs" class="max-h-64 lg:max-h-80 mx-auto"/>
           </figure>
-          <div class="card-body items-center text-center pb-8">
-            <h2 class="card-title text-4xl">Hi, I'm Ember! 🐾</h2>
+          <div class="card-body items-center text-center pb-6">
+            <h2 class="card-title text-2xl md:text-4xl">Hi, I'm Ember! 🐾</h2>
           </div>
         </div>
       </div>
@@ -55,18 +55,18 @@
 </section>
 
 {# ── §2 HOW IT WORKS ─────────────────────────────── #}
-<section id="how-it-works" class="py-20 bg-base-200" aria-labelledby="how-it-works-heading">
-  <div class="max-w-6xl mx-auto px-4">
+<section id="how-it-works" class="py-12 md:py-20 bg-base-200" aria-labelledby="how-it-works-heading">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6">
     {% include "partials/_section_header.html" with title="How it works" subtitle="Three easy steps from PDF to printer — no jargon, no guessing." %}
 
     {# daisyUI steps component for visual progression through the workflow #}
-    <ul class="steps steps-vertical md:steps-horizontal w-full mb-12 text-sm font-medium">
+    <ul class="steps steps-vertical md:steps-horizontal w-full mb-8 md:mb-12 text-sm font-medium">
       <li class="step step-primary">Add your PDF</li>
       <li class="step step-primary">Confirm details</li>
       <li class="step step-primary">Send to print</li>
     </ul>
 
-    <div class="grid md:grid-cols-3 gap-6">
+    <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
       <div class="card bg-base-100 shadow-md border border-base-300 hover:shadow-lg transition-shadow">
         <div class="card-body">
           <div class="text-4xl mb-3" aria-hidden="true">📄</div>
@@ -81,7 +81,7 @@
           <p class="text-base-content/60">Choose paper, orientation, and finishing options. Plain-language prompts — not a wall of print driver settings.</p>
         </div>
       </div>
-      <div class="card bg-base-100 shadow-md border border-base-300 hover:shadow-lg transition-shadow">
+      <div class="card bg-base-100 shadow-md border border-base-300 hover:shadow-lg transition-shadow sm:col-span-2 md:col-span-1">
         <div class="card-body">
           <div class="text-4xl mb-3" aria-hidden="true">🖨️</div>
           <h3 class="card-title text-lg">3. Send to print</h3>
@@ -93,11 +93,11 @@
 </section>
 
 {# ── §3 WHY TEAMS LOVE EMBER ─────────────────────── #}
-<section class="py-20 bg-base-100" aria-labelledby="benefits-heading">
-  <div class="max-w-6xl mx-auto px-4">
+<section class="py-12 md:py-20 bg-base-100" aria-labelledby="benefits-heading">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6">
     {% include "partials/_section_header.html" with title="Why teams love Ember" subtitle="Less time chasing jobs. More time doing great work." %}
 
-    <div class="grid md:grid-cols-3 gap-6">
+    <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
       <div class="card bg-base-200 shadow border border-base-300 hover:shadow-lg transition-shadow">
         <div class="card-body">
           <div class="text-3xl mb-3" aria-hidden="true">✅</div>
@@ -112,7 +112,7 @@
           <p class="text-base-content/60 text-sm">Save printer, media, and finishing settings as reusable presets so everyone on the team submits jobs the right way, every time.</p>
         </div>
       </div>
-      <div class="card bg-base-200 shadow border border-base-300 hover:shadow-lg transition-shadow">
+      <div class="card bg-base-200 shadow border border-base-300 hover:shadow-lg transition-shadow sm:col-span-2 md:col-span-1">
         <div class="card-body">
           <div class="text-3xl mb-3" aria-hidden="true">🚫</div>
           <h3 class="card-title text-base">Fewer reprints</h3>
@@ -124,9 +124,9 @@
 </section>
 
 {# ── §4 FEATURE HIGHLIGHTS ───────────────────────── #}
-<section class="py-20 bg-base-200" aria-labelledby="features-heading">
-  <div class="max-w-6xl mx-auto px-4">
-    <div class="grid lg:grid-cols-2 gap-12 items-center">
+<section class="py-12 md:py-20 bg-base-200" aria-labelledby="features-heading">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6">
+    <div class="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
 
       <div>
         {% include "partials/_section_header.html" with title="Everything your team needs" subtitle="Built for print workflows that can't afford surprises." %}
@@ -163,8 +163,8 @@
         </ul>
       </div>
 
-      {# dog2.png framed as a mock app preview card #}
-      <div class="flex justify-center lg:justify-end">
+      {# dog2.png framed as a mock app preview card — hidden on small screens to keep layout clean #}
+      <div class="hidden md:flex justify-center lg:justify-end">
         <div class="card bg-base-100 shadow-2xl border border-base-300 max-w-sm w-full overflow-hidden">
           {# Fake browser chrome bar for visual effect #}
           <div class="flex items-center gap-1.5 px-4 py-3 bg-base-300 border-b border-base-300">

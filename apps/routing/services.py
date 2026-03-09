@@ -11,7 +11,9 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
-def _build_lpr_command(preset, pdf_path: str, title: str = "") -> list[str]:
+def _build_lpr_command(
+    preset, pdf_path: str, title: str = "", duplex_override: str | None = None
+) -> list[str]:
     """Build the lpr command list for the given preset."""
     from django.conf import settings
 
@@ -28,6 +30,9 @@ def _build_lpr_command(preset, pdf_path: str, title: str = "") -> list[str]:
 
     if title:
         cmd += ["-T", title]
+
+    # Prevent the printer from auto-scaling the PDF to fit its media
+    cmd += ["-o", "fit-to-page=false"]
 
     # New-style Fiery PPD options (takes precedence)
     for key, value in (preset.fiery_options or {}).items():
@@ -51,6 +56,16 @@ def _build_lpr_command(preset, pdf_path: str, title: str = "") -> list[str]:
         if preset.tray:
             cmd += ["-o", f"InputSlot={preset.tray}"]
 
+    # Per-job duplex override — applied after preset options so it takes effect
+    if duplex_override:
+        sides_map = {
+            "duplex_long": "two-sided-long-edge",
+            "duplex_short": "two-sided-short-edge",
+            "simplex": "one-sided",
+        }
+        sides_value = sides_map.get(duplex_override, duplex_override)
+        cmd += ["-o", f"sides={sides_value}"]
+
     # Free-text extra options always appended last
     for line in preset.extra_lpr_options.splitlines():
         line = line.strip()
@@ -62,7 +77,11 @@ def _build_lpr_command(preset, pdf_path: str, title: str = "") -> list[str]:
 
 
 def send_to_fiery_lpr(
-    pdf_path: str, preset, dry_run: bool = False, title: str = ""
+    pdf_path: str,
+    preset,
+    dry_run: bool = False,
+    title: str = "",
+    duplex_override: str | None = None,
 ) -> subprocess.CompletedProcess | None:
     """
     Send *pdf_path* to Fiery via lpr using *preset*.
@@ -73,7 +92,7 @@ def send_to_fiery_lpr(
     if not shutil.which("lpr"):
         raise OSError("lpr is not available on this system.")
 
-    cmd = _build_lpr_command(preset, pdf_path, title=title)
+    cmd = _build_lpr_command(preset, pdf_path, title=title, duplex_override=duplex_override)
     logger.info("Sending to Fiery via lpr: %s", " ".join(cmd))
 
     if dry_run:

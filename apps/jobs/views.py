@@ -11,7 +11,7 @@ from django.views.generic import DeleteView, DetailView, ListView
 from apps.impose.models import ImpositionTemplate, ProductCategory
 
 from .models import PrintJob
-from .services import validate_and_repair_pdf
+from .services import compute_fiery_name, validate_and_repair_pdf
 from .tasks import process_job_task
 
 
@@ -59,6 +59,7 @@ class JobDetailView(DetailView):
                 sheets_needed = math.ceil(job.page_count / per_sheet)
                 ctx["sheets_needed"] = sheets_needed
                 ctx["sheets_remaining"] = max(sheets_needed - 1, 0)
+        ctx["fiery_name"] = compute_fiery_name(job)
         return ctx
 
 
@@ -229,6 +230,21 @@ class JobToggleSaveView(View):
         return redirect(request.POST.get("next", "jobs:list"))
 
 
+class JobRenameView(View):
+    """Update the display name of a print job."""
+
+    def post(self, request, pk):
+        job = get_object_or_404(PrintJob, pk=pk)
+        new_name = request.POST.get("name", "").strip()
+        if new_name:
+            job.name = new_name
+            job.save(update_fields=["name"])
+            messages.success(request, f"Job renamed to '{new_name}'.")
+        else:
+            messages.error(request, "Name cannot be empty.")
+        return redirect("jobs:detail", pk=pk)
+
+
 class JobDeleteView(DeleteView):
     model = PrintJob
     template_name = "jobs/job_confirm_delete.html"
@@ -291,6 +307,9 @@ class JobResendView(View):
             messages.error(request, "No printer preset is assigned to this job.")
             return redirect("jobs:detail", pk=pk)
 
+        # Allow per-send duplex override
+        duplex_override = request.POST.get("duplex_override", "").strip() or None
+
         tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
@@ -298,7 +317,13 @@ class JobResendView(View):
                     tmp.write(f.read())
                 tmp_path = tmp.name
 
-            send_to_fiery_lpr(tmp_path, job.routing_preset)
+            job_title = compute_fiery_name(job)
+            send_to_fiery_lpr(
+                tmp_path,
+                job.routing_preset,
+                title=job_title,
+                duplex_override=duplex_override,
+            )
             job.status = PrintJob.Status.SENT
             job.save(update_fields=["status"])
             messages.success(request, f"Job '{job.name}' re-sent to printer.")
@@ -339,5 +364,6 @@ def calc_sheets(request, pk):
         "templates": ImpositionTemplate.objects.select_related(
             "product_category", "routing_preset"
         ).order_by("name"),
+        "fiery_name": compute_fiery_name(job),
     }
     return render(request, "jobs/job_detail.html", ctx)

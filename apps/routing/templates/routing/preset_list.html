@@ -50,11 +50,15 @@
           </td>
           <td class="px-4 py-3 text-right text-sm whitespace-nowrap">
             <button type="button"
-              class="btn btn-ghost btn-xs mr-3 test-conn-btn"
+              class="btn btn-ghost btn-xs mr-2 test-conn-btn"
               data-url="{% url 'routing:test_connection' preset.pk %}"
               data-name="{{ preset.name }}"
               title="Test printer connection">Test</button>
-            <a href="{% url 'routing:edit' preset.pk %}" class="link link-primary mr-3">Edit</a>
+            <form method="post" action="{% url 'routing:duplicate' preset.pk %}" class="inline mr-2">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost btn-xs" title="Duplicate this preset">Duplicate</button>
+            </form>
+            <a href="{% url 'routing:edit' preset.pk %}" class="link link-primary mr-2">Edit</a>
             <a href="{% url 'routing:delete' preset.pk %}" class="link link-error">Delete</a>
           </td>
         </tr>
