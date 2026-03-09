@@ -1,8 +1,29 @@
 """Business logic for job intake and metadata extraction."""
 
 import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+def compute_fiery_name(job) -> str:
+    """Return the job title as it will appear on the Fiery print queue.
+
+    The title follows the pattern: ``{preset}_{stem}_{barcode}``
+    matching what ``process_job_task`` sends via lpr.
+    """
+    preset_name = job.routing_preset.name if job.routing_preset else ""
+    raw_name = Path(job.name).stem if job.name else f"job-{job.pk}"
+    cp = None
+    if job.imposition_template and job.imposition_template.cutter_program_id:
+        cp = job.imposition_template.cutter_program
+    elif job.cutter_program_id:
+        cp = job.cutter_program
+    barcode_value = cp.duplo_code if cp else None
+    barcode_suffix = f"_{barcode_value}" if barcode_value else ""
+    if preset_name:
+        return f"{preset_name}_{raw_name}{barcode_suffix}"
+    return f"{raw_name}{barcode_suffix}"
 
 
 def validate_and_repair_pdf(file_field) -> tuple[bytes | None, list[str]]:
