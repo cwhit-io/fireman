@@ -58,10 +58,21 @@ class TestJobUploadView:
         monkeypatch.setattr(
             "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
         )
+        from apps.impose.models import ImpositionTemplate
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="Test Template",
+            sheet_width=900,
+            sheet_height=1368,
+            columns=1,
+            rows=1,
+        )
         pdf = SimpleUploadedFile(
             "sample.pdf", _make_minimal_pdf(), content_type="application/pdf"
         )
-        response = client.post(reverse("jobs:upload"), {"file": pdf})
+        response = client.post(
+            reverse("jobs:upload"), {"file": pdf, "template_id": str(tmpl.pk)}
+        )
         # redirects to detail page
         assert response.status_code == 302
 
@@ -70,8 +81,16 @@ class TestJobUploadView:
         monkeypatch.setattr(
             "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
         )
+        from apps.impose.models import ImpositionTemplate
         from apps.jobs.models import PrintJob
 
+        tmpl = ImpositionTemplate.objects.create(
+            name="Test Template 2",
+            sheet_width=900,
+            sheet_height=1368,
+            columns=1,
+            rows=1,
+        )
         pdf = SimpleUploadedFile(
             "flyer.pdf", _make_minimal_pdf(), content_type="application/pdf"
         )
@@ -79,6 +98,7 @@ class TestJobUploadView:
             reverse("jobs:upload"),
             {
                 "file": pdf,
+                "template_id": str(tmpl.pk),
                 "is_double_sided": "on",
                 "pages_are_unique": "on",
             },

@@ -84,19 +84,19 @@
       </button>
     </div>
 
-    {# Inline ruleset change form #}
+    {# Inline template change form #}
     <div x-show="showChange" x-transition class="mt-4 border-t pt-4">
-      <p class="text-sm text-gray-500 mb-3">Select a ruleset to apply its gangup template and/or printer preset. The job will be re-processed immediately.</p>
-      {% if rulesets %}
-      <form method="post" action="{% url 'jobs:apply_ruleset' job.pk %}" class="flex items-end gap-3">
+      <p class="text-sm text-gray-500 mb-3">Select a template to apply its gangup layout and printer preset. The job will be re-processed immediately.</p>
+      {% if templates %}
+      <form method="post" action="{% url 'jobs:apply_template' job.pk %}" class="flex items-end gap-3">
         {% csrf_token %}
         <div class="flex-1">
-          <label class="block text-xs font-medium text-gray-600 mb-1" for="id_ruleset_id">Ruleset</label>
-          <select id="id_ruleset_id" name="ruleset_id"
+          <label class="block text-xs font-medium text-gray-600 mb-1" for="id_template_id">Template</label>
+          <select id="id_template_id" name="template_id"
             class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <option value="">— Select a ruleset —</option>
-            {% for ruleset in rulesets %}
-            <option value="{{ ruleset.pk }}">[{{ ruleset.priority }}] {{ ruleset.name }} ({{ ruleset.get_condition_type_display }}: {{ ruleset.condition_value }})</option>
+            <option value="">— Select a template —</option>
+            {% for tmpl in templates %}
+            <option value="{{ tmpl.pk }}">{{ tmpl.name }}{% if tmpl.product_category %} ({{ tmpl.product_category }}){% endif %}</option>
             {% endfor %}
           </select>
         </div>
@@ -105,7 +105,7 @@
         </button>
       </form>
       {% else %}
-      <p class="text-sm text-gray-400">No active rulesets available. <a href="{% url 'rules:create' %}" class="text-blue-600 hover:underline">Create a ruleset</a>.</p>
+      <p class="text-sm text-gray-400">No templates available. <a href="{% url 'impose:create' %}" class="text-blue-600 hover:underline">Create a template</a>.</p>
       {% endif %}
     </div>
   </div>
