@@ -2,3 +2,61 @@
 @plugin "daisyui" {
   themes: bumblebee --default, dark --prefersdark;
 }
+
+[data-theme="fireman"] {
+  /* ── Core Brand ─────────────────────────────────────────
+     Blue = trustworthy, first-responder energy
+     Coral = fire helmet, warmth, friendly urgency        */
+  --color-primary:         #4f86f7;   /* soft blue — main actions, links */
+  --color-primary-focus:   #3a6fd8;   /* darker blue — hover/active */
+  --color-primary-content: #ffffff;   /* text on primary bg */
+
+  --color-secondary:         #ff6b6b; /* coral — fire helmet echo */
+  --color-secondary-focus:   #e85555; /* darker coral — hover/active */
+  --color-secondary-content: #ffffff; /* text on secondary bg */
+
+  --color-accent:         #3ecf8e;    /* mint green — success, confirm, ON badges */
+  --color-accent-focus:   #2db87a;
+  --color-accent-content: #ffffff;
+
+  /* ── Neutral / Base ─────────────────────────────────────
+     Warm off-whites — no cold blue-gray undertones       */
+  --color-neutral:         #4a4540;   /* warm dark — nav bg, dark headers */
+  --color-neutral-focus:   #38332f;
+  --color-neutral-content: #f7f5f2;   /* text on neutral bg */
+
+  --color-base-100: #fafaf9;          /* page background */
+  --color-base-200: #f0efed;          /* card backgrounds, subtle sections */
+  --color-base-300: #dddbd8;          /* borders, dividers */
+  --color-base-content: #3d3830;      /* default body text — warm dark */
+
+  /* ── Semantic States ────────────────────────────────────*/
+  --color-info:    #4f86f7;           /* reuse primary */
+  --color-success: #3ecf8e;           /* reuse accent */
+  --color-warning: #f97316;           /* orange — warm, not alarming */
+  --color-error:   #e53e3e;           /* red — clear but not harsh */
+
+  --color-info-content:    #ffffff;
+  --color-success-content: #ffffff;
+  --color-warning-content: #ffffff;
+  --color-error-content:   #ffffff;
+
+  /* ── Shape & Motion ─────────────────────────────────────
+     Slightly rounder than before — friendlier feel       */
+  --rounded-box:   0.75rem;           /* cards, modals */
+  --rounded-btn:   0.5rem;            /* buttons — pill-adjacent but not full pill */
+  --rounded-badge: 1rem;              /* badges — fully rounded */
+
+  --animation-btn:   0.2s;
+  --animation-input: 0.15s;
+
+  /* ── Component Defaults ─────────────────────────────────*/
+  --btn-text-case:  uppercase;
+  --btn-focus-scale: 0.97;
+  --navbar-padding: 0.5rem;
+  --border-btn:     1px;
+
+  /* ── Shadows ───────────────────────────────────────────
+     Warm-tinted shadows instead of cold gray            */
+  --shadow-color: 30deg 10% 50%;
+}

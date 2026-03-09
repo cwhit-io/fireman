@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Job: {{ job.name }}{% endblock %}
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-8 pb-28" x-data="{ showChange: false, showDeleteModal: false, copiedFilename: false, showBarcodeInfo: false }">
+<div class="max-w-4xl mx-auto px-4 py-8 pb-28" x-data="{ showChange: false, showDeleteModal: false, copiedFilename: false, showBarcodeInfo: false, showHowModal: false }">
 
   {# 1. Breadcrumb + Job Identity #}
   <div class="breadcrumbs text-sm mb-2">
@@ -126,7 +126,7 @@
               <span class="badge badge-error">OFF</span>
               <span class="text-sm">No barcode printed — select job manually on Duplo 646.</span>
               {% endif %}
-              <button type="button" @click="showBarcodeInfo = !showBarcodeInfo" class="btn btn-xs btn-ghost" title="How to change BC setting on the Duplo DC-646">How?</button>
+              <button type="button" @click="showHowModal = true" class="btn btn-xs btn-ghost" title="How to change BC setting on the Duplo DC-646">How?</button>
             </div>
             {% if not job.imposition_template or not job.imposition_template.print_barcode %}
             <div class="rounded-lg bg-error/10 border border-error/30 px-4 py-3 inline-block mt-1">
@@ -134,30 +134,6 @@
               <p class="text-4xl font-bold font-mono text-error">#{{ job.cutter_program.duplo_code|default:job.cutter_program }}</p>
             </div>
             {% endif %}
-            <div x-show="showBarcodeInfo" x-transition x-cloak class="mt-3">
-              <div class="card bg-base-200 border border-base-300 w-full max-w-md">
-                <div class="card-body gap-3 p-4">
-                  <h3 class="card-title text-sm">How to Change Barcode Reading — Duplo DC-646</h3>
-                  <div class="divider my-0"></div>
-                  <ul class="steps steps-vertical gap-1 text-sm">
-                    <li class="step step-primary">Press <kbd class="kbd kbd-sm">F</kbd> to open the <strong>Select Menu</strong>.</li>
-                    <li class="step step-primary">Use <kbd class="kbd kbd-sm">↑</kbd> / <kbd class="kbd kbd-sm">↓</kbd> to highlight <strong>Settings2</strong>, then press <kbd class="kbd kbd-sm">SET</kbd>.</li>
-                    <li class="step step-primary">Use <kbd class="kbd kbd-sm">←</kbd> / <kbd class="kbd kbd-sm">→</kbd> to toggle <strong>Read Barcode</strong> to <span class="badge badge-success badge-sm">ON</span> or <span class="badge badge-error badge-sm">OFF</span>.</li>
-                    <li class="step step-primary">Press <kbd class="kbd kbd-sm">↓</kbd> to advance to the next setting.</li>
-                    <li class="step step-primary">Press <kbd class="kbd kbd-sm">SET</kbd> to save. <span class="text-warning font-medium">(Changes are lost if you exit without pressing SET.)</span></li>
-                  </ul>
-                  <div class="divider my-0"></div>
-                  <div class="alert alert-info py-2 px-3 text-xs">
-                    <ul class="space-y-1 list-none">
-                      <li><span class="badge badge-success badge-sm">ON</span> — Machine auto-reads barcode and selects the matching JOB.</li>
-                      <li><span class="badge badge-error badge-sm">OFF</span> — JOB must be selected manually from the control panel.</li>
-                      <li><span class="font-semibold">BC</span> appears on the standby screen when barcode reading is active.</li>
-                      <li>Barcode must be <span class="font-semibold">CODE-39</span>, positioned <span class="font-semibold">3–20 mm</span> from lead edge and <span class="font-semibold">25–60 mm</span> from right edge.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
             {% else %}
             <span class="text-base-content/50 text-sm">No cutter assigned.</span>
             {% endif %}
@@ -212,9 +188,9 @@
     </div>
   </div>
 
-  {# 7. Collapsible Job Details — open by default #}
+  {# 7. Collapsible Job Details — closed by default #}
   <div class="collapse collapse-arrow bg-base-100 border border-base-300 shadow mb-6">
-    <input type="checkbox" checked>
+    <input type="checkbox">
     <div class="collapse-title font-semibold">Job Details</div>
     <div class="collapse-content">
       <table class="table table-sm">
@@ -258,13 +234,42 @@
     <div class="modal-backdrop" @click="showDeleteModal = false"></div>
   </div>
 
+  {# How Modal #}
+  <div class="modal" :class="{ 'modal-open': showHowModal }" role="dialog" aria-modal="true">
+    <div class="modal-box max-w-lg">
+      <h3 class="font-bold text-lg">How to Change Barcode Reading — Duplo DC-646</h3>
+      <div class="py-4">
+        <ul class="steps steps-vertical gap-1 text-sm">
+          <li class="step step-primary">Press <kbd class="kbd kbd-sm">F</kbd> to open the <strong>Select Menu</strong>.</li>
+          <li class="step step-primary">Use <kbd class="kbd kbd-sm">↑</kbd> / <kbd class="kbd kbd-sm">↓</kbd> to highlight <strong>Settings2</strong>, then press <kbd class="kbd kbd-sm">SET</kbd>.</li>
+          <li class="step step-primary">Use <kbd class="kbd kbd-sm">←</kbd> / <kbd class="kbd kbd-sm">→</kbd> to toggle <strong>Read Barcode</strong> to <span class="badge badge-success badge-sm">ON</span> or <span class="badge badge-error badge-sm">OFF</span>.</li>
+          <li class="step step-primary">Press <kbd class="kbd kbd-sm">↓</kbd> to advance to the next setting.</li>
+          <li class="step step-primary">Press <kbd class="kbd kbd-sm">SET</kbd> to save. <span class="text-warning font-medium">(Changes are lost if you exit without pressing SET.)</span></li>
+        </ul>
+        <div class="divider my-4"></div>
+        <div class="alert alert-info py-2 px-3 text-xs">
+          <ul class="space-y-1 list-none">
+            <li><span class="badge badge-success badge-sm">ON</span> — Machine auto-reads barcode and selects the matching JOB.</li>
+            <li><span class="badge badge-error badge-sm">OFF</span> — JOB must be selected manually from the control panel.</li>
+            <li><span class="font-semibold">BC</span> appears on the standby screen when barcode reading is active.</li>
+            <li>Barcode must be <span class="font-semibold">CODE-39</span>, positioned <span class="font-semibold">3–20 mm</span> from lead edge and <span class="font-semibold">25–60 mm</span> from right edge.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn" @click="showHowModal = false">Close</button>
+      </div>
+    </div>
+    <div class="modal-backdrop" @click="showHowModal = false"></div>
+  </div>
+
 </div>
 
 {# Sticky bottom action bar — always visible #}
 {% if job.imposed_file %}
-<div class="fixed bottom-0 left-0 right-0 z-40 bg-base-100 border-t border-base-300 shadow-lg" role="region" aria-label="Action toolbar">
-  <div class="max-w-4xl mx-auto px-4 py-3 flex gap-3 items-center">
-    <a href="{% url 'jobs:preview' job.pk %}" target="_blank" class="btn btn-outline">Preview PDF</a>
+<div class="fixed bottom-0 left-0 right-0 z-40 bg-neutral text-neutral-content border-t border-base-300 shadow-lg" role="region" aria-label="Action toolbar">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex gap-3 items-center justify-end">
+    <a href="{% url 'jobs:preview' job.pk %}" target="_blank" class="btn btn-primary">Preview PDF</a>
     {% if job.routing_preset %}
       {% if not job.pages_are_unique and not sheets_needed %}
       <button type="button" class="btn btn-primary" disabled>Send to Printer</button>

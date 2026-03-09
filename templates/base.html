@@ -1,7 +1,7 @@
 {% load static django_browser_reload %}
 {# Base layout shell — all pages extend this template #}
 <!DOCTYPE html>
-<html lang="en" data-theme="bumblebee">
+<html lang="en" data-theme="fireman">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -41,6 +41,27 @@
   </script>
   {# Alpine.js — lightweight reactivity for dropdowns, toggles, etc. #}
   <script defer src="{% static 'js/alpine.min.js' %}"></script>
+  {# DaisyUI theme controller — enables theme switching #}
+  <script>
+    // Theme controller for DaisyUI
+    document.addEventListener('DOMContentLoaded', function() {
+      const themeController = {
+        init() {
+          this.setTheme(localStorage.getItem('theme') || 'fireman');
+          document.querySelectorAll('[data-set-theme]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              this.setTheme(btn.getAttribute('data-set-theme'));
+            });
+          });
+        },
+        setTheme(theme) {
+          document.documentElement.setAttribute('data-theme', theme);
+          localStorage.setItem('theme', theme);
+        }
+      };
+      themeController.init();
+    });
+  </script>
   {% block extra_js %}{% endblock %}
   {% if debug %}{% django_browser_reload_script %}{% endif %}
 </body>
