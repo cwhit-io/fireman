@@ -62,27 +62,19 @@
           <option value="{{ tmpl.pk }}">{{ tmpl.name }}</option>
           {% endfor %}
         </select>
-        <p class="mt-1 text-xs text-gray-400">Filter by category above, or choose from all templates. The template controls imposition layout, barcode program, and printer preset.</p>
+        <p class="mt-1 text-xs text-gray-400">Filter by category above to see options by cut size, or choose from all templates. The template controls imposition layout, barcode program, and printer preset.</p>
       </div>
 
-      {# Step 4: Multi-page Options (shown after file is selected) #}
+      {# Step 4: Multi-page Options (shown only when more than 1 page detected) #}
       <div x-show="showMultiPageOptions" x-transition class="mb-6 border border-blue-100 rounded-lg p-4 bg-blue-50" x-cloak>
         <div class="flex items-center gap-2 mb-3">
           <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">4</span>
           <p class="text-sm font-semibold text-gray-700">Multi-page Options</p>
-        </div>
-
-        <div class="flex items-center gap-3 mb-3" :class="!pagesUnique && 'opacity-40 pointer-events-none'">
-          <input id="is_double_sided" name="is_double_sided" type="checkbox"
-            :disabled="!pagesUnique"
-            x-ref="doubleSided"
-            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-          <label for="is_double_sided" class="text-sm text-gray-700 font-medium">Double-sided (duplex)</label>
-          <span x-show="!pagesUnique" class="text-xs text-gray-400 italic">not available for step-and-repeat</span>
+          <span class="text-xs text-blue-600 font-medium" x-text="pageCountLabel"></span>
         </div>
 
         <div class="flex items-center gap-3">
-          <input id="pages_are_unique" name="pages_are_unique" type="checkbox" checked
+          <input id="pages_are_unique" name="pages_are_unique" type="checkbox"
             class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             @change="pagesUniqueChanged($event)">
           <label for="pages_are_unique" class="text-sm text-gray-700 font-medium">Pages are unique</label>
@@ -107,24 +99,60 @@
 function uploadForm() {
   return {
     showMultiPageOptions: false,
-    pagesUnique: true,
-    pagesUniqueHint: 'Uncheck for step-and-repeat / stack-cut (Duplo) where all copies are the same.',
-    onFileChange(event) {
+    pageCount: 0,
+    pageCountLabel: '',
+    pagesUniqueHint: 'Step-and-repeat / stack-cut: all positions print the same content.',
+    async onFileChange(event) {
       const file = event.target.files[0];
-      if (file) {
+      if (!file) {
+        this.showMultiPageOptions = false;
+        return;
+      }
+      // Try to detect page count using PDF.js (loaded from CDN)
+      try {
+        const pages = await this._getPdfPageCount(file);
+        this.pageCount = pages;
+        if (pages > 1) {
+          this.pageCountLabel = `(${pages} pages detected)`;
+          this.showMultiPageOptions = true;
+        } else {
+          this.showMultiPageOptions = false;
+        }
+      } catch (e) {
+        // If PDF.js not available or error, fall back to showing options
         this.showMultiPageOptions = true;
+        this.pageCountLabel = '';
       }
     },
+    _getPdfPageCount(file) {
+      return new Promise((resolve, reject) => {
+        if (typeof pdfjsLib === 'undefined') { reject(new Error('PDF.js library not available — cannot detect page count')); return; }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const typedarray = new Uint8Array(e.target.result);
+          pdfjsLib.getDocument({ data: typedarray }).promise.then(function(pdf) {
+            resolve(pdf.numPages);
+          }).catch(reject);
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+    },
     pagesUniqueChanged(event) {
-      this.pagesUnique = event.target.checked;
-      if (!event.target.checked) {
-        this.pagesUniqueHint = 'Step-and-repeat / stack-cut: all positions print the same content.';
-        this.$refs.doubleSided.checked = false;
+      if (event.target.checked) {
+        this.pagesUniqueHint = 'Each page has different content — they will be imposed as unique pages (n-up).';
       } else {
-        this.pagesUniqueHint = 'Uncheck for step-and-repeat / stack-cut (Duplo) where all copies are the same.';
+        this.pagesUniqueHint = 'Step-and-repeat / stack-cut: all positions print the same content.';
       }
     }
   };
 }
+</script>
+{# PDF.js for client-side page count detection #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-q+4lHwAhMuXMqXDLbmXCnOJMdydxlRN9KAkQdTn1n8GkXbyh7SWGDsF4aFBpQflVXsz+9axJe4gj8HBfvYnQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
 </script>
 {% endblock %}

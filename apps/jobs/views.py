@@ -23,11 +23,19 @@ class JobListView(ListView):
         return (
             super()
             .get_queryset()
+            .filter(is_saved=False)
             .select_related(
                 "imposition_template__sheet_size",
                 "cutter_program",
             )
         )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["saved_jobs"] = PrintJob.objects.filter(is_saved=True).select_related(
+            "imposition_template__sheet_size", "cutter_program"
+        )
+        return ctx
 
 
 class JobDetailView(DetailView):
@@ -87,10 +95,9 @@ class JobUploadView(View):
 
         # Capture user-provided job options
         pages_are_unique = request.POST.get("pages_are_unique") == "on"
-        # Step-and-repeat jobs cannot be double-sided (same page fills every cell).
-        is_double_sided = (
-            request.POST.get("is_double_sided") == "on"
-        ) and pages_are_unique
+        # Double-sided is now the default behavior when pages are unique.
+        # Step-and-repeat jobs (pages_are_unique=False) cannot be double-sided.
+        is_double_sided = pages_are_unique
 
         job = PrintJob.objects.create(
             name=file.name,
@@ -141,7 +148,7 @@ class JobUploadTemplatesView(View):
         from django.utils.html import escape
 
         category_id = request.GET.get("category_id", "").strip() or None
-        qs = ImpositionTemplate.objects.order_by("name")
+        qs = ImpositionTemplate.objects.select_related("cut_size").order_by("name")
         if category_id:
             try:
                 qs = qs.filter(product_category_id=int(category_id))
@@ -149,7 +156,16 @@ class JobUploadTemplatesView(View):
                 pass
         html = '<option value="" disabled selected>— Select template —</option>'
         for tmpl in qs:
-            html += f'<option value="{tmpl.pk}">{escape(tmpl.name)}</option>'
+            if category_id:
+                if tmpl.cut_size:
+                    label = escape(tmpl.cut_size.label)
+                elif tmpl.cut_width and tmpl.cut_height:
+                    label = escape(tmpl.cut_size_label)
+                else:
+                    label = escape(tmpl.name)
+            else:
+                label = escape(tmpl.name)
+            html += f'<option value="{tmpl.pk}">{label}</option>'
         return HttpResponse(html)
 
 
@@ -190,6 +206,16 @@ class JobApplyTemplateView(View):
             request, f"Template '{template.name}' applied — job is being re-processed."
         )
         return redirect("jobs:detail", pk=pk)
+
+
+class JobToggleSaveView(View):
+    """Toggle the is_saved flag on a print job."""
+
+    def post(self, request, pk):
+        job = get_object_or_404(PrintJob, pk=pk)
+        job.is_saved = not job.is_saved
+        job.save(update_fields=["is_saved"])
+        return redirect(request.POST.get("next", "jobs:list"))
 
 
 class JobDeleteView(DeleteView):
