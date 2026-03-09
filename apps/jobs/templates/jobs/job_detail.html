@@ -241,7 +241,7 @@
         </div>
       </form>
     </div>
-    <div class="modal-backdrop" @click="showRenameModal = false"></div>
+    <div class="modal-backdrop" aria-hidden="true" @click="showRenameModal = false"></div>
   </div>
 
   {# Delete Confirmation Modal #}
@@ -257,7 +257,7 @@
         <button type="button" class="btn btn-ghost" @click="showDeleteModal = false">Cancel</button>
       </div>
     </div>
-    <div class="modal-backdrop" @click="showDeleteModal = false"></div>
+    <div class="modal-backdrop" aria-hidden="true" @click="showDeleteModal = false"></div>
   </div>
 
   {# How Modal #}
@@ -336,7 +336,7 @@
         <button type="button" class="btn" @click="showHowModal = false">Close</button>
       </div>
     </div>
-    <div class="modal-backdrop" @click="showHowModal = false"></div>
+    <div class="modal-backdrop" aria-hidden="true" @click="showHowModal = false"></div>
   </div>
 
 </div>
