@@ -3,32 +3,34 @@
 {% block content %}
 <div class="max-w-lg mx-auto px-4 py-8">
   <div class="mb-4">
-    <a href="{% url 'cutter:list' %}" class="text-blue-600 hover:underline">← Back to Cutter Programs</a>
+    <a href="{% url 'cutter:list' %}" class="link link-primary">← Back to Cutter Programs</a>
   </div>
-  <div class="bg-white shadow rounded-lg p-6">
-    <h1 class="text-2xl font-bold mb-2 text-red-700">Delete Cutter Program</h1>
-    <p class="text-gray-600 mb-6">
-      Are you sure you want to delete <strong>{{ object.name }}</strong>?
-      This action cannot be undone. Jobs currently using this program will have their cutter assignment cleared.
-    </p>
-    <div class="bg-gray-50 rounded p-4 mb-6 text-sm text-gray-600">
-      <dl class="grid grid-cols-2 gap-2">
-        <div><dt class="font-medium">Duplo Code</dt><dd class="font-mono font-semibold">{{ object.duplo_code }}</dd></div>
-        <div><dt class="font-medium">Active</dt><dd>{% if object.active %}Yes{% else %}No{% endif %}</dd></div>
-        {% if object.description %}
-        <div class="col-span-2"><dt class="font-medium">Description</dt><dd>{{ object.description }}</dd></div>
-        {% endif %}
-      </dl>
-    </div>
-    <form method="post">
-      {% csrf_token %}
-      <div class="flex gap-3">
-        <button type="submit" class="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 text-sm font-medium">
-          Yes, delete this program
-        </button>
-        <a href="{% url 'cutter:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title text-error">Delete Cutter Program</h1>
+      <p class="text-base-content/70">
+        Are you sure you want to delete <strong>{{ object.name }}</strong>?
+        This action cannot be undone. Jobs currently using this program will have their cutter assignment cleared.
+      </p>
+      <div class="alert alert-info">
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div><dt class="font-medium">Duplo Code</dt><dd class="font-mono font-semibold">{{ object.duplo_code }}</dd></div>
+          <div><dt class="font-medium">Active</dt><dd>{% if object.active %}Yes{% else %}No{% endif %}</dd></div>
+          {% if object.description %}
+          <div class="col-span-2"><dt class="font-medium">Description</dt><dd>{{ object.description }}</dd></div>
+          {% endif %}
+        </div>
       </div>
-    </form>
+      <form method="post">
+        {% csrf_token %}
+        <div class="card-actions justify-end">
+          <a href="{% url 'cutter:list' %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-error">
+            Yes, delete this program
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

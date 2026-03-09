@@ -5,71 +5,71 @@
   <div class="flex justify-between items-center mb-6">
     <div>
       <h1 class="text-2xl font-bold">Cutter Programs</h1>
-      <p class="text-sm text-gray-500 mt-1">DC-646 cutter programs identified by their Duplo barcode code.</p>
+      <p class="text-sm text-base-content/60 mt-1">DC-646 cutter programs identified by their Duplo barcode code.</p>
     </div>
-    <a href="{% url 'cutter:create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ New Program</a>
+    <a href="{% url 'cutter:create' %}" class="btn btn-primary">+ New Program</a>
   </div>
 
   {% if messages %}
     {% for message in messages %}
-      <div class="mb-4 p-3 rounded {% if message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ message }}</div>
+      <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %} mb-4">{{ message }}</div>
     {% endfor %}
   {% endif %}
 
-  <div class="bg-white shadow rounded-lg overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
+  <div class="card bg-base-100 shadow border border-base-300 overflow-hidden">
+    <table class="table table-sm">
+      <thead class="bg-base-200">
         <tr>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase">
             {% if sort == "name" %}
-              <a href="?sort=-name" class="flex items-center gap-1 hover:text-gray-700">Name <span>&#8593;</span></a>
+              <a href="?sort=-name" class="link link-hover flex items-center gap-1">Name <span>↑</span></a>
             {% elif sort == "-name" %}
-              <a href="?sort=name" class="flex items-center gap-1 hover:text-gray-700">Name <span>&#8595;</span></a>
+              <a href="?sort=name" class="link link-hover flex items-center gap-1">Name <span>↓</span></a>
             {% else %}
-              <a href="?sort=name" class="flex items-center gap-1 hover:text-gray-700">Name <span class="text-gray-300">&#8597;</span></a>
+              <a href="?sort=name" class="link link-hover flex items-center gap-1">Name <span class="text-base-content/30">↕</span></a>
             {% endif %}
           </th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase">
             {% if sort == "duplo_code" %}
-              <a href="?sort=-duplo_code" class="flex items-center gap-1 hover:text-gray-700">Duplo Code <span>&#8593;</span></a>
+              <a href="?sort=-duplo_code" class="link link-hover flex items-center gap-1">Duplo Code <span>↑</span></a>
             {% elif sort == "-duplo_code" %}
-              <a href="?sort=duplo_code" class="flex items-center gap-1 hover:text-gray-700">Duplo Code <span>&#8595;</span></a>
+              <a href="?sort=duplo_code" class="link link-hover flex items-center gap-1">Duplo Code <span>↓</span></a>
             {% else %}
-              <a href="?sort=duplo_code" class="flex items-center gap-1 hover:text-gray-700">Duplo Code <span class="text-gray-300">&#8597;</span></a>
+              <a href="?sort=duplo_code" class="link link-hover flex items-center gap-1">Duplo Code <span class="text-base-content/30">↕</span></a>
             {% endif %}
           </th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-20">Barcode</th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-20">Active</th>
-          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-32">Actions</th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase w-20">Barcode</th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase">Description</th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase w-20">Active</th>
+          <th class="text-right text-xs font-medium text-base-content/60 uppercase w-32">Actions</th>
         </tr>
       </thead>
-      <tbody class="bg-white divide-y divide-gray-200">
+      <tbody class="bg-base-100">
         {% for program in programs %}
-        <tr class="hover:bg-gray-50 {% if not program.active %}opacity-50{% endif %}">
+        <tr class="hover:bg-base-200 {% if not program.active %}opacity-50{% endif %}">
           <td class="px-4 py-3">
             <span class="font-medium text-sm">{{ program.name }}</span>
           </td>
-          <td class="px-4 py-3 text-sm font-mono text-gray-800 font-semibold">{{ program.duplo_code }}</td>
+          <td class="px-4 py-3 text-sm font-mono text-base-content font-semibold">{{ program.duplo_code }}</td>
           <td class="px-4 py-3">
             <a href="{% url 'cutter:barcode' program.pk %}" target="_blank" title="View barcode for {{ program.duplo_code }}">
-              <img src="{% url 'cutter:barcode' program.pk %}" alt="Barcode {{ program.duplo_code }}" class="w-20 h-8 border border-gray-200 rounded object-contain">
+              <img src="{% url 'cutter:barcode' program.pk %}" alt="Barcode {{ program.duplo_code }}" class="w-20 h-8 border border-base-300 rounded object-contain">
             </a>
           </td>
-          <td class="px-4 py-3 text-sm text-gray-600">{{ program.description|default:"—"|truncatechars:60 }}</td>
+          <td class="px-4 py-3 text-sm text-base-content/70">{{ program.description|default:"—"|truncatechars:60 }}</td>
           <td class="px-4 py-3 text-center">
-            <span class="inline-block w-2 h-2 rounded-full {% if program.active %}bg-green-500{% else %}bg-gray-300{% endif %}"></span>
+            <span class="badge badge-sm {% if program.active %}badge-success{% else %}badge-neutral{% endif %}"></span>
           </td>
           <td class="px-4 py-3 text-right text-sm whitespace-nowrap">
-            <a href="{% url 'cutter:edit' program.pk %}" class="text-blue-600 hover:underline mr-3">Edit</a>
-            <a href="{% url 'cutter:delete' program.pk %}" class="text-red-600 hover:underline">Delete</a>
+            <a href="{% url 'cutter:edit' program.pk %}" class="link link-primary mr-3">Edit</a>
+            <a href="{% url 'cutter:delete' program.pk %}" class="link link-error">Delete</a>
           </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+          <td colspan="6" class="px-6 py-12 text-center text-base-content/40">
             No cutter programs defined yet.
-            <a href="{% url 'cutter:create' %}" class="text-blue-600 hover:underline ml-1">Create your first program</a>.
+            <a href="{% url 'cutter:create' %}" class="link link-primary ml-1">Create your first program</a>.
           </td>
         </tr>
         {% endfor %}
@@ -78,7 +78,7 @@
   </div>
 
   {% if programs %}
-  <p class="mt-3 text-xs text-gray-400">{{ programs|length }} program{{ programs|length|pluralize }} total.</p>
+  <p class="mt-3 text-xs text-base-content/40">{{ programs|length }} program{{ programs|length|pluralize }} total.</p>
   {% endif %}
 </div>
 {% endblock %}

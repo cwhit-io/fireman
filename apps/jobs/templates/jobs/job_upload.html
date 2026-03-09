@@ -4,36 +4,36 @@
 <div class="max-w-xl mx-auto px-4 py-8">
 
   <div class="mb-6">
-    <h1 class="text-3xl font-bold text-gray-900">Upload Print Job</h1>
-    <p class="text-gray-500 mt-1">Submit a PDF to be imposed and sent to the printer.</p>
+    <h1 class="text-3xl font-bold text-base-content">Upload Print Job</h1>
+    <p class="text-base-content/60 mt-1">Submit a PDF to be imposed and sent to the printer.</p>
   </div>
 
   {% if messages %}
     {% for message in messages %}
-      <div class="mb-4 p-3 rounded {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">{{ message }}</div>
+      <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} mb-4">{{ message }}</div>
     {% endfor %}
   {% endif %}
 
-  <div class="bg-white shadow-md rounded-xl p-6" x-data="uploadForm()">
+  <div class="card bg-base-100 shadow-lg border border-base-300 p-6" x-data="uploadForm()">
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
 
       {# Step 1: File #}
       <div class="mb-6">
         <div class="flex items-center gap-2 mb-2">
-          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">1</span>
-          <label for="file" class="text-sm font-semibold text-gray-700">Select PDF File <span class="text-red-500">*</span></label>
+          <span class="badge badge-primary badge-lg">1</span>
+          <label for="file" class="text-sm font-semibold text-base-content">Select PDF File <span class="text-error">*</span></label>
         </div>
         <input type="file" name="file" id="file" accept=".pdf" required @change="onFileChange($event)"
-          class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
-        <p class="mt-1 text-xs text-gray-400">Only PDF files are accepted. Errors will be repaired automatically when possible.</p>
+          class="file-input file-input-primary file-input-bordered w-full">
+        <p class="mt-1 text-xs text-base-content/40">Only PDF files are accepted. Errors will be repaired automatically when possible.</p>
       </div>
 
       {# Step 2: Product Category (required) #}
       <div class="mb-6">
         <div class="flex items-center gap-2 mb-2">
-          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">2</span>
-          <label for="category_id" class="text-sm font-semibold text-gray-700">Select Category <span class="text-red-500">*</span></label>
+          <span class="badge badge-primary badge-lg">2</span>
+          <label for="category_id" class="text-sm font-semibold text-base-content">Select Category <span class="text-error">*</span></label>
         </div>
         <select name="category_id" id="category_id"
           hx-get="{% url 'jobs:upload_templates' %}"
@@ -41,7 +41,7 @@
           hx-target="#template_id"
           hx-swap="innerHTML"
           hx-include="[name='category_id']"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+          class="select select-bordered w-full">
           <option value="">— All categories —</option>
           {% for cat in product_categories %}
           <option value="{{ cat.pk }}" {% if selected_category == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
@@ -52,39 +52,39 @@
       {# Step 3: Template (required, filtered by category via HTMX) #}
       <div class="mb-6">
         <div class="flex items-center gap-2 mb-2">
-          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">3</span>
-          <label for="template_id" class="text-sm font-semibold text-gray-700">Select Template <span class="text-red-500">*</span></label>
+          <span class="badge badge-primary badge-lg">3</span>
+          <label for="template_id" class="text-sm font-semibold text-base-content">Select Template <span class="text-error">*</span></label>
         </div>
         <select name="template_id" id="template_id" required
-          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+          class="select select-bordered w-full">
           <option value="" disabled selected>— Select a template —</option>
           {% for tmpl in templates %}
           <option value="{{ tmpl.pk }}">{{ tmpl.name }}</option>
           {% endfor %}
         </select>
-        <p class="mt-1 text-xs text-gray-400">Filter by category above to see options by cut size, or choose from all templates. The template controls imposition layout, barcode program, and printer preset.</p>
+        <p class="mt-1 text-xs text-base-content/40">Filter by category above to see options by cut size, or choose from all templates. The template controls imposition layout, barcode program, and printer preset.</p>
       </div>
 
       {# Step 4: Multi-page Options (shown only when more than 1 page detected) #}
-      <div x-show="showMultiPageOptions" x-transition class="mb-6 border border-blue-100 rounded-lg p-4 bg-blue-50" x-cloak>
+      <div x-show="showMultiPageOptions" x-transition class="alert alert-info mb-6" x-cloak>
         <div class="flex items-center gap-2 mb-3">
-          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">4</span>
-          <p class="text-sm font-semibold text-gray-700">Multi-page Options</p>
-          <span class="text-xs text-blue-600 font-medium" x-text="pageCountLabel"></span>
+          <span class="badge badge-primary badge-lg">4</span>
+          <p class="text-sm font-semibold text-base-content">Multi-page Options</p>
+          <span class="text-xs text-primary font-medium" x-text="pageCountLabel"></span>
         </div>
 
         <div class="flex items-center gap-3">
           <input id="pages_are_unique" name="pages_are_unique" type="checkbox"
-            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            class="checkbox checkbox-primary"
             @change="pagesUniqueChanged($event)">
-          <label for="pages_are_unique" class="text-sm text-gray-700 font-medium">Pages are unique</label>
+          <label for="pages_are_unique" class="text-sm text-base-content font-medium">Pages are unique</label>
         </div>
-        <p class="text-xs text-gray-500 mt-2 ml-7" x-text="pagesUniqueHint"></p>
+        <p class="text-xs text-base-content/60 mt-2 ml-7" x-text="pagesUniqueHint"></p>
       </div>
 
       {# Submit #}
       <button type="submit"
-        class="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 font-bold text-base shadow-md flex items-center justify-center gap-2 transition-colors">
+        class="btn btn-primary btn-block">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
         Upload &amp; Process
       </button>
@@ -92,7 +92,7 @@
   </div>
 
   <div class="mt-4 text-center">
-    <a href="{% url 'jobs:list' %}" class="text-blue-600 hover:underline text-sm">← Back to job list</a>
+    <a href="{% url 'jobs:list' %}" class="link link-primary">← Back to job list</a>
   </div>
 </div>
 <script>

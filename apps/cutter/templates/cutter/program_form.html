@@ -3,96 +3,120 @@
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 py-8">
   <div class="mb-4">
-    <a href="{% url 'cutter:list' %}" class="text-blue-600 hover:underline">← Back to Cutter Programs</a>
+    <a href="{% url 'cutter:list' %}" class="link link-primary">← Back to Cutter Programs</a>
   </div>
 
-  <div class="bg-white shadow rounded-lg p-6">
-    <h1 class="text-2xl font-bold mb-6">{% if program %}Edit Cutter Program{% else %}New Cutter Program{% endif %}</h1>
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title">{% if program %}Edit Cutter Program{% else %}New Cutter Program{% endif %}</h1>
 
-    <form method="post">
-      {% csrf_token %}
+      <form method="post">
+        {% csrf_token %}
 
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_name">Program Name <span class="text-red-500">*</span></label>
-        <input id="id_name" name="name" type="text" required value="{{ values.name }}" placeholder="e.g. Business Card 3.5x2" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 {% if errors.name %}border-red-400{% else %}border-gray-300{% endif %}">
-        {% if errors.name %}<p class="text-red-600 text-xs mt-1">{{ errors.name }}</p>{% endif %}
-      </div>
-
-      <div class="mb-5" x-data="{ code: '{{ values.duplo_code|escapejs }}' }">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_duplo_code">Duplo Code <span class="text-red-500">*</span></label>
-        <div class="flex gap-3 items-start">
-          <div class="flex-1">
-            <input id="id_duplo_code" name="duplo_code" type="text" required value="{{ values.duplo_code }}" placeholder="e.g. P001" x-model="code" class="w-full border rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 {% if errors.duplo_code %}border-red-400{% else %}border-gray-300{% endif %}">
-            <p class="text-gray-400 text-xs mt-1">The program ID / barcode value used by the DC-646 cutter.</p>
-            {% if errors.duplo_code %}<p class="text-red-600 text-xs mt-1">{{ errors.duplo_code }}</p>{% endif %}
-          </div>
-          {% if program %}
-          <div class="flex-shrink-0">
-            <img :src="'{% url 'cutter:barcode' program.pk %}?code=' + encodeURIComponent(code)" alt="QR barcode preview" class="w-24 h-24 border border-gray-200 rounded" title="QR code for DC-646">
-            <p class="text-xs text-gray-400 mt-1 text-center">Live preview</p>
-          </div>
-          {% endif %}
+        <div class="form-control mb-5">
+          <label class="label" for="id_name">
+            <span class="label-text">Program Name <span class="text-error">*</span></span>
+          </label>
+          <input id="id_name" name="name" type="text" required value="{{ values.name }}" placeholder="e.g. Business Card 3.5x2" class="input input-bordered {% if errors.name %}input-error{% endif %}">
+          {% if errors.name %}<p class="text-error text-xs mt-1">{{ errors.name }}</p>{% endif %}
         </div>
-      </div>
 
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_description">Description</label>
-        <textarea id="id_description" name="description" rows="3" placeholder="Optional notes about this cutting program…" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">{{ values.description }}</textarea>
-      </div>
-
-      <hr class="my-5 border-gray-200">
-
-      {# Barcode placement #}
-      <div class="mb-5">
-        <p class="text-sm font-medium text-gray-700 mb-1">Barcode placement on imposed sheet</p>
-        <p class="text-xs text-gray-400 mb-3">Position of the barcode TIF on the press sheet during imposition (points, origin = bottom-left). Leave X and Y blank to use the imposition template's default position.</p>
-        <div class="grid grid-cols-2 gap-4 mb-3">
-          <div>
-            <label class="block text-xs text-gray-500 mb-1" for="id_barcode_x">X position (pts)</label>
-            <input id="id_barcode_x" name="barcode_x" type="number" step="0.001"
-              value="{{ values.barcode_x }}"
-              placeholder="e.g. 18"
-              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-          </div>
-          <div>
-            <label class="block text-xs text-gray-500 mb-1" for="id_barcode_y">Y position (pts)</label>
-            <input id="id_barcode_y" name="barcode_y" type="number" step="0.001"
-              value="{{ values.barcode_y }}"
-              placeholder="e.g. 18"
-              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <div class="form-control mb-5" x-data="{ code: '{{ values.duplo_code|escapejs }}' }">
+          <label class="label" for="id_duplo_code">
+            <span class="label-text">Duplo Code <span class="text-error">*</span></span>
+          </label>
+          <div class="flex gap-3 items-start">
+            <div class="flex-1">
+              <input id="id_duplo_code" name="duplo_code" type="text" required value="{{ values.duplo_code }}" placeholder="e.g. P001" x-model="code" class="input input-bordered font-mono {% if errors.duplo_code %}input-error{% endif %}">
+              <div class="label">
+                <span class="label-text-alt text-base-content/50">The program ID / barcode value used by the DC-646 cutter.</span>
+              </div>
+              {% if errors.duplo_code %}<p class="text-error text-xs mt-1">{{ errors.duplo_code }}</p>{% endif %}
+            </div>
+            {% if program %}
+            <div class="flex-shrink-0">
+              <img :src="'{% url 'cutter:barcode' program.pk %}?code=' + encodeURIComponent(code)" alt="QR barcode preview" class="w-24 h-24 border border-base-300 rounded" title="QR code for DC-646">
+              <p class="text-sm text-base-content/50 mt-1 text-center">Live preview</p>
+            </div>
+            {% endif %}
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs text-gray-500 mb-1" for="id_barcode_width">Width (pts)</label>
-            <input id="id_barcode_width" name="barcode_width" type="number" step="0.001" min="1"
-              value="{{ values.barcode_width }}"
-              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <p class="text-gray-400 text-xs mt-1">Default 90 pt = 1.25"</p>
+
+        <div class="form-control mb-5">
+          <label class="label" for="id_description">
+            <span class="label-text">Description</span>
+          </label>
+          <textarea id="id_description" name="description" rows="3" placeholder="Optional notes about this cutting program…" class="textarea textarea-bordered">{{ values.description }}</textarea>
+        </div>
+
+        <div class="divider"></div>
+
+        {# Barcode placement #}
+        <div class="mb-5">
+          <p class="text-sm font-medium mb-1">Barcode placement on imposed sheet</p>
+          <p class="text-sm text-base-content/60 mb-3">Position of the barcode TIF on the press sheet during imposition (points, origin = bottom-left). Leave X and Y blank to use the imposition template's default position.</p>
+          <div class="grid grid-cols-2 gap-4 mb-3">
+            <div class="form-control">
+              <label class="label" for="id_barcode_x">
+                <span class="label-text text-xs">X position (pts)</span>
+              </label>
+              <input id="id_barcode_x" name="barcode_x" type="number" step="0.001"
+                value="{{ values.barcode_x }}"
+                placeholder="e.g. 18"
+                class="input input-bordered">
+            </div>
+            <div class="form-control">
+              <label class="label" for="id_barcode_y">
+                <span class="label-text text-xs">Y position (pts)</span>
+              </label>
+              <input id="id_barcode_y" name="barcode_y" type="number" step="0.001"
+                value="{{ values.barcode_y }}"
+                placeholder="e.g. 18"
+                class="input input-bordered">
+            </div>
           </div>
-          <div>
-            <label class="block text-xs text-gray-500 mb-1" for="id_barcode_height">Height (pts)</label>
-            <input id="id_barcode_height" name="barcode_height" type="number" step="0.001" min="1"
-              value="{{ values.barcode_height }}"
-              class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <p class="text-gray-400 text-xs mt-1">Default 25.2 pt = 0.35"</p>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label" for="id_barcode_width">
+                <span class="label-text text-xs">Width (pts)</span>
+              </label>
+              <input id="id_barcode_width" name="barcode_width" type="number" step="0.001" min="1"
+                value="{{ values.barcode_width }}"
+                class="input input-bordered">
+              <div class="label">
+                <span class="label-text-alt text-base-content/50">Default 90 pt = 1.25"</span>
+              </div>
+            </div>
+            <div class="form-control">
+              <label class="label" for="id_barcode_height">
+                <span class="label-text text-xs">Height (pts)</span>
+              </label>
+              <input id="id_barcode_height" name="barcode_height" type="number" step="0.001" min="1"
+                value="{{ values.barcode_height }}"
+                class="input input-bordered">
+              <div class="label">
+                <span class="label-text-alt text-base-content/50">Default 25.2 pt = 0.35"</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <hr class="my-5 border-gray-200">
+        <div class="divider"></div>
 
-      <div class="mb-6 flex items-center gap-3">
-        <input id="id_active" name="active" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" {% if values.active == 'on' or values.active == True %}checked{% endif %}>
-        <label for="id_active" class="text-sm font-medium text-gray-700">Program is active</label>
-        <span class="text-gray-400 text-xs">(inactive programs are hidden from ruleset selection)</span>
-      </div>
+        <div class="form-control mb-6">
+          <label class="label cursor-pointer">
+            <input id="id_active" name="active" type="checkbox" class="checkbox checkbox-primary" {% if values.active == 'on' or values.active == True %}checked{% endif %}>
+            <span class="label-text ml-2">Program is active</span>
+          </label>
+          <span class="text-base-content/50 text-xs">(inactive programs are hidden from ruleset selection)</span>
+        </div>
 
-      <div class="flex gap-3">
-        <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 text-sm font-medium">{% if program %}Save Changes{% else %}Create Program{% endif %}</button>
-        <a href="{% url 'cutter:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
-      </div>
-    </form>
+        <div class="card-actions justify-end">
+          <a href="{% url 'cutter:list' %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">{% if program %}Save Changes{% else %}Create Program{% endif %}</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}
