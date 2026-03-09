@@ -1,11 +1,18 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Upload Print Job{% endblock %}
 {% block content %}
 <div class="max-w-xl mx-auto px-4 py-8">
 
-  <div class="mb-6">
-    <h1 class="text-3xl font-bold text-base-content">Upload Print Job</h1>
-    <p class="text-base-content/60 mt-1">Submit a PDF to be imposed and sent to the printer.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center mb-6">
+    <div class="flex justify-center md:justify-start">
+      <img src="{% static 'cat.png' %}" alt="Helpful cat" class="w-56 h-auto rounded-lg shadow-sm bg-white p-3" />
+    </div>
+    <div>
+      <h1 class="text-3xl font-bold text-base-content">Upload Print Job</h1>
+      <p class="text-base-content/60 mt-1">Submit a PDF to be imposed and sent to the printer.</p>
+      <blockquote class="mt-4 border-l-4 border-base-300 pl-4 text-base-content/70 italic">Tip: Use clear filenames and include finishing notes in the job description for faster processing.</blockquote>
+    </div>
   </div>
 
   {% if messages %}

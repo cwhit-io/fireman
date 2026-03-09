@@ -66,7 +66,10 @@ def _get_next_url(request):
     """Return the validated `next` redirect URL from GET/POST, or None."""
     next_url = request.GET.get("next") or request.POST.get("next") or ""
     from django.utils.http import url_has_allowed_host_and_scheme
-    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}
+    ):
         return next_url
     return None
 

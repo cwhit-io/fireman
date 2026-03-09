@@ -92,7 +92,9 @@ def send_to_fiery_lpr(
     if not shutil.which("lpr"):
         raise OSError("lpr is not available on this system.")
 
-    cmd = _build_lpr_command(preset, pdf_path, title=title, duplex_override=duplex_override)
+    cmd = _build_lpr_command(
+        preset, pdf_path, title=title, duplex_override=duplex_override
+    )
     logger.info("Sending to Fiery via lpr: %s", " ".join(cmd))
 
     if dry_run:

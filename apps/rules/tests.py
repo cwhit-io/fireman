@@ -102,7 +102,6 @@ class TestRuleViews:
 
     def test_edit_view_post_valid(self, client):
         from apps.impose.models import ImpositionTemplate
-        from apps.rules.models import Rule
 
         tmpl = ImpositionTemplate.objects.create(
             name="Edit Tmpl",
@@ -162,8 +161,10 @@ class TestRuleViews:
         from apps.impose.models import ImpositionTemplate, PrintSize, ProductCategory
 
         cat = ProductCategory.objects.create(name="Business Cards")
-        sz = PrintSize.objects.create(name="Business Card", width=252, height=144, size_type="cut")
-        tmpl_match = ImpositionTemplate.objects.create(
+        sz = PrintSize.objects.create(
+            name="Business Card", width=252, height=144, size_type="cut"
+        )
+        ImpositionTemplate.objects.create(
             name="BC 21-up",
             layout_type="business_card",
             sheet_width=1224,
