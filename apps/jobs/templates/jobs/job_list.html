@@ -70,15 +70,13 @@
               </td>
               <td class="px-6 py-4 text-sm text-base-content/60">{{ job.created_at|date:"M j, Y H:i" }}</td>
               <td class="px-6 py-4 text-right flex items-center justify-end gap-2">
+                {% if user.is_authenticated %}
                 <form method="post" action="{% url 'jobs:toggle_save' job.pk %}">
                   {% csrf_token %}
                   <input type="hidden" name="next" value="{% url 'jobs:list' %}">
                   <button type="submit" title="Remove from saved" class="btn btn-xs btn-warning">Unsave</button>
                 </form>
-                <form method="post" action="{% url 'jobs:delete' job.pk %}" onsubmit="return confirm('Delete this job?')">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-xs btn-error">Delete</button>
-                </form>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}
@@ -144,11 +142,13 @@
           <td class="px-6 py-4 text-sm text-base-content/60">{{ job.created_at|date:"M j, Y H:i" }}</td>
           <td class="px-6 py-4 text-right">
             <div class="flex items-center justify-end gap-2">
+              {% if user.is_authenticated %}
               <form method="post" action="{% url 'jobs:toggle_save' job.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{% url 'jobs:list' %}">
                 <button type="submit" title="Save this job to prevent auto-deletion" class="btn btn-xs btn-outline">Save</button>
               </form>
+              {% endif %}
               <form method="post" action="{% url 'jobs:delete' job.pk %}" onsubmit="return confirm('Delete this job?')">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-xs btn-error">Delete</button>

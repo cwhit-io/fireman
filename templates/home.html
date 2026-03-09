@@ -33,7 +33,7 @@
         </p>
 
         <div class="flex flex-wrap gap-4">
-          <a href="{% url 'jobs:upload' %}" class="btn btn-primary btn-lg shadow-md">Get Started</a>
+          <a href="{% url 'jobs:list' %}" class="btn btn-primary btn-lg shadow-md">Get Started</a>
           <a href="#how-it-works" class="btn btn-secondary btn-lg btn-outline">See how it works</a>
         </div>
       </div>
@@ -192,4 +192,3 @@
 {% include "partials/_cta.html" with cta_text="Ready to make printing feel easy again?" cta_subtitle="Join your team on Ember and send your next job in minutes." cta_url=jobs_upload_url btn_label="Get Started" %}
 
 {% endblock %}
-
