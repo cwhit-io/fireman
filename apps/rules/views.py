@@ -56,7 +56,9 @@ def _get_initial_form_values(rule=None):
             else "",
             "cut_size": str(rule.cut_size_id) if rule.cut_size_id else "",
             "sheet_size": str(rule.sheet_size_id) if rule.sheet_size_id else "",
-            "product_category": str(rule.product_category_id) if rule.product_category_id else "",
+            "product_category": str(rule.product_category_id)
+            if rule.product_category_id
+            else "",
             "active": "on" if rule.active else "",
         }
     return {
@@ -89,8 +91,12 @@ class RuleListView(ListView):
 
     def get_queryset(self):
         return Rule.objects.select_related(
-            "imposition_template", "cutter_program", "routing_preset",
-            "product_category", "cut_size", "sheet_size",
+            "imposition_template",
+            "cutter_program",
+            "routing_preset",
+            "product_category",
+            "cut_size",
+            "sheet_size",
         ).order_by("name")
 
 
@@ -113,8 +119,9 @@ class RuleCreateView(View):
                 product_category_id=_fk_or_none(data, "product_category"),
             )
             ctx["values"] = dict(data)
-            from django.template.loader import render_to_string
             from django.http import HttpResponse
+            from django.template.loader import render_to_string
+
             html = render_to_string(
                 "rules/_template_options.html", ctx, request=request
             )
@@ -171,8 +178,9 @@ class RuleEditView(View):
                 product_category_id=_fk_or_none(data, "product_category"),
             )
             ctx["values"] = dict(data)
-            from django.template.loader import render_to_string
             from django.http import HttpResponse
+            from django.template.loader import render_to_string
+
             html = render_to_string(
                 "rules/_template_options.html", ctx, request=request
             )
