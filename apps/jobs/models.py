@@ -47,6 +47,10 @@ class PrintJob(models.Model):
         default=True,
         help_text="Each page has unique content; uncheck for step-and-repeat / stack-cut (Duplo)",
     )
+    is_saved = models.BooleanField(
+        default=False,
+        help_text="Mark this job to keep it beyond the 30-day auto-cleanup window.",
+    )
     notes = models.TextField(blank=True)
     error_message = models.TextField(blank=True)
     imposition_template = models.ForeignKey(

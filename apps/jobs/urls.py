@@ -18,4 +18,5 @@ urlpatterns = [
     path("<uuid:pk>/preview/", views.JobPreviewView.as_view(), name="preview"),
     path("<uuid:pk>/download/", views.JobDownloadView.as_view(), name="download"),
     path("<uuid:pk>/resend/", views.JobResendView.as_view(), name="resend"),
+    path("<uuid:pk>/toggle-save/", views.JobToggleSaveView.as_view(), name="toggle_save"),
 ]
