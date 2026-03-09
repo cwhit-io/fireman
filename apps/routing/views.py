@@ -1,3 +1,5 @@
+import copy
+
 from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -184,8 +186,6 @@ class PresetDuplicateView(View):
 
     def post(self, request, pk):
         preset = get_object_or_404(RoutingPreset, pk=pk)
-        import copy
-
         new_name = f"{preset.name} (copy)"
         # If that name already exists, keep appending until unique
         counter = 2
@@ -213,7 +213,6 @@ class PresetDuplicateView(View):
             f"Preset '{preset.name}' duplicated as '{new_preset.name}'.",
         )
         next_url = _get_next_url(request)
-        return redirect(
-            next_url or "routing:edit",
-            pk=new_preset.pk,
-        )
+        if next_url:
+            return redirect(next_url)
+        return redirect("routing:edit", pk=new_preset.pk)
