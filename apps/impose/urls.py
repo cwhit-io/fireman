@@ -12,4 +12,5 @@ urlpatterns = [
     path("<int:pk>/edit/", views.TemplateEditView.as_view(), name="edit"),
     path("<int:pk>/delete/", views.TemplateDeleteView.as_view(), name="delete"),
     path("<int:pk>/export/", views.TemplateExportView.as_view(), name="export"),
+    path("presets/", views.PresetsView.as_view(), name="presets"),
 ]

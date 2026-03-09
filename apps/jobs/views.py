@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
@@ -39,7 +40,6 @@ class JobDetailView(DetailView):
         ctx["templates"] = ImpositionTemplate.objects.select_related(
             "product_category", "routing_preset"
         ).order_by("name")
-        ctx["product_categories"] = ProductCategory.objects.order_by("name")
         return ctx
 
 
@@ -195,7 +195,7 @@ class JobApplyTemplateView(View):
 class JobDeleteView(DeleteView):
     model = PrintJob
     template_name = "jobs/job_confirm_delete.html"
-    success_url = "/jobs/"
+    success_url = reverse_lazy("jobs:list")
 
     def form_valid(self, form):
         messages.success(self.request, "Job deleted.")
