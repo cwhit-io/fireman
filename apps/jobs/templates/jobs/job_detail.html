@@ -118,13 +118,92 @@
           </button>
         </p>
         <div x-show="showBarcodeInfo" x-transition class="mt-3 p-3 bg-white rounded-lg border border-blue-200 text-xs text-gray-700 shadow">
-          <p class="font-semibold text-blue-700 mb-1">How to change barcode reading on the Duplo 646:</p>
-          <ol class="list-decimal list-inside space-y-1">
-            <li>On the Duplo 646 touchscreen, tap <strong>Menu</strong>.</li>
-            <li>Navigate to <strong>System Settings</strong> → <strong>Barcode Reader</strong>.</li>
-            <li>Toggle <strong>Barcode Read</strong> to <strong>ON</strong> to have the machine read the barcode from the sheet automatically, or <strong>OFF</strong> to select the program manually from the touchscreen.</li>
-            <li>Tap <strong>OK</strong> to save.</li>
-          </ol>
+
+  <div class="card bg-base-100 shadow-md border border-base-300 w-full max-w-md">
+    <div class="card-body gap-4 p-5">
+
+      <!-- Title -->
+      <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
+          <rect x="3" y="4" width="2" height="16"/><rect x="7" y="4" width="1" height="16"/>
+          <rect x="10" y="4" width="2" height="16"/><rect x="14" y="4" width="1" height="16"/>
+          <rect x="17" y="4" width="2" height="16"/>
+        </svg>
+        <h2 class="card-title text-sm text-primary">How to Change Barcode Reading — Duplo DC-646</h2>
+      </div>
+
+      <div class="divider my-0"></div>
+
+      <!-- Steps -->
+      <ul class="steps steps-vertical gap-1">
+
+        <li class="step step-primary">
+          <div class="text-left text-sm pl-2">
+            Press the <span class="key">F</span> key to open the <strong>Select Menu</strong>.
+          </div>
+        </li>
+
+        <li class="step step-primary">
+          <div class="text-left text-sm pl-2">
+            Use <span class="key">↑</span> / <span class="key">↓</span> to highlight <strong>Settings2</strong>, then press <span class="key">SET</span>.
+          </div>
+        </li>
+
+        <li class="step step-primary">
+          <div class="text-left text-sm pl-2">
+            Use <span class="key">←</span> / <span class="key">→</span> to toggle <strong>Read Barcode</strong> to
+            <span class="badge badge-success badge-sm">ON</span> or
+            <span class="badge badge-error badge-sm">OFF</span>.
+          </div>
+        </li>
+
+        <li class="step step-primary">
+          <div class="text-left text-sm pl-2">
+            Press <span class="key">↓</span> to advance to the next setting.
+          </div>
+        </li>
+
+        <li class="step step-primary">
+          <div class="text-left text-sm pl-2">
+            Press <span class="key">SET</span> to save.
+            <span class="text-warning font-medium">(Changes are lost if you exit without pressing SET.)</span>
+          </div>
+        </li>
+
+      </ul>
+
+      <div class="divider my-0"></div>
+
+      <!-- Notes -->
+      <div class="alert alert-info py-3 px-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/>
+        </svg>
+        <ul class="text-xs space-y-1 list-none">
+          <li>
+            <span class="badge badge-success badge-sm">ON</span>
+            — Machine auto-reads barcode and selects the matching JOB.
+          </li>
+          <li>
+            <span class="badge badge-error badge-sm">OFF</span>
+            — JOB must be selected manually from the control panel.
+          </li>
+          <li>
+            <span class="font-semibold">BC</span> appears on the standby screen when barcode reading is active.
+          </li>
+          <li>
+            Barcode must be <span class="font-semibold">CODE-39</span>, positioned
+            <span class="font-semibold">3–20 mm</span> from lead edge and
+            <span class="font-semibold">25–60 mm</span> from right edge.
+          </li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+
+
         </div>
         {% endif %}
       </div>
