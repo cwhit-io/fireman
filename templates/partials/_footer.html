@@ -5,20 +5,10 @@
     <img
       src="{% static 'logo.png' %}"
       alt="Ember logo"
-      class="w-10 h-10 opacity-80"
+      class="w-24 h-24 opacity-80"
     />
-    <p class="font-semibold text-lg">Ember</p>
-    <p class="text-base-content/60 text-sm">Your friendly print helper — making every job a little easier.</p>
   </aside>
 
-  <nav aria-label="Footer navigation">
-    <ul class="grid grid-flow-col gap-4">
-      <li><a href="{% url 'jobs:list' %}" class="link link-hover text-sm">Jobs</a></li>
-      <li><a href="{% url 'impose:list' %}" class="link link-hover text-sm">Templates</a></li>
-      <li><a href="{% url 'routing:list' %}" class="link link-hover text-sm">Presets</a></li>
-      <li><a href="{% url 'rules:list' %}" class="link link-hover text-sm">Rulesets</a></li>
-    </ul>
-  </nav>
 
   <aside>
     <p class="text-base-content/40 text-xs">&copy; {% now "Y" %} Ember. Built with ❤️ for busy print teams.</p>
