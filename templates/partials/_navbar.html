@@ -1,7 +1,7 @@
 {% load static %}
 {# Sticky top navbar — uses daisyUI `navbar` + Alpine.js for mobile drawer toggle #}
-<header class="sticky top-0 z-50 shadow-sm">
-  <div class="navbar bg-base-100 max-w-6xl mx-auto px-4">
+<header class="sticky bg-base-200 top-0 z-50 shadow-sm">
+  <div class="navbar max-w-6xl mx-auto px-4">
 
     {# ── Brand / logo ──────────────────────────────── #}
     <div class="navbar-start gap-2">
@@ -36,7 +36,7 @@
         <img
           src="{% static 'logo.png' %}"
           alt="Ember logo"
-          class="w-8 h-8"
+          class="w-14 h-14"
         />
         <span class="text-primary">Ember</span>
       </a>
@@ -55,7 +55,7 @@
 
     {# ── Right side: CTA + user menu ───────────────── #}
     <div class="navbar-end gap-2">
-      <a href="{% url 'jobs:upload' %}" class="btn btn-primary btn-sm hidden sm:inline-flex">
+      <a href="{% url 'jobs:list' %}" class="btn btn-primary btn-sm hidden sm:inline-flex">
         Get Started
       </a>
 
@@ -105,7 +105,6 @@
           x-transition
         >
           <li><a href="/admin/">Admin</a></li>
-          <li><a href="/demo/">Demo</a></li>
         </ul>
       </div>
     </div>

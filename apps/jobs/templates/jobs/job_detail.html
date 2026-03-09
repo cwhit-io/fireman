@@ -35,7 +35,7 @@
 
   {# 3. Quantity Input — step-and-repeat jobs only #}
   {% if per_sheet and not job.pages_are_unique %}
-  <div class="alert alert-warning mb-6">
+  <div class="bg-base-100 p-4 rounded-lg mb-6 border border-base-300">
     <div class="w-full">
       <p class="font-bold mb-2">Finished pieces needed</p>
       <form method="post" action="{% url 'jobs:calc_sheets' job.pk %}" class="flex flex-wrap items-end gap-2">
@@ -43,7 +43,7 @@
         <div class="form-control">
           <div class="join">
             <input type="number" min="1" name="finished_qty" id="finished_qty" value="{{ finished_qty|default:'' }}" placeholder="e.g. 250" class="input input-bordered join-item w-36" required>
-            <button type="submit" class="btn btn-warning join-item">Calculate</button>
+            <button type="submit" class="btn btn-primary join-item">Calculate</button>
           </div>
         </div>
       </form>
@@ -328,16 +328,12 @@
   <div class="max-w-4xl mx-auto px-4 py-3 flex gap-3 items-center justify-end">
     <a href="{% url 'jobs:preview' job.pk %}" target="_blank" class="btn btn-ghost">Preview PDF</a>
     {% if job.routing_preset %}
-      {% if not job.pages_are_unique and not sheets_needed %}
-      <button type="button" class="btn btn-primary" disabled>Send to Printer</button>
-      {% else %}
       <form method="post" action="{% url 'jobs:resend' job.pk %}" class="inline">
         {% csrf_token %}
-        <button type="submit" class="btn btn-primary">Send to Printer ▶</button>
+        <button type="submit" class="btn btn-primary">Send to Printer</button>
       </form>
-      {% endif %}
     {% else %}
-    <button type="button" class="btn btn-primary" disabled>No Printer Assigned</button>
+    <button type="button" class="btn btn-primary" disabled>Printer not Available</button>
     {% endif %}
   </div>
 </div>
