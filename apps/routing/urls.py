@@ -14,4 +14,9 @@ urlpatterns = [
         views.PresetTestConnectionView.as_view(),
         name="test_connection",
     ),
+    path(
+        "<int:pk>/duplicate/",
+        views.PresetDuplicateView.as_view(),
+        name="duplicate",
+    ),
 ]

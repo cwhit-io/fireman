@@ -1,3 +1,5 @@
+import copy
+
 from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -177,3 +179,40 @@ class PresetTestConnectionView(View):
 
         result = test_printer_connection(preset)
         return JsonResponse(result)
+
+
+class PresetDuplicateView(View):
+    """Duplicate an existing preset with a new name."""
+
+    def post(self, request, pk):
+        preset = get_object_or_404(RoutingPreset, pk=pk)
+        new_name = f"{preset.name} (copy)"
+        # If that name already exists, keep appending until unique
+        counter = 2
+        candidate = new_name
+        while RoutingPreset.objects.filter(name=candidate).exists():
+            candidate = f"{preset.name} (copy {counter})"
+            counter += 1
+
+        new_preset = RoutingPreset(
+            name=candidate,
+            printer_queue=preset.printer_queue,
+            media_type=preset.media_type,
+            media_size=preset.media_size,
+            duplex=preset.duplex,
+            color_mode=preset.color_mode,
+            tray=preset.tray,
+            copies=preset.copies,
+            fiery_options=copy.deepcopy(preset.fiery_options),
+            extra_lpr_options=preset.extra_lpr_options,
+            active=preset.active,
+        )
+        new_preset.save()
+        messages.success(
+            request,
+            f"Preset '{preset.name}' duplicated as '{new_preset.name}'.",
+        )
+        next_url = _get_next_url(request)
+        if next_url:
+            return redirect(next_url)
+        return redirect("routing:edit", pk=new_preset.pk)
