@@ -187,6 +187,14 @@ class ImpositionTemplate(models.Model):
         related_name="imposition_templates",
         help_text="Barcode program to stamp on each sheet when imposing this template.",
     )
+    routing_preset = models.ForeignKey(
+        "routing.RoutingPreset",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="imposition_templates",
+        help_text="Printer preset to use when routing jobs with this template.",
+    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
