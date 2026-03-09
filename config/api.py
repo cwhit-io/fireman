@@ -6,7 +6,7 @@ from apps.jobs.api import router as jobs_router
 from apps.routing.api import router as routing_router
 from apps.rules.api import router as rules_router
 
-api = NinjaAPI(title="PrintOps API", version="1.0.0")
+api = NinjaAPI(title="PrintOps API", version="1.0.0", urls_namespace="mainapi")
 
 
 class MessageSchema(Schema):

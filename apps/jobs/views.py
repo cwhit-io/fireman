@@ -52,12 +52,13 @@ class JobDetailView(DetailView):
         ).order_by("name")
         job = self.object
         tmpl = job.imposition_template
-        if tmpl and job.page_count:
+        if tmpl:
             per_sheet = (tmpl.columns or 1) * (tmpl.rows or 1)
-            sheets_needed = math.ceil(job.page_count / per_sheet) if per_sheet else None
             ctx["per_sheet"] = per_sheet
-            ctx["sheets_needed"] = sheets_needed
-            ctx["sheets_remaining"] = max(sheets_needed - 1, 0) if sheets_needed else 0
+            if job.pages_are_unique and job.page_count and per_sheet:
+                sheets_needed = math.ceil(job.page_count / per_sheet)
+                ctx["sheets_needed"] = sheets_needed
+                ctx["sheets_remaining"] = max(sheets_needed - 1, 0)
         return ctx
 
 
@@ -311,3 +312,32 @@ class JobResendView(View):
                     pass
 
         return redirect("jobs:detail", pk=pk)
+
+
+def calc_sheets(request, pk):
+    """Calculate sheets needed for gangup (step-and-repeat) jobs based on a user-supplied finished quantity."""
+    job = get_object_or_404(PrintJob, pk=pk)
+
+    if request.method != "POST":
+        return redirect("jobs:detail", pk=pk)
+
+    try:
+        finished_qty = max(1, int(request.POST.get("finished_qty", 1)))
+    except (ValueError, TypeError):
+        finished_qty = 1
+
+    tmpl = job.imposition_template
+    per_sheet = (tmpl.columns or 1) * (tmpl.rows or 1) if tmpl else 1
+    sheets_needed = math.ceil(finished_qty / per_sheet) if per_sheet else 1
+
+    ctx = {
+        "job": job,
+        "finished_qty": finished_qty,
+        "sheets_needed": sheets_needed,
+        "per_sheet": per_sheet,
+        "sheets_remaining": max(sheets_needed - 1, 0),
+        "templates": ImpositionTemplate.objects.select_related(
+            "product_category", "routing_preset"
+        ).order_by("name"),
+    }
+    return render(request, "jobs/job_detail.html", ctx)
