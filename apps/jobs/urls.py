@@ -7,7 +7,11 @@ app_name = "jobs"
 urlpatterns = [
     path("", views.JobListView.as_view(), name="list"),
     path("upload/", views.JobUploadView.as_view(), name="upload"),
-    path("upload/templates/", views.JobUploadTemplatesView.as_view(), name="upload_templates"),
+    path(
+        "upload/templates/",
+        views.JobUploadTemplatesView.as_view(),
+        name="upload_templates",
+    ),
     path("<uuid:pk>/", views.JobDetailView.as_view(), name="detail"),
     path(
         "<uuid:pk>/apply-template/",
@@ -18,5 +22,8 @@ urlpatterns = [
     path("<uuid:pk>/preview/", views.JobPreviewView.as_view(), name="preview"),
     path("<uuid:pk>/download/", views.JobDownloadView.as_view(), name="download"),
     path("<uuid:pk>/resend/", views.JobResendView.as_view(), name="resend"),
-    path("<uuid:pk>/toggle-save/", views.JobToggleSaveView.as_view(), name="toggle_save"),
+    path(
+        "<uuid:pk>/toggle-save/", views.JobToggleSaveView.as_view(), name="toggle_save"
+    ),
+    path("<uuid:pk>/calc-sheets/", views.calc_sheets, name="calc_sheets"),
 ]
