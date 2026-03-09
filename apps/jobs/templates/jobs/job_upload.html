@@ -101,7 +101,7 @@ function uploadForm() {
     showMultiPageOptions: false,
     pageCount: 0,
     pageCountLabel: '',
-    pagesUniqueHint: 'Check if each page has different content (e.g. a mail merge). Leave unchecked for step-and-repeat / stack-cut where all copies are the same.',
+    pagesUniqueHint: 'Step-and-repeat / stack-cut: all positions print the same content.',
     async onFileChange(event) {
       const file = event.target.files[0];
       if (!file) {
@@ -126,7 +126,7 @@ function uploadForm() {
     },
     _getPdfPageCount(file) {
       return new Promise((resolve, reject) => {
-        if (typeof pdfjsLib === 'undefined') { reject(new Error('pdf.js not loaded')); return; }
+        if (typeof pdfjsLib === 'undefined') { reject(new Error('PDF.js library not available — cannot detect page count')); return; }
         const reader = new FileReader();
         reader.onload = function(e) {
           const typedarray = new Uint8Array(e.target.result);
@@ -149,7 +149,7 @@ function uploadForm() {
 }
 </script>
 {# PDF.js for client-side page count detection #}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-q+4lHwAhMuXMqXDLbmXCnOJMdydxlRN9KAkQdTn1n8GkXbyh7SWGDsF4aFBpQflVXsz+9axJe4gj8HBfvYnQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
   if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
