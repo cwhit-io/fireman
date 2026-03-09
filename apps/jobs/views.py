@@ -1,3 +1,5 @@
+import math
+
 from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
@@ -48,6 +50,14 @@ class JobDetailView(DetailView):
         ctx["templates"] = ImpositionTemplate.objects.select_related(
             "product_category", "routing_preset"
         ).order_by("name")
+        job = self.object
+        tmpl = job.imposition_template
+        if tmpl and job.page_count:
+            per_sheet = (tmpl.columns or 1) * (tmpl.rows or 1)
+            sheets_needed = math.ceil(job.page_count / per_sheet) if per_sheet else None
+            ctx["per_sheet"] = per_sheet
+            ctx["sheets_needed"] = sheets_needed
+            ctx["sheets_remaining"] = max(sheets_needed - 1, 0) if sheets_needed else 0
         return ctx
 
 
