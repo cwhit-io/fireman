@@ -23,11 +23,6 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
         Preview PDF
       </a>
-      <a href="{% url 'jobs:download' job.pk %}"
-        class="flex items-center gap-2 bg-emerald-500 text-white font-bold px-6 py-3 rounded-lg hover:bg-emerald-600 text-base shadow">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        Download
-      </a>
       {% if job.routing_preset %}
       <form method="post" action="{% url 'jobs:resend' job.pk %}" class="inline">
         {% csrf_token %}
@@ -45,6 +40,28 @@
       {% endif %}
     </div>
   </div>
+
+  {# ── Ember print-count callout ── #}
+  {% if sheets_needed %}
+  <div class="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 mb-6 flex gap-4 items-start">
+    <span class="text-3xl leading-none">🐾</span>
+    <div>
+      <p class="font-bold text-amber-800 mb-1">Ember says: Let's figure out how many sheets to print!</p>
+      <p class="text-sm text-amber-700">
+        You have <strong>{{ job.page_count }}</strong> {% if job.product_type %}{{ job.get_product_type_display|lower }}{% else %}page{% endif %}{{ job.page_count|pluralize }} and your template fits <strong>{{ per_sheet }}</strong> up per sheet —
+        that means you'll need <strong>{{ sheets_needed }}</strong> sheet{{ sheets_needed|pluralize }} total. 🎉
+      </p>
+      <p class="text-sm text-amber-700 mt-1">
+        I'll always send just <strong>1 sheet</strong> to the printer first — it's always best to run a test print!
+        {% if sheets_remaining > 0 %}
+        After that, come back and send the remaining <strong>{{ sheets_remaining }}</strong> sheet{{ sheets_remaining|pluralize }}.
+        {% else %}
+        Looks like just 1 sheet total — perfect for a quick test! 🐾
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  {% endif %}
   {% endif %}
 
   {# ── Job details (name, status, delete, change buttons) ── #}
@@ -83,40 +100,60 @@
     {% if job.imposition_template or job.cutter_program %}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
       {# Paper Size card #}
-      <div class="rounded-xl border border-blue-200 bg-blue-50 px-5 py-4">
-        <p class="text-xs font-semibold uppercase tracking-wide text-blue-500 mb-1">Your Paper Size</p>
-        <p class="text-lg font-bold text-blue-900">
-          {% if job.imposition_template and job.imposition_template.sheet_size %}
-            {{ job.imposition_template.sheet_size.label }}
-          {% elif job.imposition_template and job.imposition_template.sheet_width %}
-            {{ job.imposition_template.sheet_size_label }}
-          {% else %}
-            Not set
-          {% endif %}
-        </p>
+      <div class="rounded-xl border border-blue-200 bg-blue-50 px-5 py-4 flex items-start gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wide text-blue-500 mb-1">Your Paper Size</p>
+          <p class="text-lg font-bold text-blue-900">
+            {% if job.imposition_template and job.imposition_template.sheet_size %}
+              {{ job.imposition_template.sheet_size.label }}
+            {% elif job.imposition_template and job.imposition_template.sheet_width %}
+              {{ job.imposition_template.sheet_size_label }}
+            {% else %}
+              Not set
+            {% endif %}
+          </p>
+        </div>
       </div>
 
       {# Cutter Code card #}
       <div class="rounded-xl border border-purple-200 bg-purple-50 px-5 py-4" x-data="{ showBarcodeInfo: false }">
-        <p class="text-xs font-semibold uppercase tracking-wide text-purple-500 mb-1">Your Cutter Code</p>
-        <p class="text-lg font-bold text-purple-900">
-          {% if job.cutter_program and job.cutter_program.duplo_code %}
-            #{{ job.cutter_program.duplo_code }}
-          {% else %}
-            Not assigned
-          {% endif %}
-        </p>
-        {% if job.cutter_program %}
-        <p class="text-xs mt-1 {% if job.imposition_template and job.imposition_template.print_barcode %}text-green-700{% else %}text-amber-700{% endif %}">
-          {% if job.imposition_template and job.imposition_template.print_barcode %}
-            ✓ Barcode will be printed on the sheet automatically.
-          {% else %}
-            ⚠ Barcode is not printed on the sheet — you will need to select it manually on the Duplo 646.
-          {% endif %}
-          <button type="button" @click="showBarcodeInfo = !showBarcodeInfo" class="ml-1 inline-flex items-center text-blue-500 hover:text-blue-700" title="How to change barcode reading on the Duplo 646">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
-          </button>
-        </p>
+        <div class="flex items-start gap-3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-purple-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="2" height="16"/><rect x="7" y="4" width="1" height="16"/>
+            <rect x="10" y="4" width="2" height="16"/><rect x="14" y="4" width="1" height="16"/>
+            <rect x="17" y="4" width="2" height="16"/>
+          </svg>
+          <div class="flex-1">
+            <p class="text-xs font-semibold uppercase tracking-wide text-purple-500 mb-1">Your Cutter Code</p>
+            <p class="text-lg font-bold text-purple-900">
+              {% if job.cutter_program and job.cutter_program.duplo_code %}
+                #{{ job.cutter_program.duplo_code }}
+              {% else %}
+                Not assigned
+              {% endif %}
+            </p>
+            {% if job.cutter_program %}
+            <div class="mt-2 flex items-center gap-2 flex-wrap">
+              {% if job.imposition_template and job.imposition_template.print_barcode %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800">
+                  <span class="h-2 w-2 rounded-full bg-green-500 inline-block"></span>
+                  Set BC to <strong>ON</strong>
+                </span>
+                <span class="text-xs text-green-700">— barcode is printed on the sheet, the cutter will read it automatically.</span>
+              {% else %}
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">
+                  <span class="h-2 w-2 rounded-full bg-red-500 inline-block"></span>
+                  Set BC to <strong>OFF</strong>
+                </span>
+                <span class="text-xs text-amber-700">— no barcode on sheet, select the job manually on the Duplo 646.</span>
+              {% endif %}
+              <button type="button" @click="showBarcodeInfo = !showBarcodeInfo" class="inline-flex items-center text-blue-500 hover:text-blue-700" title="How to change BC setting on the Duplo DC-646">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
+              </button>
+            </div>
         <div x-show="showBarcodeInfo" x-transition class="mt-3 p-3 bg-white rounded-lg border border-blue-200 text-xs text-gray-700 shadow">
 
   <div class="card bg-base-100 shadow-md border border-base-300 w-full max-w-md">
@@ -206,6 +243,8 @@
 
         </div>
         {% endif %}
+          </div>
+        </div>
       </div>
     </div>
     {% endif %}

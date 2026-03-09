@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Templates & Presets{% endblock %}
+{% block title %}Imposition Templates{% endblock %}
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8">
   <div class="mb-6">
-    <h1 class="text-2xl font-bold">Templates &amp; Presets</h1>
-    <p class="text-sm text-gray-500 mt-1">Manage imposition templates and printer presets for your print workflow.</p>
+    <h1 class="text-2xl font-bold">Imposition Templates</h1>
+    <p class="text-sm text-gray-500 mt-1">Manage imposition templates for your print workflow.</p>
   </div>
 
   {% if messages %}
@@ -12,18 +12,6 @@
       <div class="mb-4 p-3 rounded {% if message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ message }}</div>
     {% endfor %}
   {% endif %}
-
-  {# Tab navigation #}
-  <div class="tabs tabs-bordered mb-6">
-    <a href="?{% if current_product_category %}product_category={{ current_product_category }}{% endif %}"
-      class="tab tab-lg font-medium tab-active">
-      Imposition Templates
-    </a>
-    <a href="{% url 'impose:presets' %}"
-      class="tab tab-lg font-medium">
-      Printer Presets
-    </a>
-  </div>
 
   <div>
     <div class="flex justify-between items-center mb-4">
