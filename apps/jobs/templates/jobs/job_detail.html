@@ -47,44 +47,125 @@
   </div>
   {% endif %}
 
-  {# ── Applied Template & Settings — prominent section ── #}
-  <div class="bg-white shadow rounded-xl border-l-4 {% if job.imposition_template or job.routing_preset %}border-blue-500{% else %}border-gray-300{% endif %} p-5 mb-6" x-data="{ showChange: false }">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Applied Settings</p>
-        <div class="flex flex-wrap gap-3 mt-2">
-          {% if job.imposition_template %}
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
-            {{ job.imposition_template }}
-            {% if job.imposition_template.cutter_program %} · barcode {{ job.imposition_template.cutter_program.duplo_code }}{% endif %}
-          </span>
+  {# ── Job details (name, status, delete, change buttons) ── #}
+  <div class="bg-white shadow rounded-lg p-6 mb-6" x-data="{ showChange: false, showBarcodeInfo: false }">
+    <div class="flex justify-between items-start mb-4">
+      <h1 class="text-xl font-bold">{{ job.name|default:job.pk }}</h1>
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        <span class="px-3 py-1 text-sm rounded-full
+          {% if job.status == 'sent' %}bg-green-100 text-green-800
+          {% elif job.status == 'error' %}bg-red-100 text-red-800
+          {% elif job.status == 'pending' %}bg-gray-100 text-gray-800
+          {% else %}bg-blue-100 text-blue-800{% endif %}">
+          {{ job.get_status_display }}
+        </span>
+        <button @click="showChange = !showChange"
+          class="px-3 py-1 text-sm font-semibold text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+          Change Template
+        </button>
+        <form method="post" action="{% url 'jobs:toggle_save' job.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          {% if job.is_saved %}
+          <button type="submit" class="px-3 py-1 text-sm font-semibold text-amber-700 border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors">Unsave</button>
           {% else %}
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-500 text-sm">No template</span>
+          <button type="submit" class="px-3 py-1 text-sm font-semibold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Save</button>
           {% endif %}
-          {% if job.cutter_program %}
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-sm font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343"/></svg>
-            {{ job.cutter_program }}
-          </span>
-          {% endif %}
-          {% if job.routing_preset %}
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-sm font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17H17.01M5 17l7-7 7 7M5 7l7 7 7-7"/></svg>
-            {{ job.routing_preset }}
-          </span>
-          {% else %}
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-500 text-sm">No printer</span>
-          {% endif %}
-        </div>
+        </form>
+        <form method="post" action="{% url 'jobs:delete' job.pk %}" onsubmit="return confirm('Delete this job?')">
+          {% csrf_token %}
+          <button type="submit" class="px-3 py-1 text-sm font-semibold text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors">Delete</button>
+        </form>
       </div>
-      <button @click="showChange = !showChange"
-        class="ml-4 flex-shrink-0 px-4 py-2 text-sm font-semibold text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
-        Change
-      </button>
     </div>
 
-    {# Inline template change form #}
+    {# ── Two info cards: Paper Size & Cutter Code ── #}
+    {% if job.imposition_template or job.cutter_program %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+      {# Paper Size card #}
+      <div class="rounded-xl border border-blue-200 bg-blue-50 px-5 py-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-blue-500 mb-1">Your Paper Size</p>
+        <p class="text-lg font-bold text-blue-900">
+          {% if job.imposition_template and job.imposition_template.sheet_size %}
+            {{ job.imposition_template.sheet_size.label }}
+          {% elif job.imposition_template and job.imposition_template.sheet_width %}
+            {{ job.imposition_template.sheet_size_label }}
+          {% else %}
+            Not set
+          {% endif %}
+        </p>
+      </div>
+
+      {# Cutter Code card #}
+      <div class="rounded-xl border border-purple-200 bg-purple-50 px-5 py-4" x-data="{ showBarcodeInfo: false }">
+        <p class="text-xs font-semibold uppercase tracking-wide text-purple-500 mb-1">Your Cutter Code</p>
+        <p class="text-lg font-bold text-purple-900">
+          {% if job.cutter_program and job.cutter_program.duplo_code %}
+            #{{ job.cutter_program.duplo_code }}
+          {% else %}
+            Not assigned
+          {% endif %}
+        </p>
+        {% if job.cutter_program %}
+        <p class="text-xs mt-1 {% if job.imposition_template and job.imposition_template.print_barcode %}text-green-700{% else %}text-amber-700{% endif %}">
+          {% if job.imposition_template and job.imposition_template.print_barcode %}
+            ✓ Barcode will be printed on the sheet automatically.
+          {% else %}
+            ⚠ Barcode is not printed on the sheet — you will need to select it manually on the Duplo 646.
+          {% endif %}
+          <button type="button" @click="showBarcodeInfo = !showBarcodeInfo" class="ml-1 inline-flex items-center text-blue-500 hover:text-blue-700" title="How to change barcode reading on the Duplo 646">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
+          </button>
+        </p>
+        <div x-show="showBarcodeInfo" x-transition class="mt-3 p-3 bg-white rounded-lg border border-blue-200 text-xs text-gray-700 shadow">
+          <p class="font-semibold text-blue-700 mb-1">How to change barcode reading on the Duplo 646:</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>On the Duplo 646 touchscreen, tap <strong>Menu</strong>.</li>
+            <li>Navigate to <strong>System Settings</strong> → <strong>Barcode Reader</strong>.</li>
+            <li>Toggle <strong>Barcode Read</strong> to <strong>ON</strong> to have the machine read the barcode from the sheet automatically, or <strong>OFF</strong> to select the program manually from the touchscreen.</li>
+            <li>Tap <strong>OK</strong> to save.</li>
+          </ol>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── Accordion: Advanced details (hidden by default) ── #}
+    <details class="group mt-2">
+      <summary class="cursor-pointer text-xs font-semibold text-gray-400 uppercase tracking-wide hover:text-gray-600 select-none list-none flex items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        Job Details
+      </summary>
+      <div class="mt-3 border-t pt-4">
+        <dl class="grid grid-cols-2 gap-4">
+          <div><dt class="text-sm text-gray-500">Job ID</dt><dd class="font-mono text-sm">{{ job.pk }}</dd></div>
+          <div><dt class="text-sm text-gray-500">Created</dt><dd>{{ job.created_at|date:"M j, Y H:i" }}</dd></div>
+          <div><dt class="text-sm text-gray-500">Page Count</dt><dd>{{ job.page_count|default:"—" }}</dd></div>
+          <div><dt class="text-sm text-gray-500">Page Size</dt><dd>{{ job.page_size_label }}</dd></div>
+          <div><dt class="text-sm text-gray-500">Type</dt><dd>{{ job.get_product_type_display|default:"—" }}</dd></div>
+          <div><dt class="text-sm text-gray-500">Double-sided</dt><dd>{% if job.is_double_sided %}Yes{% else %}No{% endif %}</dd></div>
+          <div><dt class="text-sm text-gray-500">Unique pages</dt><dd>{% if job.pages_are_unique %}Yes (n-up){% else %}No (step-and-repeat / stack-cut){% endif %}</dd></div>
+          {% if job.imposition_template %}
+          <div><dt class="text-sm text-gray-500">Template</dt><dd class="text-sm">{{ job.imposition_template.name }}</dd></div>
+          {% endif %}
+          {% if job.routing_preset %}
+          <div><dt class="text-sm text-gray-500">Printer</dt><dd class="text-sm">{{ job.routing_preset }}</dd></div>
+          {% endif %}
+        </dl>
+        {% if job.error_message %}
+        <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+          <p class="text-sm text-red-700 font-medium">Error:</p>
+          <pre class="text-xs text-red-600 mt-1 whitespace-pre-wrap">{{ job.error_message }}</pre>
+        </div>
+        {% endif %}
+        {% if job.notes %}
+        <div class="mt-4"><p class="text-sm text-gray-500">Notes</p><p class="mt-1">{{ job.notes }}</p></div>
+        {% endif %}
+      </div>
+    </details>
+
+    {# ── Inline template change form (toggled by Change Template button) ── #}
     <div x-show="showChange" x-transition class="mt-4 border-t pt-4">
       <p class="text-sm text-gray-500 mb-3">Select a template to apply its gangup layout and printer preset. The job will be re-processed immediately.</p>
       {% if templates %}
@@ -108,44 +189,6 @@
       <p class="text-sm text-gray-400">No templates available. <a href="{% url 'impose:create' %}" class="text-blue-600 hover:underline">Create a template</a>.</p>
       {% endif %}
     </div>
-  </div>
-
-  {# ── Job details ── #}
-  <div class="bg-white shadow rounded-lg p-6 mb-6">
-    <div class="flex justify-between items-start mb-4">
-      <h1 class="text-xl font-bold">{{ job.name|default:job.pk }}</h1>
-      <div class="flex items-center gap-3">
-        <span class="px-3 py-1 text-sm rounded-full
-          {% if job.status == 'sent' %}bg-green-100 text-green-800
-          {% elif job.status == 'error' %}bg-red-100 text-red-800
-          {% elif job.status == 'pending' %}bg-gray-100 text-gray-800
-          {% else %}bg-blue-100 text-blue-800{% endif %}">
-          {{ job.get_status_display }}
-        </span>
-        <form method="post" action="{% url 'jobs:delete' job.pk %}" onsubmit="return confirm('Delete this job?')">
-          {% csrf_token %}
-          <button type="submit" class="text-sm text-red-600 hover:text-red-800 hover:underline">Delete</button>
-        </form>
-      </div>
-    </div>
-    <dl class="grid grid-cols-2 gap-4">
-      <div><dt class="text-sm text-gray-500">Job ID</dt><dd class="font-mono text-sm">{{ job.pk }}</dd></div>
-      <div><dt class="text-sm text-gray-500">Created</dt><dd>{{ job.created_at|date:"M j, Y H:i" }}</dd></div>
-      <div><dt class="text-sm text-gray-500">Page Count</dt><dd>{{ job.page_count|default:"—" }}</dd></div>
-      <div><dt class="text-sm text-gray-500">Page Size</dt><dd>{{ job.page_size_label }}</dd></div>
-      <div><dt class="text-sm text-gray-500">Type</dt><dd>{{ job.get_product_type_display|default:"—" }}</dd></div>
-      <div><dt class="text-sm text-gray-500">Double-sided</dt><dd>{% if job.is_double_sided %}Yes{% else %}No{% endif %}</dd></div>
-      <div><dt class="text-sm text-gray-500">Unique pages</dt><dd>{% if job.pages_are_unique %}Yes (n-up){% else %}No (step-and-repeat / stack-cut){% endif %}</dd></div>
-    </dl>
-    {% if job.error_message %}
-    <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded">
-      <p class="text-sm text-red-700 font-medium">Error:</p>
-      <pre class="text-xs text-red-600 mt-1 whitespace-pre-wrap">{{ job.error_message }}</pre>
-    </div>
-    {% endif %}
-    {% if job.notes %}
-    <div class="mt-4"><p class="text-sm text-gray-500">Notes</p><p class="mt-1">{{ job.notes }}</p></div>
-    {% endif %}
   </div>
 </div>
 {% endblock %}
