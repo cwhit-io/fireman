@@ -36,9 +36,9 @@
           <label for="category_id" class="text-sm font-semibold text-gray-700">Select Category <span class="text-red-500">*</span></label>
         </div>
         <select name="category_id" id="category_id"
-          hx-get="{% url 'jobs:upload_rulesets' %}"
+          hx-get="{% url 'jobs:upload_templates' %}"
           hx-trigger="change"
-          hx-target="#ruleset_id"
+          hx-target="#template_id"
           hx-swap="innerHTML"
           hx-include="[name='category_id']"
           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
@@ -49,20 +49,20 @@
         </select>
       </div>
 
-      {# Step 3: Ruleset (required, filtered by category via HTMX) #}
+      {# Step 3: Template (required, filtered by category via HTMX) #}
       <div class="mb-6">
         <div class="flex items-center gap-2 mb-2">
           <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">3</span>
-          <label for="ruleset_id" class="text-sm font-semibold text-gray-700">Select Ruleset <span class="text-red-500">*</span></label>
+          <label for="template_id" class="text-sm font-semibold text-gray-700">Select Template <span class="text-red-500">*</span></label>
         </div>
-        <select name="ruleset_id" id="ruleset_id" required
+        <select name="template_id" id="template_id" required
           class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-          <option value="" disabled selected>— Select a ruleset —</option>
-          {% for ruleset in rulesets %}
-          <option value="{{ ruleset.pk }}">{{ ruleset.name }}</option>
+          <option value="" disabled selected>— Select a template —</option>
+          {% for tmpl in templates %}
+          <option value="{{ tmpl.pk }}">{{ tmpl.name }}</option>
           {% endfor %}
         </select>
-        <p class="mt-1 text-xs text-gray-400">Filter by category above, or choose from all active rulesets.</p>
+        <p class="mt-1 text-xs text-gray-400">Filter by category above, or choose from all templates. The template controls imposition layout, barcode program, and printer preset.</p>
       </div>
 
       {# Step 4: Multi-page Options (shown after file is selected) #}

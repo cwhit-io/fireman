@@ -28,7 +28,7 @@ _PT_FIELDS = [
     "barcode_width",
     "barcode_height",
 ]
-_PLAIN_FIELDS = ["name", "category", "layout_type", "columns", "rows", "notes", "print_barcode"]
+_PLAIN_FIELDS = ["name", "columns", "rows", "notes", "print_barcode"]
 
 
 def _template_to_dict(tmpl: ImpositionTemplate) -> dict:
@@ -37,6 +37,8 @@ def _template_to_dict(tmpl: ImpositionTemplate) -> dict:
     for f in _PT_FIELDS:
         val = getattr(tmpl, f)
         d[f] = round(float(val) / POINTS_PER_INCH, 6) if val is not None else None
+    # Export product_category by name so it can be resolved on import
+    d["product_category"] = tmpl.product_category.name if tmpl.product_category else None
     return d
 
 
@@ -56,9 +58,14 @@ def _dict_to_template_fields(d: dict) -> dict:
     # Boolean field — default to True for legacy exports that pre-date the field
     if fields.get("print_barcode") is None:
         fields["print_barcode"] = True
-    # category defaults to empty string
-    if fields.get("category") is None:
-        fields["category"] = ""
+    # Resolve product_category name → FK id
+    cat_name = d.get("product_category") or ""
+    if cat_name:
+        from .models import ProductCategory
+        cat = ProductCategory.objects.filter(name=cat_name).first()
+        fields["product_category_id"] = cat.pk if cat else None
+    else:
+        fields["product_category_id"] = None
     return fields
 
 
@@ -82,12 +89,14 @@ def _in_to_pts(inches_str):
 
 def _build_form_context():
     from apps.cutter.models import CutterProgram
+    from apps.routing.models import RoutingPreset
 
     from .models import PrintSize, ProductCategory
 
     return {
         "layout_types": ImpositionTemplate.LayoutType.choices,
         "cutter_programs": CutterProgram.objects.filter(active=True).order_by("name"),
+        "routing_presets": RoutingPreset.objects.filter(active=True).order_by("name"),
         "product_categories": ProductCategory.objects.order_by("name"),
         "cut_sizes": PrintSize.objects.filter(
             size_type__in=[PrintSize.SizeType.CUT, PrintSize.SizeType.BOTH]
@@ -128,6 +137,7 @@ def _get_initial_form_values(tmpl=None):
             "barcode_height": _pts_to_in(tmpl.barcode_height),
             "print_barcode": tmpl.print_barcode,
             "cutter_program": str(tmpl.cutter_program_id) if tmpl.cutter_program_id else "",
+            "routing_preset": str(tmpl.routing_preset_id) if tmpl.routing_preset_id else "",
             "notes": tmpl.notes,
         }
     return {
@@ -150,6 +160,7 @@ def _get_initial_form_values(tmpl=None):
         "barcode_height": "0.35",  # DC-646 default: 0.35" tall
         "print_barcode": True,
         "cutter_program": "",
+        "routing_preset": "",
         "notes": "",
     }
 
@@ -219,6 +230,7 @@ def _template_from_post(data):
         "barcode_height": _fld("barcode_height") or 25.2,  # 0.35" default
         "print_barcode": data.get("print_barcode") == "on",
         "cutter_program_id": int(data.get("cutter_program")) if data.get("cutter_program", "").strip() else None,
+        "routing_preset_id": int(data.get("routing_preset")) if data.get("routing_preset", "").strip() else None,
         "notes": data.get("notes", "").strip(),
     }
 
@@ -349,21 +361,14 @@ class TemplateListView(ListView):
     context_object_name = "templates"
 
     def get_queryset(self):
-        from .models import ProductCategory
-
-        qs = super().get_queryset().select_related("product_category", "cut_size", "sheet_size")
-        # Filter by product_category FK (preferred)
+        qs = super().get_queryset().select_related("product_category", "cut_size", "sheet_size", "routing_preset")
+        # Filter by product_category FK
         cat_id = self.request.GET.get("product_category", "").strip()
         if cat_id:
             try:
                 qs = qs.filter(product_category_id=int(cat_id))
             except (ValueError, TypeError):
                 pass
-        else:
-            # Legacy: filter by category CharField if ?category= is used
-            cat = self.request.GET.get("category", "").strip()
-            if cat:
-                qs = qs.filter(category=cat)
         return qs
 
     def get_context_data(self, **kwargs):
@@ -375,18 +380,8 @@ class TemplateListView(ListView):
 
         ctx = super().get_context_data(**kwargs)
         # All product categories that have at least one template
-        ctx["product_categories"] = ProductCategory.objects.filter(
-            imposition_templates__isnull=False
-        ).distinct().order_by("name")
-        # Legacy category strings (for backward compatibility display)
-        ctx["categories"] = (
-            ImpositionTemplate.objects.exclude(category="")
-            .values_list("category", flat=True)
-            .distinct()
-            .order_by("category")
-        )
+        ctx["product_categories"] = ProductCategory.objects.all().order_by("name")
         ctx["current_product_category"] = self.request.GET.get("product_category", "")
-        ctx["current_category"] = self.request.GET.get("category", "")
         # Include printer presets so they are manageable from the Templates section
         ctx["presets"] = RoutingPreset.objects.order_by("name")
         ctx["active_tab"] = self.request.GET.get("tab", "templates")

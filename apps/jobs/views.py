@@ -5,8 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
-from apps.impose.models import ProductCategory
-from apps.rules.models import Rule
+from apps.impose.models import ImpositionTemplate, ProductCategory
 
 from .models import PrintJob
 from .services import validate_and_repair_pdf
@@ -37,7 +36,10 @@ class JobDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["rulesets"] = Rule.objects.filter(active=True).order_by("name")
+        ctx["templates"] = ImpositionTemplate.objects.select_related(
+            "product_category", "routing_preset"
+        ).order_by("name")
+        ctx["product_categories"] = ProductCategory.objects.order_by("name")
         return ctx
 
 
@@ -45,27 +47,29 @@ class JobUploadView(View):
     template_name = "jobs/job_upload.html"
 
     @staticmethod
-    def _ruleset_context(category_id=None):
-        qs = Rule.objects.filter(active=True).order_by("name")
+    def _template_context(category_id=None):
+        qs = ImpositionTemplate.objects.select_related(
+            "product_category", "routing_preset", "cutter_program"
+        ).order_by("name")
         if category_id:
             try:
                 qs = qs.filter(product_category_id=int(category_id))
             except (ValueError, TypeError):
                 pass
         return {
-            "rulesets": qs,
+            "templates": qs,
             "product_categories": ProductCategory.objects.order_by("name"),
             "selected_category": str(category_id) if category_id else "",
         }
 
     def get(self, request):
         category_id = request.GET.get("category", "").strip() or None
-        return render(request, self.template_name, self._ruleset_context(category_id))
+        return render(request, self.template_name, self._template_context(category_id))
 
     def post(self, request):
         file = request.FILES.get("file")
         category_id = request.POST.get("category_id", "").strip() or None
-        ctx = self._ruleset_context(category_id)
+        ctx = self._template_context(category_id)
         if not file:
             messages.error(request, "No file selected.")
             return render(request, self.template_name, ctx, status=400)
@@ -100,19 +104,19 @@ class JobUploadView(View):
         for w in pdf_warnings:
             messages.warning(request, w)
 
-        # Apply the required ruleset
-        ruleset_id = request.POST.get("ruleset_id", "").strip()
-        if not ruleset_id:
-            messages.error(request, "Please select a ruleset.")
+        # Apply the selected template
+        template_id = request.POST.get("template_id", "").strip()
+        if not template_id:
+            messages.error(request, "Please select a template.")
             job.delete()
             return render(request, self.template_name, ctx, status=400)
         try:
-            ruleset = Rule.objects.select_related(
-                "imposition_template", "cutter_program", "routing_preset"
-            ).get(pk=int(ruleset_id))
-            from apps.rules.engine import _apply
-
-            _apply(ruleset, job)
+            template = ImpositionTemplate.objects.select_related(
+                "cutter_program", "routing_preset"
+            ).get(pk=int(template_id))
+            job.imposition_template = template
+            job.cutter_program = template.cutter_program
+            job.routing_preset = template.routing_preset
             job.save(
                 update_fields=[
                     "imposition_template",
@@ -120,8 +124,8 @@ class JobUploadView(View):
                     "routing_preset",
                 ]
             )
-        except (Rule.DoesNotExist, ValueError):
-            messages.error(request, "Selected ruleset not found.")
+        except (ImpositionTemplate.DoesNotExist, ValueError):
+            messages.error(request, "Selected template not found.")
             job.delete()
             return render(request, self.template_name, ctx, status=400)
 
@@ -130,48 +134,47 @@ class JobUploadView(View):
         return redirect("jobs:detail", pk=job.pk)
 
 
-class JobUploadRulesetsView(View):
-    """HTMX endpoint: return filtered ruleset options for the upload form."""
+class JobUploadTemplatesView(View):
+    """HTMX endpoint: return filtered template options for the upload form."""
 
     def get(self, request):
         from django.utils.html import escape
 
         category_id = request.GET.get("category_id", "").strip() or None
-        qs = Rule.objects.filter(active=True).order_by("name")
+        qs = ImpositionTemplate.objects.order_by("name")
         if category_id:
             try:
                 qs = qs.filter(product_category_id=int(category_id))
             except (ValueError, TypeError):
                 pass
-        html = '<option value="" disabled selected>— Select ruleset —</option>'
-        for ruleset in qs:
-            html += f'<option value="{ruleset.pk}">{escape(ruleset.name)}</option>'
+        html = '<option value="" disabled selected>— Select template —</option>'
+        for tmpl in qs:
+            html += f'<option value="{tmpl.pk}">{escape(tmpl.name)}</option>'
         return HttpResponse(html)
 
 
-class JobApplyRulesetView(View):
-    """Manually apply a ruleset to a job and immediately re-process it."""
+class JobApplyTemplateView(View):
+    """Manually apply a template to a job and immediately re-process it."""
 
     def post(self, request, pk):
         job = get_object_or_404(PrintJob, pk=pk)
-        ruleset_id = request.POST.get("ruleset_id", "").strip()
+        template_id = request.POST.get("template_id", "").strip()
 
-        if not ruleset_id:
-            messages.error(request, "No ruleset selected.")
+        if not template_id:
+            messages.error(request, "No template selected.")
             return redirect("jobs:detail", pk=pk)
 
         try:
-            ruleset = Rule.objects.select_related(
-                "imposition_template", "cutter_program", "routing_preset"
-            ).get(pk=int(ruleset_id))
-        except (Rule.DoesNotExist, ValueError):
-            messages.error(request, "Ruleset not found.")
+            template = ImpositionTemplate.objects.select_related(
+                "cutter_program", "routing_preset"
+            ).get(pk=int(template_id))
+        except (ImpositionTemplate.DoesNotExist, ValueError):
+            messages.error(request, "Template not found.")
             return redirect("jobs:detail", pk=pk)
 
-        # Apply the ruleset actions directly (bypass condition matching)
-        from apps.rules.engine import _apply
-
-        _apply(ruleset, job)
+        job.imposition_template = template
+        job.cutter_program = template.cutter_program
+        job.routing_preset = template.routing_preset
         job.status = PrintJob.Status.PENDING
         job.save(
             update_fields=[
@@ -184,7 +187,7 @@ class JobApplyRulesetView(View):
         # Re-process the job immediately
         process_job_task.delay(str(job.pk))
         messages.success(
-            request, f"Ruleset '{ruleset.name}' applied — job is being re-processed."
+            request, f"Template '{template.name}' applied — job is being re-processed."
         )
         return redirect("jobs:detail", pk=pk)
 
