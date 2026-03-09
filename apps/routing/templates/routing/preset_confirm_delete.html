@@ -3,32 +3,34 @@
 {% block content %}
 <div class="max-w-lg mx-auto px-4 py-8">
   <div class="mb-4">
-    <a href="{% if next %}{{ next }}{% else %}{% url 'routing:list' %}{% endif %}" class="text-blue-600 hover:underline">← Back to Presets</a>
+    <a href="{% if next %}{{ next }}{% else %}{% url 'routing:list' %}{% endif %}" class="link link-primary">← Back to Presets</a>
   </div>
-  <div class="bg-white shadow rounded-lg p-6">
-    <h1 class="text-2xl font-bold mb-2 text-red-700">Delete Printer Preset</h1>
-    <p class="text-gray-600 mb-6">
-      Are you sure you want to delete <strong>{{ object.name }}</strong>?
-      This action cannot be undone. Jobs currently using this preset will have their routing assignment cleared.
-    </p>
-    <div class="bg-gray-50 rounded p-4 mb-6 text-sm text-gray-600">
-      <dl class="grid grid-cols-2 gap-2">
-        <div><dt class="font-medium">Queue</dt><dd class="font-mono">{{ object.printer_queue }}</dd></div>
-        <div><dt class="font-medium">Duplex</dt><dd>{{ object.get_duplex_display }}</dd></div>
-        <div><dt class="font-medium">Color Mode</dt><dd>{{ object.get_color_mode_display }}</dd></div>
-        <div><dt class="font-medium">Copies</dt><dd>{{ object.copies }}</dd></div>
-      </dl>
-    </div>
-    <form method="post">
-      {% csrf_token %}
-      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
-      <div class="flex gap-3">
-        <button type="submit" class="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 text-sm font-medium">
-          Yes, delete this preset
-        </button>
-        <a href="{% if next %}{{ next }}{% else %}{% url 'routing:list' %}{% endif %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title text-error">Delete Printer Preset</h1>
+      <p class="text-base-content/70">
+        Are you sure you want to delete <strong>{{ object.name }}</strong>?
+        This action cannot be undone. Jobs currently using this preset will have their routing assignment cleared.
+      </p>
+      <div class="alert alert-info">
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div><dt class="font-medium">Queue</dt><dd class="font-mono">{{ object.printer_queue }}</dd></div>
+          <div><dt class="font-medium">Duplex</dt><dd>{{ object.get_duplex_display }}</dd></div>
+          <div><dt class="font-medium">Color Mode</dt><dd>{{ object.get_color_mode_display }}</dd></div>
+          <div><dt class="font-medium">Copies</dt><dd>{{ object.copies }}</dd></div>
+        </div>
       </div>
-    </form>
+      <form method="post">
+        {% csrf_token %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        <div class="card-actions justify-end">
+          <a href="{% if next %}{{ next }}{% else %}{% url 'routing:list' %}{% endif %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-error">
+            Yes, delete this preset
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -3,147 +3,161 @@
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 py-8">
   <div class="mb-4">
-    <a href="{% url 'rules:list' %}" class="text-blue-600 hover:underline">← Back to Rulesets</a>
+    <a href="{% url 'rules:list' %}" class="link link-primary">← Back to Rulesets</a>
   </div>
 
-  <div class="bg-white shadow rounded-lg p-6">
-    <h1 class="text-2xl font-bold mb-6">{% if rule %}Edit Ruleset{% else %}New Ruleset{% endif %}</h1>
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title">{% if rule %}Edit Ruleset{% else %}New Ruleset{% endif %}</h1>
 
-    <form method="post">
-      {% csrf_token %}
+      <form method="post">
+        {% csrf_token %}
 
-      {# Name #}
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_name">Ruleset Name <span class="text-red-500">*</span></label>
-        <input id="id_name" name="name" type="text" required
-          value="{{ values.name }}"
-          placeholder="e.g. Business Card 21-up"
-          class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
-            {% if errors.name %}border-red-400{% else %}border-gray-300{% endif %}">
-        {% if errors.name %}<p class="text-red-600 text-xs mt-1">{{ errors.name }}</p>{% endif %}
-      </div>
+        {# Name #}
+        <div class="form-control mb-5">
+          <label class="label" for="id_name">
+            <span class="label-text">Ruleset Name <span class="text-error">*</span></span>
+          </label>
+          <input id="id_name" name="name" type="text" required
+            value="{{ values.name }}"
+            placeholder="e.g. Business Card 21-up"
+            class="input input-bordered {% if errors.name %}input-error{% endif %}">
+          {% if errors.name %}<p class="text-error text-xs mt-1">{{ errors.name }}</p>{% endif %}
+        </div>
 
-      <hr class="my-5 border-gray-200">
+        <div class="divider"></div>
 
-      {# Size / Category filters #}
-      <div class="mb-2">
-        <p class="text-sm font-medium text-gray-700">Size &amp; Category</p>
-        <p class="text-gray-500 text-xs mt-1">Selecting a size or category narrows the template list below to matching options.</p>
-      </div>
+        {# Size / Category filters #}
+        <div class="mb-2">
+          <p class="text-sm font-medium">Size &amp; Category</p>
+          <p class="text-base-content/60 text-xs mt-1">Selecting a size or category narrows the template list below to matching options.</p>
+        </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-        {# Product Category #}
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1" for="id_product_category">Category</label>
-          <select id="id_product_category" name="product_category"
-            hx-post="{% if rule %}{% url 'rules:edit' rule.pk %}{% else %}{% url 'rules:create' %}{% endif %}"
-            hx-include="[name='csrfmiddlewaretoken'],[name='cut_size'],[name='sheet_size'],[name='product_category']"
-            hx-vals='{"_filter_templates": "1"}'
-            hx-target="#id_imposition_template"
-            hx-swap="innerHTML"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <option value="">— Any —</option>
-            {% for cat in product_categories %}
-            <option value="{{ cat.pk }}" {% if values.product_category == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+          {# Product Category #}
+          <div class="form-control">
+            <label class="label" for="id_product_category">
+              <span class="label-text text-xs">Category</span>
+            </label>
+            <select id="id_product_category" name="product_category"
+              hx-post="{% if rule %}{% url 'rules:edit' rule.pk %}{% else %}{% url 'rules:create' %}{% endif %}"
+              hx-include="[name='csrfmiddlewaretoken'],[name='cut_size'],[name='sheet_size'],[name='product_category']"
+              hx-vals='{"_filter_templates": "1"}'
+              hx-target="#id_imposition_template"
+              hx-swap="innerHTML"
+              class="select select-bordered">
+              <option value="">— Any —</option>
+              {% for cat in product_categories %}
+              <option value="{{ cat.pk }}" {% if values.product_category == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          {# Cut Size #}
+          <div class="form-control">
+            <label class="label" for="id_cut_size">
+              <span class="label-text text-xs">Cut Size</span>
+            </label>
+            <select id="id_cut_size" name="cut_size"
+              hx-post="{% if rule %}{% url 'rules:edit' rule.pk %}{% else %}{% url 'rules:create' %}{% endif %}"
+              hx-include="[name='csrfmiddlewaretoken'],[name='cut_size'],[name='sheet_size'],[name='product_category']"
+              hx-vals='{"_filter_templates": "1"}'
+              hx-target="#id_imposition_template"
+              hx-swap="innerHTML"
+              class="select select-bordered">
+              <option value="">— Any —</option>
+              {% for sz in cut_sizes %}
+              <option value="{{ sz.pk }}" {% if values.cut_size == sz.pk|stringformat:'s' %}selected{% endif %}>{{ sz.name }} ({{ sz.label }})</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          {# Sheet Size #}
+          <div class="form-control">
+            <label class="label" for="id_sheet_size">
+              <span class="label-text text-xs">Sheet Size</span>
+            </label>
+            <select id="id_sheet_size" name="sheet_size"
+              hx-post="{% if rule %}{% url 'rules:edit' rule.pk %}{% else %}{% url 'rules:create' %}{% endif %}"
+              hx-include="[name='csrfmiddlewaretoken'],[name='cut_size'],[name='sheet_size'],[name='product_category']"
+              hx-vals='{"_filter_templates": "1"}'
+              hx-target="#id_imposition_template"
+              hx-swap="innerHTML"
+              class="select select-bordered">
+              <option value="">— Any —</option>
+              {% for sz in sheet_sizes %}
+              <option value="{{ sz.pk }}" {% if values.sheet_size == sz.pk|stringformat:'s' %}selected{% endif %}>{{ sz.name }} ({{ sz.label }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="mb-2">
+          <p class="text-sm font-medium">Actions</p>
+          <p class="text-base-content/60 text-xs mt-1">Select the template and/or printer preset to apply when this ruleset is used.</p>
+        </div>
+
+        {# Gangup / Imposition Template #}
+        <div class="mb-4 pl-2 border-l-2 border-primary">
+          <label class="label" for="id_imposition_template">
+            <span class="label-text">
+              <span class="badge badge-primary badge-xs mr-1">Gangup</span>
+              Imposition Template
+            </span>
+          </label>
+          <select id="id_imposition_template" name="imposition_template"
+            class="select select-bordered">
+            {% include "rules/_template_options.html" %}
+          </select>
+          <p class="text-base-content/50 text-xs mt-1">The barcode program is set on the imposition template. <a href="{% url 'impose:create' %}" class="link link-primary">Manage templates →</a></p>
+        </div>
+
+        {# Routing Preset #}
+        <div class="mb-5 pl-2 border-l-2 border-secondary">
+          <label class="label" for="id_routing_preset">
+            <span class="label-text">
+              <span class="badge badge-secondary badge-xs mr-1">Printer</span>
+              Printer Preset
+            </span>
+          </label>
+          <select id="id_routing_preset" name="routing_preset"
+            class="select select-bordered">
+            <option value="">— None —</option>
+            {% for preset in presets %}
+            <option value="{{ preset.pk }}"
+              {% if values.routing_preset == preset.pk|stringformat:'s' %}selected{% endif %}>
+              {{ preset.name }} ({{ preset.printer_queue }})
+            </option>
+            {% empty %}
+            <option value="" disabled>No active routing presets configured yet</option>
             {% endfor %}
           </select>
         </div>
 
-        {# Cut Size #}
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1" for="id_cut_size">Cut Size</label>
-          <select id="id_cut_size" name="cut_size"
-            hx-post="{% if rule %}{% url 'rules:edit' rule.pk %}{% else %}{% url 'rules:create' %}{% endif %}"
-            hx-include="[name='csrfmiddlewaretoken'],[name='cut_size'],[name='sheet_size'],[name='product_category']"
-            hx-vals='{"_filter_templates": "1"}'
-            hx-target="#id_imposition_template"
-            hx-swap="innerHTML"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <option value="">— Any —</option>
-            {% for sz in cut_sizes %}
-            <option value="{{ sz.pk }}" {% if values.cut_size == sz.pk|stringformat:'s' %}selected{% endif %}>{{ sz.name }} ({{ sz.label }})</option>
-            {% endfor %}
-          </select>
+        <div class="divider"></div>
+
+        {# Active checkbox #}
+        <div class="form-control mb-6">
+          <label class="label cursor-pointer">
+            <input id="id_active" name="active" type="checkbox"
+              class="checkbox checkbox-primary"
+              {% if values.active == 'on' or values.active == True %}checked{% endif %}>
+            <span class="label-text ml-2">Ruleset is active</span>
+          </label>
+          <span class="text-base-content/50 text-xs">(inactive rulesets are hidden from the job upload screen)</span>
         </div>
 
-        {# Sheet Size #}
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1" for="id_sheet_size">Sheet Size</label>
-          <select id="id_sheet_size" name="sheet_size"
-            hx-post="{% if rule %}{% url 'rules:edit' rule.pk %}{% else %}{% url 'rules:create' %}{% endif %}"
-            hx-include="[name='csrfmiddlewaretoken'],[name='cut_size'],[name='sheet_size'],[name='product_category']"
-            hx-vals='{"_filter_templates": "1"}'
-            hx-target="#id_imposition_template"
-            hx-swap="innerHTML"
-            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <option value="">— Any —</option>
-            {% for sz in sheet_sizes %}
-            <option value="{{ sz.pk }}" {% if values.sheet_size == sz.pk|stringformat:'s' %}selected{% endif %}>{{ sz.name }} ({{ sz.label }})</option>
-            {% endfor %}
-          </select>
+        {# Submit #}
+        <div class="card-actions justify-end">
+          <a href="{% url 'rules:list' %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            {% if rule %}Save Changes{% else %}Create Ruleset{% endif %}
+          </button>
         </div>
-      </div>
-
-      <hr class="my-5 border-gray-200">
-
-      <div class="mb-2">
-        <p class="text-sm font-medium text-gray-700">Actions</p>
-        <p class="text-gray-500 text-xs mt-1">Select the template and/or printer preset to apply when this ruleset is used.</p>
-      </div>
-
-      {# Gangup / Imposition Template #}
-      <div class="mb-4 pl-2 border-l-2 border-blue-200">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_imposition_template">
-          <span class="inline-block bg-blue-50 text-blue-700 rounded px-2 py-0.5 text-xs font-medium mr-1">Gangup</span>
-          Imposition Template
-        </label>
-        <select id="id_imposition_template" name="imposition_template"
-          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-          {% include "rules/_template_options.html" %}
-        </select>
-        <p class="text-gray-400 text-xs mt-1">The barcode program is set on the imposition template. <a href="{% url 'impose:create' %}" class="text-blue-600 hover:underline">Manage templates →</a></p>
-      </div>
-
-      {# Routing Preset #}
-      <div class="mb-5 pl-2 border-l-2 border-emerald-200">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="id_routing_preset">
-          <span class="inline-block bg-emerald-50 text-emerald-700 rounded px-2 py-0.5 text-xs font-medium mr-1">Printer</span>
-          Printer Preset
-        </label>
-        <select id="id_routing_preset" name="routing_preset"
-          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-          <option value="">— None —</option>
-          {% for preset in presets %}
-          <option value="{{ preset.pk }}"
-            {% if values.routing_preset == preset.pk|stringformat:'s' %}selected{% endif %}>
-            {{ preset.name }} ({{ preset.printer_queue }})
-          </option>
-          {% empty %}
-          <option value="" disabled>No active routing presets configured yet</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <hr class="my-5 border-gray-200">
-
-      {# Active checkbox #}
-      <div class="mb-6 flex items-center gap-3">
-        <input id="id_active" name="active" type="checkbox"
-          class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          {% if values.active == 'on' or values.active == True %}checked{% endif %}>
-        <label for="id_active" class="text-sm font-medium text-gray-700">Ruleset is active</label>
-        <span class="text-gray-400 text-xs">(inactive rulesets are hidden from the job upload screen)</span>
-      </div>
-
-      {# Submit #}
-      <div class="flex gap-3">
-        <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 text-sm font-medium">
-          {% if rule %}Save Changes{% else %}Create Ruleset{% endif %}
-        </button>
-        <a href="{% url 'rules:list' %}" class="px-5 py-2 rounded border border-gray-300 text-sm hover:bg-gray-50">Cancel</a>
-      </div>
-    </form>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}
-

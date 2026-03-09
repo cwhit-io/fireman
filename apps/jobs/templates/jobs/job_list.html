@@ -4,11 +4,11 @@
 <div class="max-w-6xl mx-auto px-4 py-8">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold">Print Jobs</h1>
-    <a href="{% url 'jobs:upload' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Upload Job</a>
+    <a href="{% url 'jobs:upload' %}" class="btn btn-primary">Upload Job</a>
   </div>
   {% if messages %}
     {% for message in messages %}
-      <div class="mb-4 p-3 rounded {% if message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">{{ message }}</div>
+      <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %} mb-4">{{ message }}</div>
     {% endfor %}
   {% endif %}
 
@@ -16,37 +16,37 @@
   {% if saved_jobs %}
   <div class="mb-6" x-data="{ open: true }">
     <button @click="open = !open" class="flex items-center gap-2 w-full text-left mb-2 focus:outline-none group">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-amber-600 transition-transform duration-200" :class="open ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-      <span class="text-sm font-semibold text-amber-700 uppercase tracking-wide">Saved Jobs</span>
-      <span class="ml-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">{{ saved_jobs|length }}</span>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-warning transition-transform duration-200" :class="open ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      <span class="text-sm font-semibold text-warning uppercase tracking-wide">Saved Jobs</span>
+      <span class="badge badge-warning badge-sm">{{ saved_jobs|length }}</span>
     </button>
     <div x-show="open" x-transition>
-      <div class="bg-white shadow rounded-lg overflow-hidden border border-amber-200">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-amber-50">
+      <div class="card bg-base-100 shadow border border-base-300">
+        <table class="table table-sm">
+          <thead class="bg-base-200">
             <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pages</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page Size</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sheet Size</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Barcode</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-              <th class="px-6 py-3"></th>
+              <th class="text-left text-xs font-medium text-base-content/60 uppercase">Name</th>
+              <th class="text-left text-xs font-medium text-base-content/60 uppercase">Status</th>
+              <th class="text-left text-xs font-medium text-base-content/60 uppercase">Pages</th>
+              <th class="text-left text-xs font-medium text-base-content/60 uppercase">Page Size</th>
+              <th class="text-left text-xs font-medium text-base-content/60 uppercase">Sheet Size</th>
+              <th class="text-left text-xs font-medium text-base-content/60 uppercase">Barcode</th>
+              <th class="text-left text-xs font-medium text-base-content/60 uppercase">Created</th>
+              <th class="text-left text-xs font-medium text-base-content/60 uppercase"></th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
+          <tbody class="bg-base-100">
             {% for job in saved_jobs %}
-            <tr class="hover:bg-amber-50">
+            <tr class="hover:bg-base-200">
               <td class="px-6 py-4">
-                <a href="{% url 'jobs:detail' job.pk %}" class="text-blue-600 hover:underline font-medium">{{ job.name|default:job.pk }}</a>
+                <a href="{% url 'jobs:detail' job.pk %}" class="link link-primary font-medium">{{ job.name|default:job.pk }}</a>
               </td>
               <td class="px-6 py-4">
-                <span class="px-2 py-1 text-xs rounded-full
-                  {% if job.status == 'sent' %}bg-green-100 text-green-800
-                  {% elif job.status == 'error' %}bg-red-100 text-red-800
-                  {% elif job.status == 'pending' %}bg-gray-100 text-gray-800
-                  {% else %}bg-blue-100 text-blue-800{% endif %}">
+                <span class="badge
+                  {% if job.status == 'sent' %}badge-success
+                  {% elif job.status == 'error' %}badge-error
+                  {% elif job.status == 'pending' %}badge-warning
+                  {% else %}badge-info{% endif %}">
                   {{ job.get_status_display }}
                 </span>
               </td>
@@ -54,30 +54,30 @@
               <td class="px-6 py-4 text-sm">{{ job.page_size_label }}</td>
               <td class="px-6 py-4">
                 {% if job.imposition_template and job.imposition_template.sheet_size %}
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-medium">{{ job.imposition_template.sheet_size.label }}</span>
+                <span class="badge badge-info badge-sm">{{ job.imposition_template.sheet_size.label }}</span>
                 {% elif job.imposition_template and job.imposition_template.sheet_width %}
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-medium">{{ job.imposition_template.sheet_size_label }}</span>
+                <span class="badge badge-info badge-sm">{{ job.imposition_template.sheet_size_label }}</span>
                 {% else %}
-                <span class="text-gray-400 text-xs">—</span>
+                <span class="text-base-content/40 text-xs">—</span>
                 {% endif %}
               </td>
               <td class="px-6 py-4">
                 {% if job.cutter_program and job.cutter_program.duplo_code %}
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-orange-50 text-orange-700 text-xs font-medium">#{{ job.cutter_program.duplo_code }}</span>
+                <span class="badge badge-warning badge-sm">#{{ job.cutter_program.duplo_code }}</span>
                 {% else %}
-                <span class="text-gray-400 text-xs">—</span>
+                <span class="text-base-content/40 text-xs">—</span>
                 {% endif %}
               </td>
-              <td class="px-6 py-4 text-sm text-gray-500">{{ job.created_at|date:"M j, Y H:i" }}</td>
+              <td class="px-6 py-4 text-sm text-base-content/60">{{ job.created_at|date:"M j, Y H:i" }}</td>
               <td class="px-6 py-4 text-right flex items-center justify-end gap-2">
                 <form method="post" action="{% url 'jobs:toggle_save' job.pk %}">
                   {% csrf_token %}
                   <input type="hidden" name="next" value="{% url 'jobs:list' %}">
-                  <button type="submit" title="Remove from saved" class="text-xs text-amber-600 hover:text-amber-800 hover:underline whitespace-nowrap">Unsave</button>
+                  <button type="submit" title="Remove from saved" class="btn btn-xs btn-warning">Unsave</button>
                 </form>
                 <form method="post" action="{% url 'jobs:delete' job.pk %}" onsubmit="return confirm('Delete this job?')">
                   {% csrf_token %}
-                  <button type="submit" class="text-xs text-red-600 hover:text-red-800 hover:underline">Delete</button>
+                  <button type="submit" class="btn btn-xs btn-error">Delete</button>
                 </form>
               </td>
             </tr>
@@ -90,36 +90,36 @@
   {% endif %}
 
   {# ── Print Queue ── #}
-  <div class="bg-white shadow rounded-lg overflow-hidden">
-    <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-      <span class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Print Queue</span>
-      <span class="text-xs text-gray-400">Jobs are automatically removed after 30 days. Save a job to keep it.</span>
+  <div class="card bg-base-100 shadow border border-base-300">
+    <div class="card-header bg-base-200 border-b border-base-300 flex items-center justify-between px-6 py-3">
+      <span class="text-sm font-semibold text-base-content/60 uppercase tracking-wide">Print Queue</span>
+      <span class="text-xs text-base-content/40">Jobs are automatically removed after 30 days. Save a job to keep it.</span>
     </div>
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
+    <table class="table table-sm">
+      <thead class="bg-base-200">
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pages</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page Size</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sheet Size</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Barcode</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-          <th class="px-6 py-3"></th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase">Name</th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase">Status</th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase">Pages</th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase">Page Size</th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase">Sheet Size</th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase">Barcode</th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase">Created</th>
+          <th class="text-left text-xs font-medium text-base-content/60 uppercase"></th>
         </tr>
       </thead>
-      <tbody class="bg-white divide-y divide-gray-200">
+      <tbody class="bg-base-100">
         {% for job in jobs %}
-        <tr class="hover:bg-gray-50">
+        <tr class="hover:bg-base-200">
           <td class="px-6 py-4">
-            <a href="{% url 'jobs:detail' job.pk %}" class="text-blue-600 hover:underline font-medium">{{ job.name|default:job.pk }}</a>
+            <a href="{% url 'jobs:detail' job.pk %}" class="link link-primary font-medium">{{ job.name|default:job.pk }}</a>
           </td>
           <td class="px-6 py-4">
-            <span class="px-2 py-1 text-xs rounded-full
-              {% if job.status == 'sent' %}bg-green-100 text-green-800
-              {% elif job.status == 'error' %}bg-red-100 text-red-800
-              {% elif job.status == 'pending' %}bg-gray-100 text-gray-800
-              {% else %}bg-blue-100 text-blue-800{% endif %}">
+            <span class="badge
+              {% if job.status == 'sent' %}badge-success
+              {% elif job.status == 'error' %}badge-error
+              {% elif job.status == 'pending' %}badge-warning
+              {% else %}badge-info{% endif %}">
               {{ job.get_status_display }}
             </span>
           </td>
@@ -127,55 +127,46 @@
           <td class="px-6 py-4 text-sm">{{ job.page_size_label }}</td>
           <td class="px-6 py-4">
             {% if job.imposition_template and job.imposition_template.sheet_size %}
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-medium" title="Sheet size from imposition template">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              {{ job.imposition_template.sheet_size.label }}
-            </span>
+            <span class="badge badge-info badge-sm">{{ job.imposition_template.sheet_size.label }}</span>
             {% elif job.imposition_template and job.imposition_template.sheet_width %}
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-medium" title="Sheet size from imposition template">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              {{ job.imposition_template.sheet_size_label }}
-            </span>
+            <span class="badge badge-info badge-sm">{{ job.imposition_template.sheet_size_label }}</span>
             {% else %}
-            <span class="text-gray-400 text-xs">—</span>
+            <span class="text-base-content/40 text-xs">—</span>
             {% endif %}
           </td>
           <td class="px-6 py-4">
             {% if job.cutter_program and job.cutter_program.duplo_code %}
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-orange-50 text-orange-700 text-xs font-medium" title="Barcode number (DC-646 program)">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8H2a2 2 0 00-2 2v4a2 2 0 002 2h3m10-8h3a2 2 0 012 2v4a2 2 0 01-2 2h-3m-6 0v4m0-4h.01"/></svg>
-              #{{ job.cutter_program.duplo_code }}
-            </span>
+            <span class="badge badge-warning badge-sm">#{{ job.cutter_program.duplo_code }}</span>
             {% else %}
-            <span class="text-gray-400 text-xs">—</span>
+            <span class="text-base-content/40 text-xs">—</span>
             {% endif %}
           </td>
-          <td class="px-6 py-4 text-sm text-gray-500">{{ job.created_at|date:"M j, Y H:i" }}</td>
+          <td class="px-6 py-4 text-sm text-base-content/60">{{ job.created_at|date:"M j, Y H:i" }}</td>
           <td class="px-6 py-4 text-right">
             <div class="flex items-center justify-end gap-2">
               <form method="post" action="{% url 'jobs:toggle_save' job.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{% url 'jobs:list' %}">
-                <button type="submit" title="Save this job to prevent auto-deletion" class="text-xs text-blue-600 hover:text-blue-800 hover:underline whitespace-nowrap">Save</button>
+                <button type="submit" title="Save this job to prevent auto-deletion" class="btn btn-xs btn-outline">Save</button>
               </form>
               <form method="post" action="{% url 'jobs:delete' job.pk %}" onsubmit="return confirm('Delete this job?')">
                 {% csrf_token %}
-                <button type="submit" class="text-xs text-red-600 hover:text-red-800 hover:underline">Delete</button>
+                <button type="submit" class="btn btn-xs btn-error">Delete</button>
               </form>
             </div>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="8" class="px-6 py-10 text-center text-gray-400">No jobs yet. <a href="{% url 'jobs:upload' %}" class="text-blue-600">Upload one</a>.</td></tr>
+        <tr><td colspan="8" class="px-6 py-10 text-center text-base-content/40">No jobs yet. <a href="{% url 'jobs:upload' %}" class="link link-primary">Upload one</a>.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
   {% if is_paginated %}
   <div class="mt-4 flex justify-center gap-2">
-    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 border rounded">← Prev</a>{% endif %}
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-outline">← Prev</a>{% endif %}
     <span class="px-3 py-1">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 border rounded">Next →</a>{% endif %}
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn-sm btn-outline">Next →</a>{% endif %}
   </div>
   {% endif %}
 </div>

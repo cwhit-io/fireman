@@ -1,7 +1,5 @@
 @import "tailwindcss";
-@plugin "daisyui" {
-  themes: bumblebee --default, dark --prefersdark;
-}
+@plugin "daisyui" {themes: bumblebee --default, dark --prefersdark;}
 
 [data-theme="fireman"] {
   /* ── Core Brand ─────────────────────────────────────────
