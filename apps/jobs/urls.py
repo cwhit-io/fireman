@@ -20,6 +20,11 @@ urlpatterns = [
     ),
     path("<uuid:pk>/delete/", views.JobDeleteView.as_view(), name="delete"),
     path("<uuid:pk>/preview/", views.JobPreviewView.as_view(), name="preview"),
+    path(
+        "<uuid:pk>/source-preview/",
+        views.JobSourcePreviewView.as_view(),
+        name="source_preview",
+    ),
     path("<uuid:pk>/download/", views.JobDownloadView.as_view(), name="download"),
     path("<uuid:pk>/resend/", views.JobResendView.as_view(), name="resend"),
     path(
