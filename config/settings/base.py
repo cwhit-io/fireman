@@ -129,6 +129,28 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Fiery print queue username shown on the Fiery job list
 FIERY_PRINT_USER = env("FIERY_PRINT_USER", default="Ember")
 
+# ── Preflight constants ──────────────────────────────────────────────────────
+# Required bleed (0.125" = 9pt)
+BLEED_PT = env.float("BLEED_PT", default=9.0)
+# Expected Canva crop-mark zone per side
+CANVA_MARGIN_PT = env.float("CANVA_MARGIN_PT", default=17.0)
+# Tolerance around Canva detection (±5pt)
+CANVA_WIGGLE_PT = env.float("CANVA_WIGGLE_PT", default=5.0)
+# Rounding tolerance for exact size match
+SIZE_TOLERANCE_PT = env.float("SIZE_TOLERANCE_PT", default=1.0)
+# Aspect-ratio mismatch threshold (%)
+AR_TOLERANCE_PCT = env.float("AR_TOLERANCE_PCT", default=2.0)
+# Below this DPI: will pixelate (critical)
+DPI_MINIMUM = env.int("DPI_MINIMUM", default=150)
+# Below this DPI: marginal quality warning
+DPI_WARN = env.int("DPI_WARN", default=300)
+# Minimum distance from trim edge to live content (pt)
+SAFE_ZONE_PT = env.float("SAFE_ZONE_PT", default=9.0)
+# RGB colorspace triggers warning when False
+ALLOW_RGB = env.bool("ALLOW_RGB", default=False)
+# Spot/Pantone colors allowed without warning
+ALLOW_SPOT = env.bool("ALLOW_SPOT", default=True)
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email
