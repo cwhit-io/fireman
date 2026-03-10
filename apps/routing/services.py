@@ -31,8 +31,11 @@ def _build_lpr_command(
     if title:
         cmd += ["-T", title]
 
-    # Prevent the printer from auto-scaling the PDF to fit its media
+    # Prevent the printer from auto-scaling the PDF to fit its media.
+    # fit-to-page=false is the generic CUPS attribute; EFScaleToFit=OFF is the
+    # Fiery-native PPD key.  Both are sent so either path is covered.
     cmd += ["-o", "fit-to-page=false"]
+    cmd += ["-o", "EFScaleToFit=OFF"]
 
     # New-style Fiery PPD options (takes precedence)
     for key, value in (preset.fiery_options or {}).items():
@@ -56,15 +59,25 @@ def _build_lpr_command(
         if preset.tray:
             cmd += ["-o", f"InputSlot={preset.tray}"]
 
-    # Per-job duplex override — applied after preset options so it takes effect
+    # Per-job duplex override — applied after preset options so it takes effect.
+    # Fiery PPD presets use EFDuplex; legacy/standard CUPS presets use sides=.
     if duplex_override:
-        sides_map = {
-            "duplex_long": "two-sided-long-edge",
-            "duplex_short": "two-sided-short-edge",
-            "simplex": "one-sided",
-        }
-        sides_value = sides_map.get(duplex_override, duplex_override)
-        cmd += ["-o", f"sides={sides_value}"]
+        if preset.fiery_options:
+            ef_duplex_map = {
+                "duplex_long": "TopTop",
+                "duplex_short": "TopBottom",
+                "simplex": "False",
+            }
+            ef_value = ef_duplex_map.get(duplex_override, "False")
+            cmd += ["-o", f"EFDuplex={ef_value}"]
+        else:
+            sides_map = {
+                "duplex_long": "two-sided-long-edge",
+                "duplex_short": "two-sided-short-edge",
+                "simplex": "one-sided",
+            }
+            sides_value = sides_map.get(duplex_override, duplex_override)
+            cmd += ["-o", f"sides={sides_value}"]
 
     # Free-text extra options always appended last
     for line in preset.extra_lpr_options.splitlines():
@@ -120,8 +133,11 @@ def send_to_fiery_ipp(
     if title:
         cmd += ["-t", title]
 
-    # Prevent the printer from auto-scaling the PDF to fit its media
+    # Prevent the printer from auto-scaling the PDF to fit its media.
+    # fit-to-page=false is the generic CUPS attribute; EFScaleToFit=OFF is the
+    # Fiery-native PPD key.  Both are sent so either path is covered.
     cmd += ["-o", "fit-to-page=false"]
+    cmd += ["-o", "EFScaleToFit=OFF"]
 
     # Fiery PPD options
     for key, value in (preset.fiery_options or {}).items():
