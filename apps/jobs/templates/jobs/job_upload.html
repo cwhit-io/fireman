@@ -2,164 +2,294 @@
 {% load static %}
 {% block title %}Upload Print Job{% endblock %}
 {% block content %}
-<div class="max-w-xl mx-auto px-4 py-8">
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center mb-6">
-    <div class="flex justify-center md:justify-start">
-      <img src="{% static 'cat.png' %}" alt="Helpful cat" class="w-56 h-auto rounded-lg shadow-sm bg-white p-3" />
-    </div>
-    <div>
-      <h1 class="text-3xl font-bold text-base-content">Upload Print Job</h1>
-      <p class="text-base-content/60 mt-1">Submit a PDF to be imposed and sent to the printer.</p>
-      <blockquote class="mt-4 border-l-4 border-base-300 pl-4 text-base-content/70 italic">Tip: Use clear filenames and include finishing notes in the job description for faster processing.</blockquote>
-    </div>
+<style>
+  .speech-bubble {
+    position: relative;
+    background: #f0f4ff;
+    border: 2px solid #c7d2fe;
+    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+  }
+  .speech-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -14px;
+    left: 2rem;
+    border-width: 14px 10px 0 10px;
+    border-style: solid;
+    border-color: #f0f4ff transparent transparent transparent;
+  }
+  .speech-bubble::before {
+    content: '';
+    position: absolute;
+    bottom: -17px;
+    left: 1.95rem;
+    border-width: 15px 11px 0 11px;
+    border-style: solid;
+    border-color: #c7d2fe transparent transparent transparent;
+  }
+</style>
+
+<div class="max-w-2xl mx-auto px-4 py-10">
+
+  {# ── Page Header ── #}
+  <div class="mb-6">
+    <h1 class="text-3xl font-extrabold text-base-content tracking-tight">Upload Print Job</h1>
+    <p class="text-base-content/60 mt-1 text-sm">Submit a PDF to be imposed and sent to the printer.</p>
   </div>
 
+  {# ── Flash Messages ── #}
   {% if messages %}
-    {% for message in messages %}
-      <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} mb-4">{{ message }}</div>
-    {% endfor %}
+    <div class="space-y-2 mb-6">
+      {% for message in messages %}
+        <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} shadow-sm">
+          <span>{{ message }}</span>
+        </div>
+      {% endfor %}
+    </div>
   {% endif %}
 
-  <div class="card bg-base-100 shadow-lg border border-base-300 p-6" x-data="uploadForm()">
-    <form method="post" enctype="multipart/form-data">
-      {% csrf_token %}
+  {# ── Form Card ── #}
+  <div class="card bg-base-100 shadow-xl border border-base-300 overflow-hidden" x-data="uploadForm()">
+    <div class="card-body gap-0 p-6 sm:p-8">
+      <form method="post" enctype="multipart/form-data" @submit="onSubmit($event)">
+        {% csrf_token %}
 
-      {# Step 1: File #}
-      <div class="mb-6">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="badge badge-primary badge-lg">1</span>
-          <label for="file" class="text-sm font-semibold text-base-content">Select PDF File <span class="text-error">*</span></label>
-        </div>
-        <input type="file" name="file" id="file" accept=".pdf" required @change="onFileChange($event)"
-          class="file-input file-input-primary file-input-bordered w-full">
-        <p class="mt-1 text-xs text-base-content/40">🐾 Only PDF files are accepted. Errors will be repaired automatically when possible.</p>
-      </div>
+        {# ── Step 1: File ── #}
+        <div class="mb-1">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-content text-sm font-bold shrink-0">1</div>
+            <label for="file" class="font-semibold text-base-content">
+              Select PDF File <span class="text-error">*</span>
+            </label>
+          </div>
 
-      {# Step 2: Product Category (required) #}
-      <div class="mb-6">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="badge badge-primary badge-lg">2</span>
-          <label for="category_id" class="text-sm font-semibold text-base-content">Select Category <span class="text-error">*</span></label>
-        </div>
-        <select name="category_id" id="category_id"
-          hx-get="{% url 'jobs:upload_templates' %}"
-          hx-trigger="change"
-          hx-target="#template_id"
-          hx-swap="innerHTML"
-          hx-include="[name='category_id']"
-          class="select select-bordered w-full">
-          <option value="">— All categories —</option>
-          {% for cat in product_categories %}
-          <option value="{{ cat.pk }}" {% if selected_category == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
+          {# Two-column drop zone: drop target left, cat right #}
+          <div class="grid grid-cols-1 md:grid-cols-[1fr_11rem] rounded-xl border bg-base-100 border-base-300 overflow-hidden">
 
-      {# Step 3: Template (required, filtered by category via HTMX) #}
-      <div class="mb-6">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="badge badge-primary badge-lg">3</span>
-          <label for="template_id" class="text-sm font-semibold text-base-content">Select Template <span class="text-error">*</span></label>
-        </div>
-        <select name="template_id" id="template_id" required
-          class="select select-bordered w-full">
-          <option value="" disabled selected>— Select a template —</option>
-          {% for tmpl in templates %}
-          <option value="{{ tmpl.pk }}">{{ tmpl.name }}</option>
-          {% endfor %}
-        </select>
-        <p class="mt-1 text-xs text-base-content/40">🐾  Filter by category above to see options by cut size, or choose from all templates. The template controls imposition layout, barcode program, and printer preset.</p>
-      </div>
+            {# Drop zone #}
+            <label for="file"
+              class="flex flex-col items-center justify-center border-r border-base-300 cursor-pointer bg-base-200/40 hover:bg-base-200 hover:border-primary transition-all group"
+              @dragover.prevent @drop.prevent="onDrop($event)">
+              <div class="flex flex-col items-center gap-2 text-base-content/50 group-hover:text-primary transition-colors pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                <span class="text-sm font-medium" x-text="dropLabel">Click or drag a PDF here</span>
+                <span class="text-xs opacity-60">PDF files only · Auto-repair enabled</span>
+              </div>
+              <input type="file" name="file" id="file" accept=".pdf" required
+                class="hidden" @change="onFileChange($event)">
+            </label>
 
-      {# Step 4: Multi-page Options (shown only when more than 1 page detected) #}
-      <div x-show="showMultiPageOptions" x-transition class="alert alert-info mb-6" x-cloak>
-        <div class="flex items-center gap-2 mb-3">
-          <span class="badge badge-primary badge-lg">4</span>
-          <p class="text-sm font-semibold text-base-content">Multi-page Options</p>
-          <span class="text-xs text-primary font-medium" x-text="pageCountLabel"></span>
+            {# Cat mascot col #}
+            <div class="hidden md:flex flex-col items-center justify-center gap-3 py-4 px-3 bg-base-100">
+              <div class="speech-bubble text-center w-full">
+                <p class="text-xs font-medium text-indigo-700 leading-snug">
+                  "Drop your PDF and I'll take care of it from here. 🐾"
+                </p>
+              </div>
+              <img src="{% static 'cat.png' %}" alt="Ember mascot"
+                   class="w-28 h-28 object-contain drop-shadow-md" />
+            </div>
+
+          </div>
+
+          <template x-if="fileName">
+            <div class="mt-2 flex items-center gap-2 text-sm text-success font-medium">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span x-text="fileName"></span>
+              <span class="text-base-content/40 font-normal" x-show="pageCountLabel" x-text="'· ' + pageCountLabel"></span>
+            </div>
+          </template>
         </div>
 
-        <div class="flex items-center gap-3">
-          <input id="pages_are_unique" name="pages_are_unique" type="checkbox"
-            class="checkbox checkbox-primary"
-            @change="pagesUniqueChanged($event)">
-          <label for="pages_are_unique" class="text-sm text-base-content font-medium">Pages are unique</label>
-        </div>
-        <p class="text-xs text-base-content/60 mt-2 ml-7" x-text="pagesUniqueHint"></p>
-      </div>
+        <div class="divider my-5"></div>
 
-      {# Submit #}
-      <button type="submit"
-        class="btn btn-primary btn-block">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-        Upload &amp; Process
-      </button>
-    </form>
+        {# ── Step 2: Category ── #}
+        <div class="mb-1">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-content text-sm font-bold shrink-0">2</div>
+            <label for="category_id" class="font-semibold text-base-content">
+              Product Category <span class="text-error">*</span>
+            </label>
+          </div>
+          <select name="category_id" id="category_id"
+            hx-get="{% url 'jobs:upload_templates' %}"
+            hx-trigger="change"
+            hx-target="#template_id"
+            hx-swap="innerHTML"
+            hx-include="[name='category_id']"
+            class="select select-bordered w-full">
+            <option value="">— All categories —</option>
+            {% for cat in product_categories %}
+            <option value="{{ cat.pk }}" {% if selected_category == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="divider my-5"></div>
+
+        {# ── Step 3: Template ── #}
+        <div class="mb-1">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-content text-sm font-bold shrink-0">3</div>
+            <label for="template_id" class="font-semibold text-base-content">
+              Imposition Template <span class="text-error">*</span>
+            </label>
+          </div>
+          <select name="template_id" id="template_id" required class="select select-bordered w-full">
+            <option value="" disabled selected>— Select a template —</option>
+            {% for tmpl in templates %}
+            <option value="{{ tmpl.pk }}">{{ tmpl.name }}</option>
+            {% endfor %}
+          </select>
+          <p class="mt-2 text-xs text-base-content/40 leading-relaxed">
+            Controls imposition layout, barcode program, and printer preset. Filter by category above to narrow by cut size.
+          </p>
+        </div>
+
+        {# ── Step 4: Multi-page (conditional) ── #}
+        <template x-if="showMultiPageOptions">
+          <div>
+            <div class="divider my-5"></div>
+            <div class="rounded-xl border border-info/40 bg-info/10 p-5">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="flex items-center justify-center w-8 h-8 rounded-full bg-info text-info-content text-sm font-bold shrink-0">4</div>
+                <p class="font-semibold text-base-content">Multi-page Options</p>
+                <span class="badge badge-info badge-sm" x-text="pageCountLabel"></span>
+              </div>
+
+              <label class="flex items-start gap-3 cursor-pointer group">
+                <input id="pages_are_unique" name="pages_are_unique" type="checkbox"
+                  class="checkbox checkbox-info mt-0.5"
+                  @change="pagesUniqueChanged($event)">
+                <div>
+                  <p class="text-sm font-medium text-base-content group-hover:text-info transition-colors">Pages are unique</p>
+                  <p class="text-xs text-base-content/60 mt-1" x-text="pagesUniqueHint"></p>
+                </div>
+              </label>
+            </div>
+          </div>
+        </template>
+
+        {# ── Submit ── #}
+        <div class="mt-8">
+          <button type="submit" class="btn btn-primary btn-block gap-2" :disabled="submitting" :class="{ 'loading': submitting }">
+            <template x-if="!submitting">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+            </template>
+            <span x-text="submitting ? 'Processing…' : 'Upload & Process'"></span>
+          </button>
+        </div>
+
+      </form>
+    </div>
   </div>
 
-  <div class="mt-4 text-center">
-    <a href="{% url 'jobs:list' %}" class="link link-primary">← Back to job list</a>
+  {# ── Back Link ── #}
+  <div class="mt-5 text-center">
+    <a href="{% url 'jobs:list' %}" class="link link-primary text-sm">← Back to job list</a>
   </div>
+
 </div>
+
 <script>
 function uploadForm() {
   return {
     showMultiPageOptions: false,
     pageCount: 0,
     pageCountLabel: '',
+    fileName: '',
+    dropLabel: 'Click or drag a PDF here',
+    submitting: false,
     pagesUniqueHint: 'Step-and-repeat / stack-cut: all positions print the same content.',
-    async onFileChange(event) {
+
+    onSubmit(event) {
+      this.submitting = true;
+    },
+
+    onDrop(event) {
+      const file = event.dataTransfer.files[0];
+      if (!file || !file.name.endsWith('.pdf')) return;
+      const input = document.getElementById('file');
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      this._processFile(file);
+    },
+
+    onFileChange(event) {
       const file = event.target.files[0];
       if (!file) {
         this.showMultiPageOptions = false;
+        this.fileName = '';
+        this.dropLabel = 'Click or drag a PDF here';
         return;
       }
-      // Try to detect page count using PDF.js (loaded from CDN)
+      this._processFile(file);
+    },
+
+    async _processFile(file) {
+      this.fileName = file.name;
+      this.dropLabel = file.name;
       try {
         const pages = await this._getPdfPageCount(file);
         this.pageCount = pages;
         if (pages > 1) {
-          this.pageCountLabel = `(${pages} pages detected)`;
+          this.pageCountLabel = `${pages} pages detected`;
           this.showMultiPageOptions = true;
         } else {
+          this.pageCountLabel = '1 page';
           this.showMultiPageOptions = false;
         }
       } catch (e) {
-        // If PDF.js not available or error, fall back to showing options
         this.showMultiPageOptions = true;
         this.pageCountLabel = '';
       }
     },
+
     _getPdfPageCount(file) {
       return new Promise((resolve, reject) => {
-        if (typeof pdfjsLib === 'undefined') { reject(new Error('PDF.js library not available — cannot detect page count')); return; }
+        if (typeof pdfjsLib === 'undefined') {
+          reject(new Error('PDF.js not available'));
+          return;
+        }
         const reader = new FileReader();
         reader.onload = function(e) {
           const typedarray = new Uint8Array(e.target.result);
-          pdfjsLib.getDocument({ data: typedarray }).promise.then(function(pdf) {
-            resolve(pdf.numPages);
-          }).catch(reject);
+          pdfjsLib.getDocument({ data: typedarray }).promise
+            .then(pdf => resolve(pdf.numPages))
+            .catch(reject);
         };
         reader.onerror = reject;
         reader.readAsArrayBuffer(file);
       });
     },
+
     pagesUniqueChanged(event) {
-      if (event.target.checked) {
-        this.pagesUniqueHint = 'Each page has different content — they will be imposed as unique pages (n-up).';
-      } else {
-        this.pagesUniqueHint = 'Step-and-repeat / stack-cut: all positions print the same content.';
-      }
+      this.pagesUniqueHint = event.target.checked
+        ? 'Each page has different content — imposed as unique pages (n-up).'
+        : 'Step-and-repeat / stack-cut: all positions print the same content.';
     }
   };
 }
 </script>
-{# PDF.js for client-side page count detection #}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-q+4lHwAhMuXMqXDLbmXCnOJMdydxlRN9KAkQdTn1n8GkXbyh7SWGDsF4aFBpQflVXsz+9axJe4gj8HBfvYnQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+{# PDF.js #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+  integrity="sha512-q+4lHwAhMuXMqXDLbmXCnOJMdydxlRN9KAkQdTn1n8GkXbyh7SWGDsF4aFBpQflVXsz+9axJe4gj8HBfvYnQ=="
+  crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
   if (typeof pdfjsLib !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   }
 </script>
+
 {% endblock %}

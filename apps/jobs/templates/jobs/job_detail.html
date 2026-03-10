@@ -1,190 +1,275 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Job: {{ job.name }}{% endblock %}
-{% block content %}
-<div class="max-w-4xl mx-auto px-4 py-8 pb-28" x-data="{ showChange: false, showDeleteModal: false, showBarcodeInfo: false, showHowModal: false, showRenameModal: false }">
 
-  {# 1. Breadcrumb + Job Identity #}
-  <div class="breadcrumbs text-sm mb-2">
+{% block content %}
+<style>
+  .speech-bubble {
+    position: relative;
+    background: #f0f4ff;
+    border: 2px solid #c7d2fe;
+    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+  }
+  .speech-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -14px;
+    left: 2rem;
+    border-width: 14px 10px 0 10px;
+    border-style: solid;
+    border-color: #f0f4ff transparent transparent transparent;
+  }
+  .speech-bubble::before {
+    content: '';
+    position: absolute;
+    bottom: -17px;
+    left: 1.95rem;
+    border-width: 15px 11px 0 11px;
+    border-style: solid;
+    border-color: #c7d2fe transparent transparent transparent;
+  }
+</style>
+
+<div class="max-w-4xl mx-auto px-4 py-8 pb-36"
+     x-data="{ showChange: false, showDeleteModal: false, showBarcodeInfo: false, showHowModal: false, showRenameModal: false }">
+
+  {# ── Breadcrumb ── #}
+  <div class="breadcrumbs text-sm mb-4">
     <ul>
       <li><a href="{% url 'jobs:list' %}">Jobs</a></li>
       <li>{{ job.name|default:job.pk }}</li>
     </ul>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center mb-6">
-    <div class="flex justify-center md:justify-start">
-      <img src="{% static 'inspector.png' %}" alt="Inspector" class="w-40 h-40 object-contain rounded-md bg-white p-2 shadow-sm" />
-    </div>
-    <div>
-      <div class="flex items-start gap-3 flex-wrap">
-        <h1 class="text-3xl md:text-4xl font-bold">{{ job.name|default:job.pk }}</h1>
-        <button type="button" @click="showRenameModal = true" class="btn btn-xs btn-ghost" title="Edit job name">✏️</button>
-        {% if job.status == 'sent' %}
+  {# ── Page Header ── #}
+  <div class="mb-6">
+    <div class="flex items-center gap-2 flex-wrap mb-1">
+      <h1 class="text-2xl md:text-3xl font-bold">{{ job.name|default:job.pk }}</h1>
+      {% if user.is_authenticated %}
+      <button type="button" @click="showRenameModal = true"
+              class="btn btn-xs btn-ghost" title="Edit job name">✏️</button>
+      {% endif %}
+      {% if job.status == 'sent' %}
         <span class="badge badge-success">{{ job.get_status_display }}</span>
-        {% elif job.status == 'error' %}
+      {% elif job.status == 'error' %}
         <span class="badge badge-error">{{ job.get_status_display }}</span>
-        {% elif job.status == 'pending' %}
+      {% elif job.status == 'pending' %}
         <span class="badge badge-warning">{{ job.get_status_display }}</span>
-        {% else %}
+      {% else %}
         <span class="badge badge-info">{{ job.get_status_display }}</span>
-        {% endif %}
-      </div>
-      <blockquote class="mt-3 border-l-4 border-base-300 pl-4 text-base-content/70 italic">Quick visual check: confirm page count, media, and finishing before sending to print.</blockquote>
-    </div>
-  </div>
-
-  {# Django messages #}
-  {% if messages %}
-  {% for message in messages %}
-  <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %} mb-4">{{ message }}</div>
-  {% endfor %}
-  {% endif %}
-
-  {# 3. Quantity Input — step-and-repeat jobs only #}
-  {% if per_sheet and not job.pages_are_unique %}
-  <div class="bg-base-200 border border-base-300 p-4 rounded-lg mb-6">
-    <div class="w-full">
-      <p class="font-bold mb-2">Finished pieces needed</p>
-      <form method="post" action="{% url 'jobs:calc_sheets' job.pk %}" class="flex flex-wrap items-end gap-2">
-        {% csrf_token %}
-        <div class="form-control">
-          <div class="join">
-            <input type="number" min="1" name="finished_qty" id="finished_qty" value="{{ finished_qty|default:'' }}" placeholder="e.g. 250" class="input input-bordered join-item w-36" required>
-            <button type="submit" class="btn btn-primary join-item">Calculate</button>
-          </div>
-        </div>
-      </form>
-      {% if sheets_needed %}
-      <div class="alert alert-success mt-3 py-2"><span>For <strong>{{ finished_qty }}</strong> pieces at <strong>{{ per_sheet }}</strong> up — you need <strong>{{ sheets_needed }}</strong> sheet{{ sheets_needed|pluralize }} total.</span></div>
       {% endif %}
     </div>
+    <p class="text-base-content/60 text-sm italic border-l-4 border-indigo-200 pl-3 mt-2">
+      Quick visual check: confirm page count, media, and finishing before sending to print.
+    </p>
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %} mb-4 mt-3">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
   </div>
-  {% endif %}
 
-  {# 4. Operator Checklist — always visible #}
+  {# ── Operator Checklist ── #}
   {% if job.imposed_file %}
-  <div class="card card-bordered bg-primary/10 shadow mb-6">
-    <div class="bg-primary text-primary-content rounded-t-2xl px-5 py-3">
-      <h2 class="card-title text-base">Operator Checklist</h2>
-    </div>
-    <ol class="divide-y divide-base-300">
+  <div class="card card-bordered shadow mb-6 overflow-hidden">
 
-      {# Step 1: Print Quantity #}
-      <li class="px-5 py-4">
-        <div class="flex items-start gap-3">
-          <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">1</span>
-          <div class="flex-1">
-            <p class="font-semibold text-sm mb-3">Print Quantity</p>
-            {% if not job.pages_are_unique and not sheets_needed %}
-            <span class="badge badge-warning">Enter finished pieces above to calculate</span>
-            {% else %}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="text-center">
-                <div class="stat p-0">
-                  <div class="stat-value text-4xl leading-none text-primary">{% if sheets_needed %}{{ sheets_needed }}{% else %}—{% endif %}</div>
-                  <div class="stat-desc text-sm font-medium">sheets to load in Fiery</div>
+    {# Card header #}
+    <div class="bg-primary text-primary-content px-5 py-3 flex items-center gap-2">
+      <span class="text-xl">🐾</span>
+      <h2 class="font-bold text-base">Operator Checklist</h2>
+      <span class="ml-auto text-xs opacity-70">Inspector says: double-check everything!</span>
+    </div>
+
+    {# Two-column body: checklist steps left, dog right #}
+    <div class="bg-base-200 grid grid-cols-1 md:grid-cols-[1fr_13rem]">
+
+      {# Left col: checklist steps #}
+      <ol class="divide-y divide-base-300">
+
+        {# Step 1: Print Quantity #}
+        <li class="px-5 py-4">
+          <div class="flex items-start gap-3">
+            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">1</span>
+            <div class="flex-1">
+              <p class="font-semibold text-sm mb-3">Print Quantity</p>
+
+              {% if per_sheet and not job.pages_are_unique %}
+              <div class="mb-4">
+                <p class="font-bold mb-2 text-sm">Finished pieces needed</p>
+                <form method="post" action="{% url 'jobs:calc_sheets' job.pk %}"
+                      class="flex flex-wrap items-end gap-2">
+                  {% csrf_token %}
+                  <div class="join">
+                    <input type="number" min="1" name="finished_qty" id="finished_qty"
+                           value="{{ finished_qty|default:'' }}" placeholder="e.g. 250"
+                           class="input input-bordered join-item w-36" required>
+                    <button type="submit" class="btn btn-primary join-item">Calculate</button>
+                  </div>
+                </form>
+                {% if sheets_needed %}
+                <div class="alert alert-success mt-3 py-2">
+                  <span>For <strong>{{ finished_qty }}</strong> pieces at <strong>{{ per_sheet }}</strong> up
+                  — you need <strong>{{ sheets_needed }}</strong> sheet{{ sheets_needed|pluralize }} total.</span>
                 </div>
+                {% endif %}
               </div>
-              <div class="flex items-center">
-                <div class="alert alert-info py-3 px-4 w-full">
-                  <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                  </svg>
-                  <div>
-                    <div class="font-medium text-sm mb-1">Test Print Only</div>
-                    <div class="text-xs opacity-90">Only 1 sheet sent to Fiery initially. Full quantity available for production prints.</div>
+              {% endif %}
+
+              {% if not job.pages_are_unique and not sheets_needed %}
+                <span class="badge badge-warning">Enter finished pieces above to calculate</span>
+              {% else %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="text-center">
+                    <div class="stat p-0">
+                      <div class="stat-value text-4xl leading-none text-primary">
+                        {% if sheets_needed %}{{ sheets_needed }}{% else %}—{% endif %}
+                      </div>
+                      <div class="stat-desc text-sm font-medium">sheets to load in Fiery</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center">
+                    <div class="alert alert-info py-3 px-4 w-full">
+                      <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                      </svg>
+                      <div>
+                        <div class="font-medium text-sm mb-1">Test Print Only</div>
+                        <div class="text-xs opacity-90">Only 1 sheet sent to Fiery initially. Full quantity available for production prints.</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-            {% endif %}
-          </div>
-        </div>
-      </li>
-
-      {# Step 2: Find on Fiery #}
-      <li class="px-5 py-4">
-        <div class="flex items-start gap-3">
-          <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">2</span>
-          <div>
-            <p class="font-semibold text-sm mb-1">Find on Fiery</p>
-            <kbd class="kbd">{{ fiery_name|default:job.name|default:job.pk }}</kbd>
-          </div>
-        </div>
-      </li>
-
-      {# Step 3: Load Paper #}
-      <li class="px-5 py-4">
-        <div class="flex items-start gap-3">
-          <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">3</span>
-          <div>
-            <p class="font-semibold text-sm mb-1">Load Paper</p>
-            <p class="font-bold text-lg">{% if job.imposition_template and job.imposition_template.sheet_size %}{{ job.imposition_template.sheet_size.label }}{% elif job.imposition_template and job.imposition_template.sheet_width %}{{ job.imposition_template.sheet_size_label }}{% else %}—{% endif %}</p>
-          </div>
-        </div>
-      </li>
-
-      {# Step 4: Cutter BC Reader #}
-      <li class="px-5 py-4">
-        <div class="flex items-start gap-3">
-          <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">4</span>
-          <div class="flex-1">
-            <p class="font-semibold text-sm mb-1">Cutter BC Reader</p>
-            {% if job.cutter_program %}
-            <div class="flex items-center gap-2 flex-wrap mb-2">
-              {% if job.imposition_template and job.imposition_template.print_barcode %}
-              <span class="badge badge-success">ON</span>
-              <span class="text-sm">Barcode printed on sheet — cutter reads automatically.</span>
-              {% else %}
-              <span class="badge badge-error">OFF</span>
-              <span class="text-sm">No barcode printed — select job manually on Duplo 646.</span>
               {% endif %}
-              <button type="button" @click="showHowModal = true" class="btn btn-xs btn-ghost" title="How to change BC setting on the Duplo DC-646">ℹ️ Need Help?</button>
-            </div>
-            {% if not job.imposition_template or not job.imposition_template.print_barcode %}
-            <div class="rounded-lg bg-error/10 border border-error/30 px-4 py-3 inline-block mt-1">
-              <p class="text-xs font-semibold uppercase tracking-wide text-error mb-1">Enter this code on Duplo 646:</p>
-              <p class="text-4xl font-bold font-mono text-error">#{{ job.cutter_program.duplo_code|default:job.cutter_program }}</p>
-            </div>
-            {% endif %}
-            {% else %}
-            <span class="text-base-content/50 text-sm">No cutter assigned.</span>
-            {% endif %}
-          </div>
-        </div>
-      </li>
 
-    </ol>
+            </div>
+          </div>
+        </li>
+
+        {# Step 2: Find on Fiery #}
+        <li class="px-5 py-4">
+          <div class="flex items-start gap-3">
+            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">2</span>
+            <div>
+              <p class="font-semibold text-sm mb-1">Find on Fiery</p>
+              <kbd class="kbd">{{ fiery_name|default:job.name|default:job.pk }}</kbd>
+            </div>
+          </div>
+        </li>
+
+        {# Step 3: Load Paper #}
+        <li class="px-5 py-4">
+          <div class="flex items-start gap-3">
+            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">3</span>
+            <div>
+              <p class="font-semibold text-sm mb-1">Load Paper</p>
+              <p class="font-bold text-lg">
+                {% if job.imposition_template and job.imposition_template.sheet_size %}
+                  {{ job.imposition_template.sheet_size.label }}
+                {% elif job.imposition_template and job.imposition_template.sheet_width %}
+                  {{ job.imposition_template.sheet_size_label }}
+                {% else %}—{% endif %}
+              </p>
+            </div>
+          </div>
+        </li>
+
+        {# Step 4: Cutter BC Reader #}
+        <li class="px-5 py-4">
+          <div class="flex items-start gap-3">
+            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">4</span>
+            <div class="flex-1">
+              <p class="font-semibold text-sm mb-1">Cutter BC Reader</p>
+              {% if job.cutter_program %}
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  {% if job.imposition_template and job.imposition_template.print_barcode %}
+                    <span class="badge badge-success">ON</span>
+                    <span class="text-sm">Barcode printed on sheet — cutter reads automatically.</span>
+                  {% else %}
+                    <span class="badge badge-error">OFF</span>
+                    <span class="text-sm">No barcode printed — select job manually on Duplo 646.</span>
+                  {% endif %}
+                  <button type="button" @click="showHowModal = true"
+                          class="btn btn-xs btn-ghost"
+                          title="How to change BC setting on the Duplo DC-646">
+                    ℹ️ Need Help?
+                  </button>
+                </div>
+                {% if not job.imposition_template or not job.imposition_template.print_barcode %}
+                <div class="rounded-lg bg-error/10 border border-error/30 px-4 py-3 inline-block mt-1">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-error mb-1">Enter this code on Duplo 646:</p>
+                  <p class="text-4xl font-bold font-mono text-error">#{{ job.cutter_program.duplo_code|default:job.cutter_program }}</p>
+                </div>
+                {% endif %}
+              {% else %}
+                <span class="text-base-content/50 text-sm">No cutter assigned.</span>
+              {% endif %}
+            </div>
+          </div>
+        </li>
+
+      </ol>
+
+      {# Right col: Inspector mascot, same bg-base-200 as steps #}
+      <div class="hidden md:flex flex-col items-center justify-center gap-3 py-6 px-4 bg-base-200 border-l border-base-300">
+        <div class="speech-bubble text-center w-full">
+          <p class="text-xs font-medium text-indigo-700 leading-snug">
+            {% if job.status == 'sent' %}
+              "Looks good to me — let's get this one out the door! 🐾"
+            {% elif job.status == 'error' %}
+              "Uh oh... something needs fixing before I sign off. 🔍"
+            {% elif job.status == 'pending' %}
+              "Still warming up — hang tight while I check the details..."
+            {% else %}
+              "On it! Running through the checklist now..."
+            {% endif %}
+          </p>
+        </div>
+        <img src="{% static 'inspector.png' %}"
+             alt="Ember Inspector"
+             class="w-36 h-36 object-contain drop-shadow-md" />
+      </div>
+
+    </div>
   </div>
   {% endif %}
 
-  {# Change Template inline form #}
-  <div x-show="showChange" x-transition x-cloak class="card card-bordered bg-base-100 shadow mb-6">
+  {# ── Change Template inline form ── #}
+  <div x-show="showChange" x-transition x-cloak
+       class="card card-bordered bg-base-100 shadow mb-6">
     <div class="card-body">
       <h3 class="card-title text-sm mb-1">Change Template</h3>
-      <p class="text-sm text-base-content/60 mb-3">Select a template to apply its layout and printer preset. The job will be re-processed immediately.</p>
+      <p class="text-sm text-base-content/60 mb-3">
+        Select a template to apply its layout and printer preset. The job will be re-processed immediately.
+      </p>
       {% if templates %}
-      <form method="post" action="{% url 'jobs:apply_template' job.pk %}" class="flex flex-wrap items-end gap-3">
+      <form method="post" action="{% url 'jobs:apply_template' job.pk %}"
+            class="flex flex-wrap items-end gap-3">
         {% csrf_token %}
         <div class="form-control flex-1">
           <label class="label" for="id_template_id"><span class="label-text">Template</span></label>
           <select id="id_template_id" name="template_id" class="select select-bordered">
             <option value="">— Select a template —</option>
             {% for tmpl in templates %}
-            <option value="{{ tmpl.pk }}">{{ tmpl.name }}{% if tmpl.product_category %} ({{ tmpl.product_category }}){% endif %}</option>
+            <option value="{{ tmpl.pk }}">
+              {{ tmpl.name }}{% if tmpl.product_category %} ({{ tmpl.product_category }}){% endif %}
+            </option>
             {% endfor %}
           </select>
         </div>
         <button type="submit" class="btn btn-primary">Apply &amp; Reprocess</button>
       </form>
       {% else %}
-      <p class="text-sm text-base-content/60">No templates available. <a href="{% url 'impose:create' %}" class="link">Create a template</a>.</p>
+      <p class="text-sm text-base-content/60">
+        No templates available. <a href="{% url 'impose:create' %}" class="link">Create a template</a>.
+      </p>
       {% endif %}
     </div>
   </div>
 
-  {# Collapsible Job Details #}
+  {# ── Collapsible Job Details ── #}
   <div class="collapse collapse-arrow bg-base-100 border border-base-300 shadow mb-6">
     <input type="checkbox">
     <div class="collapse-title font-semibold">Job Details</div>
@@ -193,56 +278,93 @@
         <tbody>
           <tr><th>Job ID</th><td class="font-mono text-sm">{{ job.pk }}</td></tr>
           <tr><th>Created</th><td>{{ job.created_at|date:"M j, Y H:i" }}</td></tr>
-          <tr><th>Paper Size</th><td class="font-semibold">{% if job.imposition_template and job.imposition_template.sheet_size %}{{ job.imposition_template.sheet_size.label }}{% elif job.imposition_template and job.imposition_template.sheet_width %}{{ job.imposition_template.sheet_size_label }}{% else %}—{% endif %}</td></tr>
-          <tr><th>Imposition</th><td>{% if job.pages_are_unique %}N-up (unique pages){% else %}Step-and-repeat{% endif %}</td></tr>
-          {% if job.imposition_template %}<tr><th>Template</th><td>{{ job.imposition_template.name }}</td></tr>{% endif %}
-          {% if job.cutter_program %}<tr><th>Cutter Code</th><td class="font-semibold">{% if job.cutter_program.duplo_code %}#{{ job.cutter_program.duplo_code }}{% else %}{{ job.cutter_program }}{% endif %}</td></tr>{% endif %}
-          {% if job.routing_preset %}<tr><th>Printer Preset</th><td>{{ job.routing_preset }}</td></tr>{% endif %}
-          {% if fiery_name %}<tr><th>Fiery Name</th><td class="font-mono text-sm">{{ fiery_name }}</td></tr>{% endif %}
+          <tr><th>Paper Size</th><td class="font-semibold">
+            {% if job.imposition_template and job.imposition_template.sheet_size %}
+              {{ job.imposition_template.sheet_size.label }}
+            {% elif job.imposition_template and job.imposition_template.sheet_width %}
+              {{ job.imposition_template.sheet_size_label }}
+            {% else %}—{% endif %}
+          </td></tr>
+          <tr><th>Imposition</th><td>
+            {% if job.pages_are_unique %}N-up (unique pages){% else %}Step-and-repeat{% endif %}
+          </td></tr>
+          {% if job.imposition_template %}
+          <tr><th>Template</th><td>{{ job.imposition_template.name }}</td></tr>
+          {% endif %}
+          {% if job.cutter_program %}
+          <tr><th>Cutter Code</th><td class="font-semibold">
+            {% if job.cutter_program.duplo_code %}#{{ job.cutter_program.duplo_code }}{% else %}{{ job.cutter_program }}{% endif %}
+          </td></tr>
+          {% endif %}
+          {% if job.routing_preset %}
+          <tr><th>Printer Preset</th><td>{{ job.routing_preset }}</td></tr>
+          {% endif %}
+          {% if fiery_name %}
+          <tr><th>Fiery Name</th><td class="font-mono text-sm">{{ fiery_name }}</td></tr>
+          {% endif %}
           <tr><th>Page Count</th><td>{{ job.page_count|default:"—" }}</td></tr>
           <tr><th>Page Size</th><td>{{ job.page_size_label }}</td></tr>
           <tr><th>Type</th><td>{{ job.get_product_type_display|default:"—" }}</td></tr>
           <tr><th>Double-sided</th><td>{% if job.is_double_sided %}Yes{% else %}No{% endif %}</td></tr>
-          <tr><th>Unique pages</th><td>{% if job.pages_are_unique %}Yes (n-up){% else %}No (step-and-repeat){% endif %}</td></tr>
+          <tr><th>Unique pages</th><td>
+            {% if job.pages_are_unique %}Yes (n-up){% else %}No (step-and-repeat){% endif %}
+          </td></tr>
         </tbody>
       </table>
+
       {% if job.error_message %}
-      <div class="alert alert-error mt-4"><div><p class="font-medium">Error:</p><pre class="text-xs mt-1 whitespace-pre-wrap">{{ job.error_message }}</pre></div></div>
-      {% endif %}
-      {% if job.notes %}
-      <div class="mt-4"><p class="text-sm text-base-content/60">Notes</p><p class="mt-1">{{ job.notes }}</p></div>
+      <div class="alert alert-error mt-4">
+        <div>
+          <p class="font-medium">Error:</p>
+          <pre class="text-xs mt-1 whitespace-pre-wrap">{{ job.error_message }}</pre>
+        </div>
+      </div>
       {% endif %}
 
-      {# Action buttons at bottom of accordion #}
+      {% if job.notes %}
+      <div class="mt-4">
+        <p class="text-sm text-base-content/60">Notes</p>
+        <p class="mt-1">{{ job.notes }}</p>
+      </div>
+      {% endif %}
+
       <div class="card-actions justify-end mt-4 pt-4 border-t border-base-300">
         <button @click="showChange = !showChange" class="btn btn-sm btn-outline">Change Template</button>
+        {% if user.is_authenticated %}
         <button type="button" @click="showRenameModal = true" class="btn btn-sm btn-outline">Rename</button>
+        {% endif %}
         {% if user.is_authenticated %}
         <form method="post" action="{% url 'jobs:toggle_save' job.pk %}" class="inline">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.path }}">
           {% if job.is_saved %}
-          <button type="submit" class="btn btn-sm btn-outline">Unsave</button>
+            <button type="submit" class="btn btn-sm btn-outline">Unsave</button>
           {% else %}
-          <button type="submit" class="btn btn-sm btn-outline">Save</button>
+            <button type="submit" class="btn btn-sm btn-outline">Save</button>
           {% endif %}
         </form>
         {% endif %}
-        <button type="button" @click="showDeleteModal = true" class="btn btn-sm btn-error btn-outline">Delete</button>
+        <button type="button" @click="showDeleteModal = true"
+                class="btn btn-sm btn-error btn-outline">Delete</button>
       </div>
     </div>
   </div>
 
-  {# Rename Modal #}
+  {# ── Rename Modal ── #}
+  {% if user.is_authenticated %}
   <div class="modal" :class="{ 'modal-open': showRenameModal }" role="dialog" aria-modal="true">
     <div class="modal-box">
       <h3 class="font-bold text-lg">Rename Job</h3>
-      <p class="py-2 text-sm text-base-content/60">Change the display name for this job. This also affects the title shown on the Fiery.</p>
+      <p class="py-2 text-sm text-base-content/60">
+        Change the display name for this job. This also affects the title shown on the Fiery.
+      </p>
       <form method="post" action="{% url 'jobs:rename' job.pk %}">
         {% csrf_token %}
         <div class="form-control mt-2">
           <label class="label" for="id_rename_name"><span class="label-text">Job Name</span></label>
-          <input id="id_rename_name" name="name" type="text" required value="{{ job.name }}" class="input input-bordered" placeholder="Enter a name for this job">
+          <input id="id_rename_name" name="name" type="text" required
+                 value="{{ job.name }}" class="input input-bordered"
+                 placeholder="Enter a name for this job">
         </div>
         <div class="modal-action">
           <button type="submit" class="btn btn-primary">Save Name</button>
@@ -252,12 +374,16 @@
     </div>
     <div class="modal-backdrop" aria-hidden="true" @click="showRenameModal = false"></div>
   </div>
+  {% endif %}
 
-  {# Delete Confirmation Modal #}
+  {# ── Delete Modal ── #}
   <div class="modal" :class="{ 'modal-open': showDeleteModal }" role="dialog" aria-modal="true">
     <div class="modal-box">
       <h3 class="font-bold text-lg">Delete Job</h3>
-      <p class="py-4">Are you sure you want to delete <strong>{{ job.name|default:job.pk }}</strong>? This action cannot be undone.</p>
+      <p class="py-4">
+        Are you sure you want to delete <strong>{{ job.name|default:job.pk }}</strong>?
+        This action cannot be undone.
+      </p>
       <div class="modal-action">
         <form method="post" action="{% url 'jobs:delete' job.pk %}">
           {% csrf_token %}
@@ -269,7 +395,7 @@
     <div class="modal-backdrop" aria-hidden="true" @click="showDeleteModal = false"></div>
   </div>
 
-  {# How Modal #}
+  {# ── How Modal (Duplo BC Reader) ── #}
   <div class="modal" :class="{ 'modal-open': showHowModal }" role="dialog" aria-modal="true">
     <div class="modal-box max-w-2xl">
       <h3 class="font-bold text-lg mb-4">How to Change Barcode Reading — Duplo DC-646</h3>
@@ -309,9 +435,7 @@
             </li>
           </ol>
         </div>
-
         <div class="divider"></div>
-
         <div class="alert alert-info">
           <div class="flex items-start gap-2">
             <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -350,29 +474,28 @@
 
 </div>
 
-{# Sticky bottom action bar — always visible #}
+{# ── Sticky Bottom Action Bar ── #}
 {% if job.imposed_file %}
-<div class="fixed bottom-0 left-0 right-0 z-40 bg-neutral text-neutral-content border-t border-base-300 shadow-lg" role="region" aria-label="Action toolbar">
+<div class="fixed bottom-0 left-0 right-0 z-40 bg-neutral text-neutral-content border-t border-base-300 shadow-lg"
+     role="region" aria-label="Action toolbar">
   <div class="max-w-4xl mx-auto px-4 py-3 flex gap-3 items-center justify-end flex-wrap">
     <a href="{% url 'jobs:preview' job.pk %}" target="_blank" class="btn btn-ghost">Preview PDF</a>
     {% if job.routing_preset %}
-      <form method="post" action="{% url 'jobs:resend' job.pk %}" class="flex items-center gap-2 flex-wrap" x-data="{ showDuplex: false }">
+      <form method="post" action="{% url 'jobs:resend' job.pk %}"
+            class="flex items-center gap-2 flex-wrap">
         {% csrf_token %}
         <label class="flex items-center gap-1 text-sm cursor-pointer select-none">
-          <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" @change="showDuplex = $event.target.checked">
-          <span>Override duplex</span>
+          <input type="checkbox" class="checkbox checkbox-sm checkbox-primary"
+                 name="is_double_sided" value="1">
+          <span>2-sided</span>
         </label>
-        <select name="duplex_override" x-show="showDuplex" x-cloak class="select select-sm select-bordered bg-neutral text-neutral-content border-neutral-content/30 min-w-[9rem]">
-          <option value="duplex_long">Duplex Long-Edge</option>
-          <option value="duplex_short">Duplex Short-Edge</option>
-          <option value="simplex">Simplex (1-sided)</option>
-        </select>
         <button type="submit" class="btn btn-primary">Send to Printer</button>
       </form>
     {% else %}
-    <button type="button" class="btn btn-primary" disabled>Printer not Available</button>
+      <button type="button" class="btn btn-primary" disabled>Printer not Available</button>
     {% endif %}
   </div>
 </div>
 {% endif %}
+
 {% endblock %}
