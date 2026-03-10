@@ -295,13 +295,13 @@ function uploadForm() {
 </script>
 
 {# PDF.js #}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
-  integrity="sha512-q+4lHwAhMuXMqXDLbmXCnOJMdydxlRN9KAkQdTn1n8GkXbyh7SWGDsF4aFBpQflVXsz+9axJe4gj8HBfvYnQ=="
-  crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
   if (typeof pdfjsLib !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const _pdfWorkerUrl = new URL('{% static "vendor/pdfjs/pdf.worker.min.js" %}', window.location.origin).href;
+    window.PDFJS_WORKER_URL = _pdfWorkerUrl;
+    console.debug('pdfjs worker URL ->', _pdfWorkerUrl);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = _pdfWorkerUrl;
   }
 </script>
 

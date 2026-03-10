@@ -111,7 +111,9 @@ class JobUploadView(View):
         pages_are_unique = request.POST.get("pages_are_unique") == "on"
         # is_double_sided: explicit form field (checked by default for multi-page).
         # Step-and-repeat jobs (pages_are_unique=False) cannot be double-sided.
-        is_double_sided = request.POST.get("is_double_sided") == "on" if pages_are_unique else False
+        is_double_sided = (
+            request.POST.get("is_double_sided") == "on" if pages_are_unique else False
+        )
 
         job = PrintJob.objects.create(
             name=file.name,
@@ -274,6 +276,24 @@ class JobPreviewView(View):
             job.imposed_file.open("rb"),
             as_attachment=False,
             filename=f"preview_{job.name}",
+            content_type="application/pdf",
+        )
+        return response
+
+
+class JobSourcePreviewView(View):
+    """Serve the original (pre-imposition) PDF inline for preview."""
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        job = get_object_or_404(PrintJob, pk=pk)
+        if not job.file:
+            raise Http404("No source file available for this job.")
+        response = FileResponse(
+            job.file.open("rb"),
+            as_attachment=False,
+            filename=f"source_{job.name}",
             content_type="application/pdf",
         )
         return response

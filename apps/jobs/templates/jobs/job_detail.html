@@ -228,9 +228,7 @@
             {% endif %}
           </p>
         </div>
-        <img src="{% static 'inspector.png' %}"
-             alt="Ember Inspector"
-             class="w-36 h-36 object-contain drop-shadow-md" />
+        <img src="{% static 'inspector.png' %}" alt="Ember Inspector" class="w-36 h-36 object-contain drop-shadow-md" />
       </div>
 
     </div>
@@ -239,11 +237,7 @@
 
   {# ── PDF Preview ── #}
   {% if job.imposed_file %}
-  <div class="card card-bordered shadow mb-6 overflow-hidden"
-       x-data="pdfPreview('{% url 'jobs:preview' job.pk %}')"
-       @preview-next.window="nextPage()"
-       @preview-prev.window="prevPage()"
-       x-init="init()">
+  <div class="card card-bordered shadow mb-6 overflow-hidden" x-data="pdfPreview('{% url 'jobs:source_preview' job.pk %}')" @preview-next.window="nextPage()" @preview-prev.window="prevPage()" x-init="init()">
 
     <div class="bg-base-200 border-b border-base-300 px-5 py-3 flex items-center gap-2">
       <span class="text-xl">🔍</span>
@@ -297,31 +291,31 @@
   </div>
 
   {# PDF.js CDN #}
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-q+4lHwAhMuXMqXDLbmXCnOJMdydxlRN9KAkQdTn1n8GkXbyh7SWGDsF4aFBpQflVXsz+9axJe4gj8HBfvYnQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="{% static 'vendor/pdfjs/pdf.min.js' %}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
     if (typeof pdfjsLib !== 'undefined') {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const _pdfWorkerUrl = new URL('{% static "vendor/pdfjs/pdf.worker.min.js" %}', window.location.origin).href;
+      window.PDFJS_WORKER_URL = _pdfWorkerUrl;
+      console.debug('pdfjs worker URL ->', _pdfWorkerUrl);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = _pdfWorkerUrl;
     }
-
-    // Template cut-grid data (may be null if no template assigned)
+  </script>
+  <script>
+    // Per-page cut/bleed data for the trim overlay (null if no template assigned)
     const PREVIEW_GRID = {% if job.imposition_template and job.imposition_template.cut_width and job.imposition_template.cut_height %}{
-      sheet_w_pt: {{ job.imposition_template.sheet_width }},
-      sheet_h_pt: {{ job.imposition_template.sheet_height }},
       cut_w_pt: {{ job.imposition_template.cut_width }},
       cut_h_pt: {{ job.imposition_template.cut_height }},
-      bleed_pt: {{ job.imposition_template.bleed }},
-      margin_top_pt: {{ job.imposition_template.margin_top }},
-      margin_right_pt: {{ job.imposition_template.margin_right }},
-      margin_bottom_pt: {{ job.imposition_template.margin_bottom }},
-      margin_left_pt: {{ job.imposition_template.margin_left }},
-      columns: {{ job.imposition_template.columns }},
-      rows: {{ job.imposition_template.rows }}
+      bleed_pt: {{ job.imposition_template.bleed }}
     }{% else %}null{% endif %};
 
     function pdfPreview(url) {
+      // pdfDoc is stored outside the Alpine reactive object to prevent Alpine's
+      // Proxy from wrapping it — pdf.js uses private class fields (#d) which
+      // break when accessed through a Proxy.
+      let _pdfDoc = null;
+
       return {
         url,
-        pdfDoc: null,
         currentPage: 1,
         totalPages: 0,
         visible: true,
@@ -335,8 +329,8 @@
         async init() {
           if (typeof pdfjsLib === 'undefined') return;
           try {
-            this.pdfDoc = await pdfjsLib.getDocument(this.url).promise;
-            this.totalPages = this.pdfDoc.numPages;
+            _pdfDoc = await pdfjsLib.getDocument(this.url).promise;
+            this.totalPages = _pdfDoc.numPages;
             await this.renderPage();
           } catch(e) {
             console.error('PDF preview error:', e);
@@ -344,10 +338,10 @@
         },
 
         async renderPage() {
-          if (!this.pdfDoc || this.rendering) return;
+          if (!_pdfDoc || this.rendering) return;
           this.rendering = true;
           try {
-            const page = await this.pdfDoc.getPage(this.currentPage);
+            const page = await _pdfDoc.getPage(this.currentPage);
             const viewport = page.getViewport({ scale: 1.0 });
 
             // Scale to fit container (max ~800px wide)
@@ -383,50 +377,45 @@
 
           if (!PREVIEW_GRID) return;
 
-          const { sheet_w_pt, sheet_h_pt, cut_w_pt, cut_h_pt, bleed_pt,
-                  margin_top_pt, margin_right_pt, margin_bottom_pt, margin_left_pt,
-                  columns, rows } = PREVIEW_GRID;
+          const { cut_w_pt, cut_h_pt, bleed_pt } = PREVIEW_GRID;
+          if (!cut_w_pt || !cut_h_pt) return;
 
-          if (!cut_w_pt || !cut_h_pt || !sheet_w_pt || !sheet_h_pt) return;
+          const canvasW = overlay.width;
+          const canvasH = overlay.height;
 
-          // Convert pts to canvas pixels
-          const pt2px = (pt) => pt * (viewport.width / sheet_w_pt);
+          // Scale: canvas pixels per pt (based on how pdf.js rendered the page)
+          const page_w_pt = viewport.width / scale;
+          const page_h_pt = viewport.height / scale;
+          const px_per_pt_x = canvasW / page_w_pt;
+          const px_per_pt_y = canvasH / page_h_pt;
 
-          const cellW = cut_w_pt + 2 * bleed_pt;
-          const cellH = cut_h_pt + 2 * bleed_pt;
+          // Always center the cut box on the page, regardless of whether the
+          // source PDF includes bleed or is trim-only.
+          const cut_w_px = cut_w_pt * px_per_pt_x;
+          const cut_h_px = cut_h_pt * px_per_pt_y;
+          const cut_x = (canvasW - cut_w_px) / 2;
+          const cut_y = (canvasH - cut_h_px) / 2;
 
-          ctx.strokeStyle = '#ef4444';
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([6, 4]);
-
-          for (let c = 0; c < columns; c++) {
-            for (let r = 0; r < rows; r++) {
-              // Origin from top-left of sheet (PDF coords from bottom-left)
-              const x = margin_left_pt + c * cellW;
-              // PDF y from bottom; canvas y from top
-              const yFromBottom = margin_bottom_pt + r * cellH;
-              const yFromTop = sheet_h_pt - yFromBottom - cellH;
-
-              // Bleed box (outer dashed red)
-              const bx = pt2px(x);
-              const by = pt2px(yFromTop);
-              const bw = pt2px(cellW);
-              const bh = pt2px(cellH);
-              ctx.strokeStyle = 'rgba(239,68,68,0.7)';
-              ctx.strokeRect(bx, by, bw, bh);
-
-              // Trim/cut box (inner solid red, inset by bleed)
-              ctx.setLineDash([]);
-              ctx.strokeStyle = 'rgba(239,68,68,1)';
-              ctx.strokeRect(
-                pt2px(x + bleed_pt),
-                pt2px(yFromTop + bleed_pt),
-                pt2px(cut_w_pt),
-                pt2px(cut_h_pt)
-              );
-              ctx.setLineDash([6, 4]);
-            }
+          // Bleed box (dashed, outset from cut box by bleed amount)
+          if (bleed_pt > 0) {
+            const bleed_px_x = bleed_pt * px_per_pt_x;
+            const bleed_px_y = bleed_pt * px_per_pt_y;
+            ctx.strokeStyle = 'rgba(239,68,68,0.5)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 4]);
+            ctx.strokeRect(
+              cut_x - bleed_px_x,
+              cut_y - bleed_px_y,
+              cut_w_px + 2 * bleed_px_x,
+              cut_h_px + 2 * bleed_px_y
+            );
           }
+
+          // Trim/cut box (solid red, centered)
+          ctx.setLineDash([]);
+          ctx.strokeStyle = 'rgba(239,68,68,1)';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(cut_x, cut_y, cut_w_px, cut_h_px);
         },
 
         async nextPage() {
@@ -446,8 +435,7 @@
     }
   </script>
   {% endif %}
-  <div x-show="showChange" x-transition x-cloak
-       class="card card-bordered bg-base-100 shadow mb-6">
+  <div x-show="showChange" x-transition x-cloak class="card card-bordered bg-base-100 shadow mb-6">
     <div class="card-body">
       <h3 class="card-title text-sm mb-1">Change Template</h3>
       <p class="text-sm text-base-content/60 mb-3">
