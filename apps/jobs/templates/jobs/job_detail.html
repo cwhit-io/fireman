@@ -32,7 +32,9 @@
 </style>
 
 <div class="max-w-4xl mx-auto px-4 py-8 pb-36"
-     x-data="{ showChange: false, showDeleteModal: false, showBarcodeInfo: false, showHowModal: false, showRenameModal: false }">
+     x-data="{ showChange: false, showDeleteModal: false, showBarcodeInfo: false, showHowModal: false, showRenameModal: false, showPreview: true }"
+     @keydown.arrow-right.window="if (showPreview) $dispatch('preview-next')"
+     @keydown.arrow-left.window="if (showPreview) $dispatch('preview-prev')">
 
   {# ── Breadcrumb ── #}
   <div class="breadcrumbs text-sm mb-4">
@@ -92,7 +94,7 @@
         {# Step 1: Print Quantity #}
         <li class="px-5 py-4">
           <div class="flex items-start gap-3">
-            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">1</span>
+            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5" title="Step 1">📊</span>
             <div class="flex-1">
               <p class="font-semibold text-sm mb-3">Print Quantity</p>
 
@@ -136,8 +138,7 @@
                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
                       </svg>
                       <div>
-                        <div class="font-medium text-sm mb-1">Test Print Only</div>
-                        <div class="text-xs opacity-90">Only 1 sheet sent to Fiery initially. Full quantity available for production prints.</div>
+                        <div class="font-medium text-sm mb-1">Ember will only send 1 sheet.</div>
                       </div>
                     </div>
                   </div>
@@ -148,23 +149,23 @@
           </div>
         </li>
 
-        {# Step 2: Find on Fiery #}
+        {# Step 2: Job Title #}
         <li class="px-5 py-4">
           <div class="flex items-start gap-3">
-            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">2</span>
+            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5" title="Step 2">🏷️</span>
             <div>
-              <p class="font-semibold text-sm mb-1">Find on Fiery</p>
+              <p class="font-semibold text-sm mb-1">Job Title <span class="text-xs font-normal text-base-content/50 ml-1">— look for this name on the Fiery</span></p>
               <kbd class="kbd">{{ fiery_name|default:job.name|default:job.pk }}</kbd>
             </div>
           </div>
         </li>
 
-        {# Step 3: Load Paper #}
+        {# Step 3: Paper Size #}
         <li class="px-5 py-4">
           <div class="flex items-start gap-3">
-            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">3</span>
+            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5" title="Step 3">📄</span>
             <div>
-              <p class="font-semibold text-sm mb-1">Load Paper</p>
+              <p class="font-semibold text-sm mb-1">Paper Size</p>
               <p class="font-bold text-lg">
                 {% if job.imposition_template and job.imposition_template.sheet_size %}
                   {{ job.imposition_template.sheet_size.label }}
@@ -179,7 +180,7 @@
         {# Step 4: Cutter BC Reader #}
         <li class="px-5 py-4">
           <div class="flex items-start gap-3">
-            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5">4</span>
+            <span class="badge badge-neutral badge-lg shrink-0 mt-0.5" title="Step 4">✂️</span>
             <div class="flex-1">
               <p class="font-semibold text-sm mb-1">Cutter BC Reader</p>
               {% if job.cutter_program %}
@@ -236,7 +237,215 @@
   </div>
   {% endif %}
 
-  {# ── Change Template inline form ── #}
+  {# ── PDF Preview ── #}
+  {% if job.imposed_file %}
+  <div class="card card-bordered shadow mb-6 overflow-hidden"
+       x-data="pdfPreview('{% url 'jobs:preview' job.pk %}')"
+       @preview-next.window="nextPage()"
+       @preview-prev.window="prevPage()"
+       x-init="init()">
+
+    <div class="bg-base-200 border-b border-base-300 px-5 py-3 flex items-center gap-2">
+      <span class="text-xl">🔍</span>
+      <h2 class="font-bold text-base flex-1">Page Preview</h2>
+      <button type="button" @click="toggleVisible()"
+              class="btn btn-ghost btn-xs">
+        <span x-text="visible ? 'Hide' : 'Show'">Hide</span>
+      </button>
+    </div>
+
+    <div x-show="visible" x-transition>
+      <div class="bg-base-100 p-4">
+
+        {# Navigation + page count #}
+        <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+          <div class="flex items-center gap-2">
+            <button type="button" @click="prevPage()"
+                    :disabled="currentPage <= 1"
+                    class="btn btn-sm btn-outline"
+                    title="Previous page (←)">
+              ← Prev
+            </button>
+            <span class="text-sm font-medium" x-text="totalPages ? `Page ${currentPage} of ${totalPages}` : 'Loading…'"></span>
+            <button type="button" @click="nextPage()"
+                    :disabled="currentPage >= totalPages"
+                    class="btn btn-sm btn-outline"
+                    title="Next page (→)">
+              Next →
+            </button>
+          </div>
+          <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input type="checkbox" class="checkbox checkbox-sm" x-model="showOverlay" @change="renderPage()">
+            <span>Show cut lines</span>
+          </label>
+        </div>
+
+        {# Canvas container #}
+        <div class="relative overflow-auto rounded-lg border border-base-300 bg-neutral flex justify-center">
+          <div class="relative inline-block">
+            <canvas id="pdf-preview-canvas" class="block max-w-full"></canvas>
+            <canvas id="pdf-overlay-canvas" class="absolute inset-0 pointer-events-none" style="opacity:0.6"></canvas>
+          </div>
+        </div>
+
+        <p class="text-xs text-base-content/40 mt-2 text-center">
+          Use ← → arrow keys to navigate pages
+        </p>
+
+      </div>
+    </div>
+  </div>
+
+  {# PDF.js CDN #}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-q+4lHwAhMuXMqXDLbmXCnOJMdydxlRN9KAkQdTn1n8GkXbyh7SWGDsF4aFBpQflVXsz+9axJe4gj8HBfvYnQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    // Template cut-grid data (may be null if no template assigned)
+    const PREVIEW_GRID = {% if job.imposition_template and job.imposition_template.cut_width and job.imposition_template.cut_height %}{
+      sheet_w_pt: {{ job.imposition_template.sheet_width }},
+      sheet_h_pt: {{ job.imposition_template.sheet_height }},
+      cut_w_pt: {{ job.imposition_template.cut_width }},
+      cut_h_pt: {{ job.imposition_template.cut_height }},
+      bleed_pt: {{ job.imposition_template.bleed }},
+      margin_top_pt: {{ job.imposition_template.margin_top }},
+      margin_right_pt: {{ job.imposition_template.margin_right }},
+      margin_bottom_pt: {{ job.imposition_template.margin_bottom }},
+      margin_left_pt: {{ job.imposition_template.margin_left }},
+      columns: {{ job.imposition_template.columns }},
+      rows: {{ job.imposition_template.rows }}
+    }{% else %}null{% endif %};
+
+    function pdfPreview(url) {
+      return {
+        url,
+        pdfDoc: null,
+        currentPage: 1,
+        totalPages: 0,
+        visible: true,
+        showOverlay: true,
+        rendering: false,
+
+        toggleVisible() {
+          this.visible = !this.visible;
+        },
+
+        async init() {
+          if (typeof pdfjsLib === 'undefined') return;
+          try {
+            this.pdfDoc = await pdfjsLib.getDocument(this.url).promise;
+            this.totalPages = this.pdfDoc.numPages;
+            await this.renderPage();
+          } catch(e) {
+            console.error('PDF preview error:', e);
+          }
+        },
+
+        async renderPage() {
+          if (!this.pdfDoc || this.rendering) return;
+          this.rendering = true;
+          try {
+            const page = await this.pdfDoc.getPage(this.currentPage);
+            const viewport = page.getViewport({ scale: 1.0 });
+
+            // Scale to fit container (max ~800px wide)
+            const maxW = Math.min(window.innerWidth - 64, 800);
+            const scale = maxW / viewport.width;
+            const scaledViewport = page.getViewport({ scale });
+
+            const canvas = document.getElementById('pdf-preview-canvas');
+            const overlay = document.getElementById('pdf-overlay-canvas');
+            if (!canvas) return;
+
+            canvas.width = scaledViewport.width;
+            canvas.height = scaledViewport.height;
+            overlay.width = scaledViewport.width;
+            overlay.height = scaledViewport.height;
+
+            const ctx = canvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+
+            if (this.showOverlay) {
+              this.drawOverlay(overlay, scaledViewport, scale);
+            } else {
+              overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
+            }
+          } finally {
+            this.rendering = false;
+          }
+        },
+
+        drawOverlay(overlay, viewport, scale) {
+          const ctx = overlay.getContext('2d');
+          ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+          if (!PREVIEW_GRID) return;
+
+          const { sheet_w_pt, sheet_h_pt, cut_w_pt, cut_h_pt, bleed_pt,
+                  margin_top_pt, margin_right_pt, margin_bottom_pt, margin_left_pt,
+                  columns, rows } = PREVIEW_GRID;
+
+          if (!cut_w_pt || !cut_h_pt || !sheet_w_pt || !sheet_h_pt) return;
+
+          // Convert pts to canvas pixels
+          const pt2px = (pt) => pt * (viewport.width / sheet_w_pt);
+
+          const cellW = cut_w_pt + 2 * bleed_pt;
+          const cellH = cut_h_pt + 2 * bleed_pt;
+
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([6, 4]);
+
+          for (let c = 0; c < columns; c++) {
+            for (let r = 0; r < rows; r++) {
+              // Origin from top-left of sheet (PDF coords from bottom-left)
+              const x = margin_left_pt + c * cellW;
+              // PDF y from bottom; canvas y from top
+              const yFromBottom = margin_bottom_pt + r * cellH;
+              const yFromTop = sheet_h_pt - yFromBottom - cellH;
+
+              // Bleed box (outer dashed red)
+              const bx = pt2px(x);
+              const by = pt2px(yFromTop);
+              const bw = pt2px(cellW);
+              const bh = pt2px(cellH);
+              ctx.strokeStyle = 'rgba(239,68,68,0.7)';
+              ctx.strokeRect(bx, by, bw, bh);
+
+              // Trim/cut box (inner solid red, inset by bleed)
+              ctx.setLineDash([]);
+              ctx.strokeStyle = 'rgba(239,68,68,1)';
+              ctx.strokeRect(
+                pt2px(x + bleed_pt),
+                pt2px(yFromTop + bleed_pt),
+                pt2px(cut_w_pt),
+                pt2px(cut_h_pt)
+              );
+              ctx.setLineDash([6, 4]);
+            }
+          }
+        },
+
+        async nextPage() {
+          if (this.currentPage < this.totalPages) {
+            this.currentPage++;
+            await this.renderPage();
+          }
+        },
+
+        async prevPage() {
+          if (this.currentPage > 1) {
+            this.currentPage--;
+            await this.renderPage();
+          }
+        },
+      };
+    }
+  </script>
+  {% endif %}
   <div x-show="showChange" x-transition x-cloak
        class="card card-bordered bg-base-100 shadow mb-6">
     <div class="card-body">
