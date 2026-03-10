@@ -99,3 +99,51 @@ def extract_pdf_metadata(job) -> None:
         job.error_message = str(exc)
         job.status = job.Status.ERROR
         job.save(update_fields=["error_message", "status"])
+
+
+def run_preflight_for_job(job, pdf_bytes: bytes | None = None) -> None:
+    """
+    Run preflight checks on *job* and persist the results.
+
+    If *pdf_bytes* is not provided the job's file is opened from storage.
+    Trim dimensions are taken from ``job.imposition_template.cut_width/height``.
+    If no template or trim dimensions are available, the checks are skipped.
+    """
+    from .preflight import run_preflight
+
+    trim_w = trim_h = 0.0
+    tmpl = job.imposition_template
+    if tmpl:
+        if tmpl.cut_width and tmpl.cut_height:
+            trim_w = float(tmpl.cut_width)
+            trim_h = float(tmpl.cut_height)
+
+    if pdf_bytes is None:
+        try:
+            with job.file.open("rb") as fh:
+                pdf_bytes = fh.read()
+        except Exception as exc:
+            logger.warning("Preflight: could not read file for job %s: %s", job.pk, exc)
+            return
+
+    try:
+        result = run_preflight(pdf_bytes, trim_w, trim_h)
+    except Exception as exc:
+        logger.exception("Preflight failed for job %s: %s", job.pk, exc)
+        return
+
+    job.preflight_status = result.status
+    job.preflight_rules_triggered = result.rules_triggered
+    job.preflight_messages = result.messages
+    job.preflight_notes = result.notes
+    job.preflight_acknowledged = False
+    job.save(
+        update_fields=[
+            "preflight_status",
+            "preflight_rules_triggered",
+            "preflight_messages",
+            "preflight_notes",
+            "preflight_acknowledged",
+        ]
+    )
+

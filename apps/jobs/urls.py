@@ -32,4 +32,9 @@ urlpatterns = [
     ),
     path("<uuid:pk>/rename/", views.JobRenameView.as_view(), name="rename"),
     path("<uuid:pk>/calc-sheets/", views.calc_sheets, name="calc_sheets"),
+    path(
+        "<uuid:pk>/preflight-acknowledge/",
+        views.JobPreflightAcknowledgeView.as_view(),
+        name="preflight_acknowledge",
+    ),
 ]

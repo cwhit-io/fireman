@@ -13,7 +13,7 @@ from django.views.generic import DeleteView, DetailView, ListView
 from apps.impose.models import ImpositionTemplate, ProductCategory
 
 from .models import PrintJob
-from .services import compute_fiery_name, validate_and_repair_pdf
+from .services import compute_fiery_name, run_preflight_for_job, validate_and_repair_pdf
 from .tasks import process_job_task
 
 
@@ -153,6 +153,8 @@ class JobUploadView(View):
             return render(request, self.template_name, ctx, status=400)
 
         process_job_task.delay(str(job.pk))
+        # Run preflight against the template's trim dimensions
+        run_preflight_for_job(job, pdf_bytes=repaired_bytes)
         messages.success(request, f"Job '{job.name}' submitted successfully.")
         return redirect("jobs:detail", pk=job.pk)
 
@@ -218,6 +220,8 @@ class JobApplyTemplateView(View):
         )
         # Re-process the job immediately
         process_job_task.delay(str(job.pk))
+        # Re-run preflight with the new template's trim dimensions
+        run_preflight_for_job(job)
         messages.success(
             request, f"Template '{template.name}' applied — job is being re-processed."
         )
@@ -363,6 +367,16 @@ class JobResendView(View):
                 except Exception:
                     pass
 
+        return redirect("jobs:detail", pk=pk)
+
+
+class JobPreflightAcknowledgeView(View):
+    """Mark preflight results as acknowledged (dismisses the modal)."""
+
+    def post(self, request, pk):
+        job = get_object_or_404(PrintJob, pk=pk)
+        job.preflight_acknowledged = True
+        job.save(update_fields=["preflight_acknowledged"])
         return redirect("jobs:detail", pk=pk)
 
 

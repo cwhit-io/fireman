@@ -74,6 +74,31 @@ class PrintJob(models.Model):
         on_delete=models.SET_NULL,
         related_name="jobs",
     )
+    # ── Preflight results ─────────────────────────────────────────────────
+    preflight_status = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text="ok / warn / error, or empty if not yet run.",
+    )
+    preflight_rules_triggered = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of rule IDs that fired (e.g. ['R3', 'R8']).",
+    )
+    preflight_messages = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="User-facing Ember messages for each triggered rule.",
+    )
+    preflight_notes = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Internal/operator-facing notes from preflight.",
+    )
+    preflight_acknowledged = models.BooleanField(
+        default=False,
+        help_text="Operator has reviewed and dismissed the preflight modal.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
