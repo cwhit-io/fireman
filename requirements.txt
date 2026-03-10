@@ -24,7 +24,7 @@ django-ninja==1.5.3
 pydantic==2.12.5
 
 # CMS
-
+django-modelcluster==6.4.1
 
 # Database drivers
 psycopg2-binary==2.9.10
