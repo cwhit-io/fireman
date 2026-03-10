@@ -109,9 +109,9 @@ class JobUploadView(View):
 
         # Capture user-provided job options
         pages_are_unique = request.POST.get("pages_are_unique") == "on"
-        # Double-sided is now the default behavior when pages are unique.
+        # is_double_sided: explicit form field (checked by default for multi-page).
         # Step-and-repeat jobs (pages_are_unique=False) cannot be double-sided.
-        is_double_sided = pages_are_unique
+        is_double_sided = request.POST.get("is_double_sided") == "on" if pages_are_unique else False
 
         job = PrintJob.objects.create(
             name=file.name,
@@ -333,7 +333,7 @@ class JobResendView(View):
             )
             job.status = PrintJob.Status.SENT
             job.save(update_fields=["status"])
-            messages.success(request, f"Job '{job.name}' re-sent to printer.")
+            messages.success(request, f"Job '{job.name}' sent to printer.")
         except Exception as exc:
             messages.error(request, f"Failed to send job: {exc}")
         finally:
