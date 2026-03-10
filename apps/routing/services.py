@@ -10,6 +10,63 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 
+# Map common press-sheet dimensions (PDF points, portrait) to PPD PageSize names.
+# Tolerance of ±3 pt (~0.04") handles rounding differences between PDF writers.
+_SHEET_SIZE_PPD: list[tuple[int, int, str]] = [
+    (612, 792, "Letter"),  # 8.5 × 11"
+    (792, 1224, "Tabloid"),  # 11 × 17"
+    (864, 1296, "TabloidExtra"),  # 12 × 18"
+    (936, 1368, "13x19"),  # 13 × 19"
+    (907, 1382, "13x19.2R"),  # 13 × 19.2"
+    (907, 1339, "12.6x18.5"),  # 12.6 × 18.5"
+    (907, 1382, "12.6x19.2"),  # 12.6 × 19.2"
+    (936, 1296, "13x18"),  # 13 × 18"
+    (612, 1008, "Legal"),  # 8.5 × 14"
+    (396, 612, "Statement"),  # 5.5 × 8.5"
+    (595, 842, "A4"),  # A4
+    (420, 595, "A5"),  # A5
+]
+_PPD_SIZE_TOL = 3  # points
+
+
+def _page_size_ppd_name(pdf_path: str) -> str | None:
+    """Return a CUPS/Fiery PPD PageSize string for the first page of *pdf_path*.
+
+    Tries well-known named sizes first; falls back to ``Custom.WxH`` (points).
+    Returns ``None`` if the PDF cannot be read.
+    """
+    try:
+        from pypdf import PdfReader
+
+        reader = PdfReader(pdf_path)
+        if not reader.pages:
+            return None
+        mb = reader.pages[0].mediabox
+        w = round(float(mb.width))
+        h = round(float(mb.height))
+    except Exception:
+        logger.warning("Could not read page dimensions from %r", pdf_path)
+        return None
+
+    for sw, sh, name in _SHEET_SIZE_PPD:
+        if (abs(w - sw) <= _PPD_SIZE_TOL and abs(h - sh) <= _PPD_SIZE_TOL) or (
+            abs(w - sh) <= _PPD_SIZE_TOL and abs(h - sw) <= _PPD_SIZE_TOL
+        ):
+            return name
+
+    # Non-standard size — use CUPS custom page size syntax (points).
+    return f"Custom.{w}x{h}"
+
+
+def _page_size_already_set(fiery_options: dict, extra_lpr_options: str) -> bool:
+    """Return True if PageSize is already covered by the preset's options."""
+    if "PageSize" in (fiery_options or {}):
+        return True
+    for line in extra_lpr_options.splitlines():
+        if line.strip().startswith("PageSize="):
+            return True
+    return False
+
 
 def _build_lpr_command(
     preset, pdf_path: str, title: str = "", duplex_override: str | None = None
@@ -36,6 +93,14 @@ def _build_lpr_command(
     # Fiery-native PPD key.  Both are sent so either path is covered.
     cmd += ["-o", "fit-to-page=false"]
     cmd += ["-o", "EFScaleToFit=OFF"]
+
+    # Tell CUPS the correct PageSize so it does not default to Letter.
+    # Without this, the PPD default (usually Letter/8.5×11) overrides the
+    # actual PDF dimensions before the job even reaches Fiery.
+    if not _page_size_already_set(preset.fiery_options, preset.extra_lpr_options):
+        ps = _page_size_ppd_name(pdf_path)
+        if ps:
+            cmd += ["-o", f"PageSize={ps}"]
 
     # New-style Fiery PPD options (takes precedence)
     for key, value in (preset.fiery_options or {}).items():
@@ -138,6 +203,12 @@ def send_to_fiery_ipp(
     # Fiery-native PPD key.  Both are sent so either path is covered.
     cmd += ["-o", "fit-to-page=false"]
     cmd += ["-o", "EFScaleToFit=OFF"]
+
+    # Tell CUPS the correct PageSize so it does not default to Letter.
+    if not _page_size_already_set(preset.fiery_options, preset.extra_lpr_options):
+        ps = _page_size_ppd_name(pdf_path)
+        if ps:
+            cmd += ["-o", f"PageSize={ps}"]
 
     # Fiery PPD options
     for key, value in (preset.fiery_options or {}).items():
