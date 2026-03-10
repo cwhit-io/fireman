@@ -86,36 +86,6 @@ def process_job_task(job_id: str) -> None:
             return
 
     # ── Step 3: Send to printer ───────────────────────────────────────────
-    if job.routing_preset_id and job.imposed_file:
-        import os
-        import tempfile
-
-        from apps.jobs.services import compute_fiery_name
-        from apps.routing.services import send_to_fiery_lpr
-
-        job.status = PrintJob.Status.ROUTING
-        job.save(update_fields=["status"])
-        tmp_path = None
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                with job.imposed_file.open("rb") as fh:
-                    tmp.write(fh.read())
-                tmp_path = tmp.name
-
-            job_title = compute_fiery_name(job)
-            send_to_fiery_lpr(tmp_path, job.routing_preset, title=job_title)
-            job.status = PrintJob.Status.SENT
-            job.save(update_fields=["status"])
-        except Exception as exc:
-            import logging
-
-            logging.getLogger(__name__).exception("Routing failed for job %s", job.pk)
-            job.status = PrintJob.Status.ERROR
-            job.error_message = f"Routing failed: {exc}"
-            job.save(update_fields=["status", "error_message"])
-        finally:
-            if tmp_path:
-                try:
-                    os.unlink(tmp_path)
-                except Exception:
-                    pass
+    # Auto-send is disabled. The user must manually press "Send to Printer"
+    # on the job details page to submit the imposed PDF to the Fiery.
+    pass

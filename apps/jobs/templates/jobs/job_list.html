@@ -42,7 +42,33 @@
     </button>
     <div x-show="open" x-transition>
       <div class="card bg-base-100 shadow border border-base-300">
-        <table class="table table-sm">
+        {# Mobile card list #}
+        <ul class="divide-y divide-base-300 md:hidden">
+          {% for job in saved_jobs %}
+          <li class="p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <a href="{% url 'jobs:detail' job.pk %}" class="link link-primary font-medium block truncate">{{ job.name|default:job.pk }}</a>
+                <div class="flex flex-wrap gap-2 mt-1 text-xs text-base-content/60">
+                  <span class="badge badge-sm {% if job.status == 'sent' %}badge-success{% elif job.status == 'error' %}badge-error{% elif job.status == 'pending' %}badge-warning{% else %}badge-info{% endif %}">{{ job.get_status_display }}</span>
+                  {% if job.imposition_template and job.imposition_template.sheet_size %}<span class="badge badge-info badge-sm">{{ job.imposition_template.sheet_size.label }}</span>{% elif job.imposition_template and job.imposition_template.sheet_width %}<span class="badge badge-info badge-sm">{{ job.imposition_template.sheet_size_label }}</span>{% endif %}
+                  {% if job.cutter_program and job.cutter_program.duplo_code %}<span class="badge badge-warning badge-sm">#{{ job.cutter_program.duplo_code }}</span>{% endif %}
+                </div>
+                <p class="text-xs text-base-content/40 mt-1">{{ job.created_at|date:"M j, Y H:i" }} · {{ job.page_count|default:"—" }} pages · {{ job.page_size_label }}</p>
+              </div>
+              {% if user.is_authenticated %}
+              <form method="post" action="{% url 'jobs:toggle_save' job.pk %}" class="shrink-0">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'jobs:list' %}">
+                <button type="submit" class="btn btn-xs btn-warning">Unsave</button>
+              </form>
+              {% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {# Desktop table #}
+        <table class="table table-sm hidden md:table">
           <thead class="bg-base-200">
             <tr>
               <th class="text-left text-xs font-medium text-base-content/60 uppercase">Name</th>
@@ -58,8 +84,8 @@
           <tbody class="bg-base-100">
             {% for job in saved_jobs %}
             <tr class="hover:bg-base-200">
-              <td class="px-6 py-4">
-                <a href="{% url 'jobs:detail' job.pk %}" class="link link-primary font-medium">{{ job.name|default:job.pk }}</a>
+              <td class="px-6 py-4 max-w-[200px]">
+                <a href="{% url 'jobs:detail' job.pk %}" class="link link-primary font-medium block truncate" title="{{ job.name|default:job.pk }}">{{ job.name|default:job.pk }}</a>
               </td>
               <td class="px-6 py-4">
                 <span class="badge
@@ -111,9 +137,44 @@
   <div class="card bg-base-100 shadow border border-base-300">
     <div class="card-header bg-base-200 border-b border-base-300 flex items-center justify-between px-6 py-3">
       <span class="text-sm font-semibold text-base-content/60 uppercase tracking-wide">Print Queue</span>
-      <span class="text-xs text-base-content/40">🐾 Jobs are automatically removed after 30 days. Save a job to keep it.</span>
+      <span class="text-xs text-base-content/40 hidden sm:block">🐾 Jobs are automatically removed after 30 days. Save a job to keep it.</span>
     </div>
-    <table class="table table-sm">
+    {# Mobile card list #}
+    <ul class="divide-y divide-base-300 md:hidden">
+      {% for job in jobs %}
+      <li class="p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <a href="{% url 'jobs:detail' job.pk %}" class="link link-primary font-medium block truncate">{{ job.name|default:job.pk }}</a>
+            <div class="flex flex-wrap gap-2 mt-1">
+              <span class="badge badge-sm {% if job.status == 'sent' %}badge-success{% elif job.status == 'error' %}badge-error{% elif job.status == 'pending' %}badge-warning{% else %}badge-info{% endif %}">{{ job.get_status_display }}</span>
+              {% if job.imposition_template and job.imposition_template.sheet_size %}<span class="badge badge-info badge-sm">{{ job.imposition_template.sheet_size.label }}</span>{% elif job.imposition_template and job.imposition_template.sheet_width %}<span class="badge badge-info badge-sm">{{ job.imposition_template.sheet_size_label }}</span>{% endif %}
+              {% if job.cutter_program and job.cutter_program.duplo_code %}<span class="badge badge-warning badge-sm">#{{ job.cutter_program.duplo_code }}</span>{% endif %}
+            </div>
+            <p class="text-xs text-base-content/40 mt-1">{{ job.created_at|date:"M j, Y H:i" }} · {{ job.page_count|default:"—" }} pages</p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            {% if user.is_authenticated %}
+            <form method="post" action="{% url 'jobs:toggle_save' job.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{% url 'jobs:list' %}">
+              <button type="submit" class="btn btn-xs btn-outline">Save</button>
+            </form>
+            {% endif %}
+            <button
+              type="button"
+              @click="deleteModal = true; deleteUrl = $el.dataset.deleteUrl"
+              data-delete-url="{% url 'jobs:delete' job.pk %}"
+              class="btn btn-xs btn-error">Delete</button>
+          </div>
+        </div>
+      </li>
+      {% empty %}
+      <li class="p-6 text-center text-base-content/40">No jobs yet. <a href="{% url 'jobs:upload' %}" class="link link-primary">Upload one</a>.</li>
+      {% endfor %}
+    </ul>
+    {# Desktop table #}
+    <table class="table table-sm hidden md:table">
       <thead class="bg-base-200">
         <tr>
           <th class="text-left text-xs font-medium text-base-content/60 uppercase">Name</th>
@@ -129,8 +190,8 @@
       <tbody class="bg-base-100">
         {% for job in jobs %}
         <tr class="hover:bg-base-200">
-          <td class="px-6 py-4">
-            <a href="{% url 'jobs:detail' job.pk %}" class="link link-primary font-medium">{{ job.name|default:job.pk }}</a>
+          <td class="px-6 py-4 max-w-[200px]">
+            <a href="{% url 'jobs:detail' job.pk %}" class="link link-primary font-medium block truncate" title="{{ job.name|default:job.pk }}">{{ job.name|default:job.pk }}</a>
           </td>
           <td class="px-6 py-4">
             <span class="badge
