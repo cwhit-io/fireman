@@ -85,7 +85,7 @@
             {% for job in saved_jobs %}
             <tr class="hover:bg-base-200">
               <td class="px-6 py-4 max-w-[200px]">
-                <a href="{% url 'jobs:detail' job.pk %}" class="link link-primary font-medium block truncate" :title="'{{ job.name|default:job.pk }}'">{{ job.name|default:job.pk }}</a>
+                <a href="{% url 'jobs:detail' job.pk %}" class="link link-primary font-medium block truncate" title="{{ job.name|default:job.pk }}">{{ job.name|default:job.pk }}</a>
               </td>
               <td class="px-6 py-4">
                 <span class="badge
