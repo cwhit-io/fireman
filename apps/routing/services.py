@@ -120,6 +120,9 @@ def send_to_fiery_ipp(
     if title:
         cmd += ["-t", title]
 
+    # Prevent the printer from auto-scaling the PDF to fit its media
+    cmd += ["-o", "fit-to-page=false"]
+
     # Fiery PPD options
     for key, value in (preset.fiery_options or {}).items():
         if value:
