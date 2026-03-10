@@ -149,12 +149,6 @@ def _ar_delta_pct(w1: float, h1: float, w2: float, h2: float) -> float:
     return abs(ar1 - ar2) / max(ar1, ar2) * 100.0
 
 
-def _size_matches(
-    file_w: float, file_h: float, trim_w: float, trim_h: float, tol: float
-) -> bool:
-    return abs(file_w - trim_w) <= tol and abs(file_h - trim_h) <= tol
-
-
 def _detect_rgb_colorspace(page) -> bool:
     """Return True if any resource on the page appears to use an RGB colorspace."""
     try:
@@ -243,11 +237,6 @@ def _check_safe_zone(page, trim_w_pt: float, trim_h_pt: float, safe_zone_pt: flo
     of the trim edge.  Returns True if a violation is detected.
     """
     try:
-        # Get the page's MediaBox to derive the page origin
-        mb = page.mediabox
-        _ = float(mb.width)  # noqa: F841 – only used for reference
-        _ = float(mb.height)  # noqa: F841
-
         # Offset if the trim box is inset within the media box
         trimbox = page.get("/TrimBox")
         if trimbox:
@@ -488,14 +477,3 @@ def run_preflight(
 
     result.output_size = (file_w, file_h)
     return result
-
-
-def _get_overage_per_side(page, trim_w_pt: float, trim_h_pt: float, file_w: float, file_h: float) -> float:
-    """Return the average overage-per-side relative to the trim dimensions."""
-    excess_w = file_w - trim_w_pt
-    excess_h = file_h - trim_h_pt
-    if excess_w < 0 and excess_h < 0:
-        return 0.0
-    # Average per-side (file may only exceed in one dimension)
-    total_excess = (max(excess_w, 0) + max(excess_h, 0)) / 2.0
-    return total_excess / 2.0  # per-side
