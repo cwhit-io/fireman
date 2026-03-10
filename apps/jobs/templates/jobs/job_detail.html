@@ -32,7 +32,7 @@
 </style>
 
 <div class="max-w-4xl mx-auto px-4 py-8 pb-36"
-     x-data="{ showChange: false, showDeleteModal: false, showBarcodeInfo: false, showHowModal: false, showRenameModal: false, showPreview: true }"
+     x-data="{ showChange: false, showDeleteModal: false, showBarcodeInfo: false, showHowModal: false, showRenameModal: false, showPreview: true, showPreflightModal: {% if job.preflight_status and not job.preflight_acknowledged %}true{% else %}false{% endif %} }"
      @keydown.arrow-right.window="if (showPreview) $dispatch('preview-next')"
      @keydown.arrow-left.window="if (showPreview) $dispatch('preview-prev')">
 
@@ -668,6 +668,39 @@
     </div>
     <div class="modal-backdrop" aria-hidden="true" @click="showHowModal = false"></div>
   </div>
+
+  {# ── Preflight Modal ── #}
+  {% if job.preflight_status %}
+  <div class="modal" :class="{ 'modal-open': showPreflightModal }" role="dialog" aria-modal="true">
+    <div class="modal-box max-w-lg">
+      {% if job.preflight_status == 'ok' %}
+      <div class="flex flex-col items-center text-center gap-4 py-2">
+        <img src="{% static 'stop.png' %}" alt="Preflight" class="w-20 h-20 object-contain opacity-80">
+        <h3 class="font-bold text-xl text-success">Everything looks Pawwwfect! 🐾</h3>
+        <p class="text-base-content/70 text-sm">Ember ran a full preflight check and didn't find any issues. This file looks great — you're good to go!</p>
+        {% if job.preflight_messages %}<ul class="space-y-2 mt-2 text-left w-full">{% for msg in job.preflight_messages %}<li class="flex gap-2 text-sm bg-success/10 rounded-lg px-3 py-2"><span>{{ msg }}</span></li>{% endfor %}</ul>{% endif %}
+      </div>
+      {% else %}
+      <div class="flex items-center gap-3 mb-4">
+        <img src="{% static 'stop.png' %}" alt="Preflight Warning" class="w-12 h-12 object-contain shrink-0">
+        <div>
+          <h3 class="font-bold text-lg">Preflight Report</h3>
+          <p class="text-xs text-base-content/60">Ember checked your file and found a few things to review.</p>
+        </div>
+      </div>
+      {% if job.preflight_messages %}<ul class="space-y-3 mb-4">{% for msg in job.preflight_messages %}<li class="flex gap-2 text-sm bg-base-200 rounded-lg px-3 py-2"><span class="shrink-0 mt-0.5">⚠️</span><span>{{ msg }}</span></li>{% endfor %}</ul>{% endif %}
+      {% endif %}
+      <div class="modal-action mt-2">
+        <form method="post" action="{% url 'jobs:preflight_acknowledge' job.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary btn-sm">Got it — clear this</button>
+        </form>
+        <button type="button" class="btn btn-ghost btn-sm" @click="showPreflightModal = false">Dismiss</button>
+      </div>
+    </div>
+    <div class="modal-backdrop" aria-hidden="true" @click="showPreflightModal = false"></div>
+  </div>
+  {% endif %}
 
 </div>
 

@@ -25,6 +25,7 @@ pydantic==2.12.5
 
 # CMS
 django-modelcluster==6.4.1
+django-taggit==6.1.0
 
 # Database drivers
 psycopg2-binary==2.9.10
