@@ -1,10 +1,12 @@
 import math
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
@@ -233,6 +235,10 @@ class JobToggleSaveView(View):
 class JobRenameView(View):
     """Update the display name of a print job."""
 
+    @method_decorator(login_required)
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
     def post(self, request, pk):
         job = get_object_or_404(PrintJob, pk=pk)
         new_name = request.POST.get("name", "").strip()
@@ -308,7 +314,8 @@ class JobResendView(View):
             return redirect("jobs:detail", pk=pk)
 
         # Allow per-send duplex override
-        duplex_override = request.POST.get("duplex_override", "").strip() or None
+        is_double_sided = request.POST.get("is_double_sided") == "1"
+        duplex_override = "duplex_long" if is_double_sided else "simplex"
 
         tmp_path = None
         try:
