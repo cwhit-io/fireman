@@ -15,6 +15,7 @@ Evaluation order (per spec):
        └── Wrong size, AR >2% → scale to fill (Rule 6)
   5. Return PreflightResult
 """
+
 from __future__ import annotations
 
 import logging
@@ -78,13 +79,14 @@ PREFLIGHT_MESSAGES: dict[str, str] = {
     ),
     "R10": (
         "📏 Heads up — Ember spotted some text or artwork that's cutting it close "
-        "to the trim edge. Anything important should be at least 0.125\" inside "
+        'to the trim edge. Anything important should be at least 0.125" inside '
         "the trim line or it might get cut off."
     ),
 }
 
 
 # ─────────────── Result dataclass ───────────────────────────────────────────
+
 
 @dataclass
 class PreflightResult:
@@ -126,6 +128,7 @@ class PreflightResult:
 
 # ─────────────── Config helpers ─────────────────────────────────────────────
 
+
 def _cfg_float(name: str, default: float) -> float:
     return float(getattr(settings, name, default))
 
@@ -139,6 +142,7 @@ def _cfg_bool(name: str, default: bool) -> bool:
 
 
 # ─────────────── Helpers ────────────────────────────────────────────────────
+
 
 def _ar_delta_pct(w1: float, h1: float, w2: float, h2: float) -> float:
     """Return the aspect-ratio difference as a percentage."""
@@ -165,7 +169,11 @@ def _detect_rgb_colorspace(page) -> bool:
         xobj = resources.get("/XObject", {})
         for _k, xobj_ref in (xobj or {}).items():
             try:
-                xobj_obj = xobj_ref.get_object() if hasattr(xobj_ref, "get_object") else xobj_ref
+                xobj_obj = (
+                    xobj_ref.get_object()
+                    if hasattr(xobj_ref, "get_object")
+                    else xobj_ref
+                )
                 subtype = xobj_obj.get("/Subtype", "")
                 if str(subtype) == "/Image":
                     cs = xobj_obj.get("/ColorSpace", "")
@@ -182,7 +190,9 @@ def _detect_rgb_colorspace(page) -> bool:
     return False
 
 
-def _check_image_dpi(page, trim_w_pt: float, trim_h_pt: float) -> tuple[int | None, int | None]:
+def _check_image_dpi(
+    page, trim_w_pt: float, trim_h_pt: float
+) -> tuple[int | None, int | None]:
     """
     Return (min_dpi, critical_dpi_below_minimum) for raster images on the page.
 
@@ -201,7 +211,11 @@ def _check_image_dpi(page, trim_w_pt: float, trim_h_pt: float) -> tuple[int | No
 
         for _k, xobj_ref in xobj.items():
             try:
-                xobj_obj = xobj_ref.get_object() if hasattr(xobj_ref, "get_object") else xobj_ref
+                xobj_obj = (
+                    xobj_ref.get_object()
+                    if hasattr(xobj_ref, "get_object")
+                    else xobj_ref
+                )
                 subtype = xobj_obj.get("/Subtype", "")
                 if str(subtype) != "/Image":
                     continue
@@ -231,7 +245,9 @@ def _check_image_dpi(page, trim_w_pt: float, trim_h_pt: float) -> tuple[int | No
     return min_dpi_found, critical_dpi
 
 
-def _check_safe_zone(page, trim_w_pt: float, trim_h_pt: float, safe_zone_pt: float) -> bool:
+def _check_safe_zone(
+    page, trim_w_pt: float, trim_h_pt: float, safe_zone_pt: float
+) -> bool:
     """
     Best-effort: check if any text object has its origin within safe_zone_pt
     of the trim edge.  Returns True if a violation is detected.
@@ -298,6 +314,7 @@ def _check_safe_zone(page, trim_w_pt: float, trim_h_pt: float, safe_zone_pt: flo
 
 
 # ─────────────── Main entry point ───────────────────────────────────────────
+
 
 def run_preflight(
     pdf_bytes: bytes,
@@ -405,7 +422,11 @@ def run_preflight(
         ar_delta = _ar_delta_pct(file_w, file_h, trim_w_pt, trim_h_pt)
         if ar_delta <= ar_tol_pct:
             # Rule 5: wrong size, AR matches → scale to trim, re-eval bleed
-            result.add("R5", status="warn", note=f"Scaled to trim ({trim_w_pt:.1f}×{trim_h_pt:.1f}pt). AR delta={ar_delta:.2f}%.")
+            result.add(
+                "R5",
+                status="warn",
+                note=f"Scaled to trim ({trim_w_pt:.1f}×{trim_h_pt:.1f}pt). AR delta={ar_delta:.2f}%.",
+            )
             result.modified = True
             # Pretend file is now at trim size for bleed evaluation
             file_w, file_h = trim_w_pt, trim_h_pt
@@ -459,10 +480,22 @@ def run_preflight(
             result.modified = True
         elif bleed_pt - 2 <= overage_per_side <= bleed_pt + 2:
             # Rule 2: Exact trim + clean bleed
-            result.add("R2", status="ok", note=f"Bleed overage={overage_per_side:.1f}pt. Accepted.")
-        elif (canva_margin_pt - canva_wiggle_pt) <= overage_per_side <= (canva_margin_pt + canva_wiggle_pt):
+            result.add(
+                "R2",
+                status="ok",
+                note=f"Bleed overage={overage_per_side:.1f}pt. Accepted.",
+            )
+        elif (
+            (canva_margin_pt - canva_wiggle_pt)
+            <= overage_per_side
+            <= (canva_margin_pt + canva_wiggle_pt)
+        ):
             # Rule 3: Canva-style export
-            result.add("R3", status="ok", note=f"Canva-style overage={overage_per_side:.1f}pt. Cropped.")
+            result.add(
+                "R3",
+                status="ok",
+                note=f"Canva-style overage={overage_per_side:.1f}pt. Cropped.",
+            )
             result.modified = True
         elif overage_per_side > canva_margin_pt + canva_wiggle_pt:
             # Rule 4: Oversized, unrecognized
@@ -473,7 +506,9 @@ def run_preflight(
             )
         else:
             # Between rule 2 and rule 3 territory — treat as valid bleed
-            result.add("R2", status="ok", note=f"Bleed overage={overage_per_side:.1f}pt.")
+            result.add(
+                "R2", status="ok", note=f"Bleed overage={overage_per_side:.1f}pt."
+            )
 
     result.output_size = (file_w, file_h)
     return result

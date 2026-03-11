@@ -17,16 +17,16 @@ _COPY_BTN_STYLE = "font-size:11px;padding:1px 6px;cursor:pointer;"
 def _copy_field(value):
     """Return format_html markup with a click-to-copy button for *value*."""
     return format_html(
-        '<span>{val}</span>'
+        "<span>{val}</span>"
         '&nbsp;<button type="button" data-copy="{val}"'
         ' style="{style}">Copy</button>'
-        '<script>(function(){{'
-        'var b=document.currentScript.previousElementSibling;'
+        "<script>(function(){{"
+        "var b=document.currentScript.previousElementSibling;"
         'b.addEventListener("click",function(){{'
-        'navigator.clipboard.writeText(b.dataset.copy)'
+        "navigator.clipboard.writeText(b.dataset.copy)"
         '.then(function(){{b.textContent="Copied!";'
         'setTimeout(function(){{b.textContent="Copy";}},1500);}});'
-        '}});}})()</script>',
+        "}});}})()</script>",
         val=value,
         style=_COPY_BTN_STYLE,
     )
@@ -42,7 +42,9 @@ def _reprocess_and_reroute(modeladmin, request, queryset):
         try:
             preset = RoutingPreset.objects.get(pk=preset_id)
         except RoutingPreset.DoesNotExist:
-            modeladmin.message_user(request, "Invalid routing preset selected.", level="error")
+            modeladmin.message_user(
+                request, "Invalid routing preset selected.", level="error"
+            )
             return None
 
         count = 0
@@ -59,7 +61,7 @@ def _reprocess_and_reroute(modeladmin, request, queryset):
         if count:
             modeladmin.message_user(
                 request,
-                f"Reprocessing {count} job(s) with preset \"{preset.name}\".",
+                f'Reprocessing {count} job(s) with preset "{preset.name}".',
             )
         if errors:
             modeladmin.message_user(

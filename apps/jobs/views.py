@@ -106,7 +106,9 @@ class JobUploadView(View):
         max_bytes = settings.MAX_PDF_UPLOAD_BYTES
         if file.size > max_bytes:
             max_mb = max_bytes // (1024 * 1024)
-            messages.error(request, f"File is too large. Maximum allowed size is {max_mb} MB.")
+            messages.error(
+                request, f"File is too large. Maximum allowed size is {max_mb} MB."
+            )
             return render(request, self.template_name, ctx, status=400)
 
         # Validate and optionally repair the PDF before saving

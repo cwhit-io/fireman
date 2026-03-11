@@ -38,7 +38,9 @@ class TemplateIn(Schema):
     notes: str = ""
 
 
-@router.get("/templates", response=list[TemplateOut], summary="List imposition templates")
+@router.get(
+    "/templates", response=list[TemplateOut], summary="List imposition templates"
+)
 def list_templates(request):
     """Return all available imposition templates."""
     from apps.impose.models import ImpositionTemplate
@@ -58,7 +60,9 @@ def get_template(request, template_id: int):
     return get_object_or_404(ImpositionTemplate, pk=template_id)
 
 
-@router.post("/templates", response=TemplateOut, summary="Create an imposition template")
+@router.post(
+    "/templates", response=TemplateOut, summary="Create an imposition template"
+)
 def create_template(request, data: TemplateIn):
     """Create and persist a new imposition template."""
     from apps.impose.models import ImpositionTemplate

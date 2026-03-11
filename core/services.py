@@ -29,6 +29,10 @@ def get_job_barcode_config(job: PrintJob) -> dict:
         "barcode_value": cp.duplo_code if cp else None,
         "barcode_x": float(cp.barcode_x) if cp and cp.barcode_x is not None else None,
         "barcode_y": float(cp.barcode_y) if cp and cp.barcode_y is not None else None,
-        "barcode_width": float(cp.barcode_width) if cp and cp.barcode_width is not None else None,
-        "barcode_height": float(cp.barcode_height) if cp and cp.barcode_height is not None else None,
+        "barcode_width": float(cp.barcode_width)
+        if cp and cp.barcode_width is not None
+        else None,
+        "barcode_height": float(cp.barcode_height)
+        if cp and cp.barcode_height is not None
+        else None,
     }

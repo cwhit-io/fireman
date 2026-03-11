@@ -24,7 +24,9 @@ class CutterProgramIn(Schema):
     description: str = ""
 
 
-@router.get("/programs", response=list[CutterProgramOut], summary="List active cutter programs")
+@router.get(
+    "/programs", response=list[CutterProgramOut], summary="List active cutter programs"
+)
 def list_programs(request):
     """Return all active cutter programs."""
     from apps.cutter.models import CutterProgram
