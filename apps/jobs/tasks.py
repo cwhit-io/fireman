@@ -11,10 +11,16 @@ logger = logging.getLogger(__name__)
 @shared_task
 def process_job_task(job_id: str) -> None:
     """
-    Full processing pipeline for a print job:
+    Processing pipeline for a print job (steps 2–3 of the full workflow):
+
+    Upload  →  Preflight  →  Impose (Using Template Settings)  →  Send to Printer
+
+    This task handles:
     1. Extract PDF metadata (page count / size)
-    2. Impose the PDF using the assigned template
-    3. Send the imposed PDF to the printer (if a routing preset is set)
+    2. Impose the PDF using the template's settings (layout, barcode, sheet size)
+
+    Preflight is run synchronously in the upload view before this task is dispatched.
+    Sending to the printer is a manual operator action from the job detail page.
     """
 
     from core.services import get_job_barcode_config
@@ -73,9 +79,3 @@ def process_job_task(job_id: str) -> None:
             job.status = PrintJob.Status.ERROR
             job.error_message = f"Imposition failed: {exc}"
             job.save(update_fields=["status", "error_message"])
-            return
-
-    # ── Step 3: Send to printer ───────────────────────────────────────────
-    # Auto-send is disabled. The user must manually press "Send to Printer"
-    # on the job details page to submit the imposed PDF to the Fiery.
-    pass
