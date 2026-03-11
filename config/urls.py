@@ -20,8 +20,8 @@ from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path
 
-from apps.pages.views import homepage
 from config.api import api
+from core.views import homepage
 
 urlpatterns = [
     path("admin/", admin.site.urls),
