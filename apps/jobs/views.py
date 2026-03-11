@@ -103,7 +103,7 @@ class JobUploadView(View):
             messages.error(request, "Only PDF files are accepted.")
             return render(request, self.template_name, ctx, status=400)
 
-        max_bytes = getattr(settings, "MAX_PDF_UPLOAD_BYTES", 50 * 1024 * 1024)
+        max_bytes = settings.MAX_PDF_UPLOAD_BYTES
         if file.size > max_bytes:
             max_mb = max_bytes // (1024 * 1024)
             messages.error(request, f"File is too large. Maximum allowed size is {max_mb} MB.")
