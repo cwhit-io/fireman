@@ -90,6 +90,11 @@ class PrintJob(models.Model):
         blank=True,
         help_text="User-facing Ember messages for each triggered rule.",
     )
+    preflight_images = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of image filenames associated with each preflight message.",
+    )
     preflight_notes = models.JSONField(
         default=list,
         blank=True,
@@ -118,3 +123,17 @@ class PrintJob(models.Model):
             h = float(self.page_height) / 72
             return f"{w:.3g} × {h:.3g} in"
         return "—"
+
+    @property
+    def preflight_message_pairs(self):
+        """Yield 2-tuples of (message, image) in order for templates.
+
+        Some older jobs may not have images stored, hence the zip is
+        defensive.
+        """
+        msgs = self.preflight_messages or []
+        imgs = self.preflight_images or []
+        # ensure same length by padding imgs with empty strings
+        if len(imgs) < len(msgs):
+            imgs = imgs + [""] * (len(msgs) - len(imgs))
+        return list(zip(msgs, imgs, strict=False))

@@ -66,6 +66,8 @@ def run_preflight_for_job(job, pdf_bytes: bytes | None = None) -> None:
     job.preflight_status = result.status
     job.preflight_rules_triggered = result.rules_triggered
     job.preflight_messages = result.messages
+    # new field to keep photo name per message (same order)
+    job.preflight_images = getattr(result, "images", [])
     job.preflight_notes = result.notes
     job.preflight_acknowledged = False
     job.save(
