@@ -30,7 +30,6 @@ urlpatterns = [
     path("demo/", include("core.urls", namespace="core")),
     path("", homepage, name="homepage"),
     path("jobs/", include("apps.jobs.urls", namespace="jobs")),
-    path("rules/", include("apps.rules.urls", namespace="rules")),
     path("templates/", include("apps.impose.urls", namespace="impose")),
     path("presets/", include("apps.routing.urls", namespace="routing")),
     path("cutters/", include("apps.cutter.urls", namespace="cutter")),

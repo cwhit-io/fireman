@@ -1,9 +1,0 @@
-<option value="">— None —</option>
-{% for tmpl in templates %}
-<option value="{{ tmpl.pk }}"
-  {% if values.imposition_template == tmpl.pk|stringformat:'s' %}selected{% endif %}>
-  {{ tmpl.name }}{% if tmpl.product_category %} · {{ tmpl.product_category }}{% endif %}{% if tmpl.cut_size %} · {{ tmpl.cut_size }}{% endif %}{% if tmpl.cutter_program %} · barcode {{ tmpl.cutter_program.duplo_code }}{% endif %}
-</option>
-{% empty %}
-<option value="" disabled>No matching templates</option>
-{% endfor %}
