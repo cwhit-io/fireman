@@ -1,5 +1,7 @@
+import logging
 import math
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
@@ -15,6 +17,8 @@ from apps.impose.models import ImpositionTemplate, ProductCategory
 from .models import PrintJob
 from .services import compute_fiery_name, run_preflight_for_job, validate_and_repair_pdf
 from .tasks import process_job_task
+
+logger = logging.getLogger(__name__)
 
 
 class JobListView(ListView):
@@ -97,6 +101,12 @@ class JobUploadView(View):
             return render(request, self.template_name, ctx, status=400)
         if not file.name.lower().endswith(".pdf"):
             messages.error(request, "Only PDF files are accepted.")
+            return render(request, self.template_name, ctx, status=400)
+
+        max_bytes = settings.MAX_PDF_UPLOAD_BYTES
+        if file.size > max_bytes:
+            max_mb = max_bytes // (1024 * 1024)
+            messages.error(request, f"File is too large. Maximum allowed size is {max_mb} MB.")
             return render(request, self.template_name, ctx, status=400)
 
         # Validate and optionally repair the PDF before saving
