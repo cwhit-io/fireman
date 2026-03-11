@@ -32,58 +32,50 @@ logger = logging.getLogger(__name__)
 
 PREFLIGHT_MESSAGES: dict[str, str] = {
     "R1": (
-        "🐾 Ember sniffed around the edges and couldn't find any bleed! She nudged "
-        "the artwork out a little to cover the trim zone. Double-check that nothing "
-        "important got clipped at the edges."
+        "I didn't see any bleed, so I stretched the edges for you! Give it a "
+        "quick look to make sure I didn't clip anything important."
     ),
     "R2": (
-        "✅ Ember gave this one a big sniff of approval — bleed looks great and "
-        "everything is right where it should be. Good to go!"
+        "Sniff test passed! Your bleed and layout look perfect. This one is "
+        "ready for the press!"
     ),
     "R3": (
-        "✂️ Canva left some crop marks on this one — Ember chewed those right off. "
-        "Your bleed is intact and the file is ready to print!"
+        "I chewed those Canva crop marks right off for you. Your bleed is "
+        "intact and the file is clean!"
     ),
     "R4": (
-        "🐾 Ember is sitting and staring at this file with her head tilted. It's "
-        "oversized in a way she doesn't recognize. A human should take a look "
-        "before this one goes to print."
+        "Woof—this size is new to me. I’m tilting my head at these dimensions. "
+        "Can a human double-check this before I send it?"
     ),
     "R5": (
-        "📐 The file wasn't quite the right size, but the proportions looked good — "
-        "Ember scaled it to fit and is re-checking the bleed now."
+        "The size was off, but the shape was right! I scaled it to fit the "
+        "target and I'm re-checking the bleed now."
     ),
     "R6": (
-        "🚨 Ember is barking. Loudly. The file proportions don't match the target "
-        "size — it's been scaled to fill but the artwork may be stretched or "
-        "squished. Please verify before sending to print."
+        "Loud bark! The proportions don't match. I stretched it to fit, but "
+        "it might look squished. Please verify before we print!"
     ),
     "R7": (
-        "🐾 Ember found a bleed, but it's a little thin — she stretched it out to "
-        'the full 0.125". Keep an eye on the edges just in case.'
+        'Your bleed was a little thin, so I pulled it out to a full 0.125". '
+        "Keep an eye on those edges just in case!"
     ),
     "R8": (
-        "🎨 Woof! This file is in RGB color mode, which isn't ideal for printing. "
-        "Colors may shift when converted to CMYK. An operator should review "
-        "before this goes to press."
+        "I smell RGB! This needs to be CMYK for the press. Colors might shift, "
+        "so let’s have a human take a peek."
     ),
     "R9_MARGINAL": (
-        "🔍 Ember squinted at some of the images in this file — resolution is a "
-        "little low (under 300 DPI). It might print okay, but it might not be "
-        "as crisp as you'd like."
+        "I'm squinting at these images. They're under 300 DPI—it'll print, "
+        "but it might not be as crisp as you'd like."
     ),
     "R9_CRITICAL": (
-        "🐾 Ember can't even make out what she's looking at — some images in this "
-        "file are under 150 DPI and will likely look pixelated when printed. "
-        "Please replace with higher resolution artwork."
+        "Stop! These images are too blurry for me to see. At under 150 DPI, "
+        "they'll look pixelated. I need higher-res art!"
     ),
     "R10": (
-        "📏 Heads up — Ember spotted some text or artwork that's cutting it close "
-        'to the trim edge. Anything important should be at least 0.125" inside '
-        "the trim line or it might get cut off."
+        "Watch your paws! Some text is sitting too close to the edge. Move "
+        "anything important 0.125\" inside so it doesn't get clipped."
     ),
 }
-
 
 # ─────────────── Result dataclass ───────────────────────────────────────────
 
