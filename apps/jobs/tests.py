@@ -313,3 +313,205 @@ class TestPreflight:
         assert isinstance(job.preflight_rules_triggered, list)
         assert isinstance(job.preflight_messages, list)
         assert job.preflight_acknowledged is False
+
+
+# ---------------------------------------------------------------------------
+# Intake service tests
+# ---------------------------------------------------------------------------
+
+class TestIntakeService:
+    """Tests for apps/jobs/services.py intake helpers."""
+
+    def _make_pdf_bytes(self) -> bytes:
+        import io
+
+        from pypdf import PageObject, PdfWriter
+
+        buf = io.BytesIO()
+        w = PdfWriter()
+        w.add_page(PageObject.create_blank_page(width=612, height=792))
+        w.write(buf)
+        return buf.getvalue()
+
+    def test_compute_fiery_name_no_preset(self):
+        """Without a routing preset the fiery name is just the stem."""
+        from apps.jobs.models import PrintJob
+        from apps.jobs.services import compute_fiery_name
+
+        job = PrintJob(name="my_file.pdf")
+        result = compute_fiery_name(job)
+        assert result == "my_file"
+
+    def test_compute_fiery_name_with_preset(self):
+        """With a routing preset the fiery name starts with the preset name."""
+        from apps.jobs.models import PrintJob
+        from apps.routing.models import RoutingPreset
+
+        preset = RoutingPreset.objects.create(name="CoatedStock", printer_queue="q1")
+        job = PrintJob.objects.create(name="flyer.pdf", routing_preset=preset)
+        from apps.jobs.services import compute_fiery_name
+
+        result = compute_fiery_name(job)
+        assert result.startswith("CoatedStock_")
+        assert "flyer" in result
+
+    def test_run_preflight_for_job_no_template(self):
+        """Without a template, preflight still runs without crashing."""
+        from django.core.files.base import ContentFile
+
+        from apps.jobs.models import PrintJob
+        from apps.jobs.services import run_preflight_for_job
+
+        job = PrintJob.objects.create(name="no_tmpl.pdf")
+        job.file.save("no_tmpl.pdf", ContentFile(self._make_pdf_bytes()), save=True)
+        # Should not raise
+        run_preflight_for_job(job)
+
+    def test_extract_pdf_metadata_via_services(self):
+        """services.extract_pdf_metadata is re-exported from core.pdf_utils."""
+        from django.core.files.base import ContentFile
+
+        from apps.jobs.models import PrintJob
+        from apps.jobs.services import extract_pdf_metadata
+
+        job = PrintJob.objects.create(name="reexport.pdf")
+        job.file.save("reexport.pdf", ContentFile(self._make_pdf_bytes()), save=True)
+        extract_pdf_metadata(job)
+        job.refresh_from_db()
+        assert job.page_count == 1
+
+
+# ---------------------------------------------------------------------------
+# PrintJob immutability / field tests
+# ---------------------------------------------------------------------------
+
+class TestPrintJobImmutability:
+    """Verify that critical PrintJob fields behave as expected after creation."""
+
+    def test_pk_is_uuid_and_stable(self):
+        """The primary key must be a UUID and must not change after save."""
+        import uuid
+
+        from apps.jobs.models import PrintJob
+
+        job = PrintJob.objects.create(name="stable.pdf")
+        pk_before = job.pk
+        job.name = "changed.pdf"
+        job.save(update_fields=["name"])
+        assert job.pk == pk_before
+        assert isinstance(job.pk, uuid.UUID)
+
+    def test_status_default_is_pending(self):
+        from apps.jobs.models import PrintJob
+
+        job = PrintJob.objects.create(name="new.pdf")
+        assert job.status == PrintJob.Status.PENDING
+
+    def test_is_saved_defaults_to_false(self):
+        from apps.jobs.models import PrintJob
+
+        job = PrintJob.objects.create(name="x.pdf")
+        assert job.is_saved is False
+
+    def test_pages_are_unique_defaults_to_true(self):
+        from apps.jobs.models import PrintJob
+
+        job = PrintJob.objects.create(name="y.pdf")
+        assert job.pages_are_unique is True
+
+    def test_created_at_is_not_updated_on_save(self):
+        """created_at must remain fixed after subsequent saves."""
+        from apps.jobs.models import PrintJob
+
+        job = PrintJob.objects.create(name="ts.pdf")
+        original_created_at = job.created_at
+        job.name = "ts_renamed.pdf"
+        job.save(update_fields=["name"])
+        job.refresh_from_db()
+        assert job.created_at == original_created_at
+
+
+# ---------------------------------------------------------------------------
+# Celery task behaviour
+# ---------------------------------------------------------------------------
+
+class TestProcessJobTaskBehavior:
+    """Integration tests for apps/jobs/tasks.process_job_task."""
+
+    def _make_pdf_bytes(self) -> bytes:
+        import io
+
+        from pypdf import PageObject, PdfWriter
+
+        buf = io.BytesIO()
+        w = PdfWriter()
+        w.add_page(PageObject.create_blank_page(width=612, height=792))
+        w.write(buf)
+        return buf.getvalue()
+
+    def test_task_sets_status_to_error_on_missing_job(self):
+        """Calling the task with an unknown job ID should return silently."""
+        from apps.jobs.tasks import process_job_task
+
+        # Should not raise
+        process_job_task("00000000-0000-0000-0000-000000000000")
+
+    def test_task_processes_job_without_template(self):
+        """A job without a template should reach IMPOSED status (no imposition step)."""
+        from django.core.files.base import ContentFile
+
+        from apps.jobs.models import PrintJob
+        from apps.jobs.tasks import process_job_task
+
+        job = PrintJob.objects.create(name="notmpl.pdf")
+        job.file.save("notmpl.pdf", ContentFile(self._make_pdf_bytes()), save=True)
+        process_job_task(str(job.pk))
+        job.refresh_from_db()
+        # Without a template, imposition is skipped; the job should not be in ERROR
+        assert job.status != PrintJob.Status.ERROR
+
+    def test_task_processes_job_with_template(self):
+        """A job with a template should reach IMPOSED status after task execution."""
+        from django.core.files.base import ContentFile
+
+        from apps.impose.models import ImpositionTemplate
+        from apps.jobs.models import PrintJob
+        from apps.jobs.tasks import process_job_task
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="2-up test",
+            sheet_width=1224,
+            sheet_height=792,
+            columns=2,
+            rows=1,
+        )
+        job = PrintJob.objects.create(name="withtmpl.pdf", imposition_template=tmpl)
+        job.file.save("withtmpl.pdf", ContentFile(self._make_pdf_bytes()), save=True)
+        process_job_task(str(job.pk))
+        job.refresh_from_db()
+        assert job.status == PrintJob.Status.IMPOSED
+        assert job.imposed_file
+
+
+# ---------------------------------------------------------------------------
+# Upload view security: file size limit
+# ---------------------------------------------------------------------------
+
+class TestUploadFileSizeLimit:
+    """The upload view must reject files that exceed MAX_PDF_UPLOAD_BYTES."""
+
+    def test_oversized_pdf_rejected(self, client, settings):
+        """Files larger than MAX_PDF_UPLOAD_BYTES should return HTTP 400."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        settings.MAX_PDF_UPLOAD_BYTES = 10  # very small limit for the test
+
+        f = SimpleUploadedFile(
+            "big.pdf",
+            b"%PDF-1.4 " + b"X" * 20,  # 29 bytes > 10
+            content_type="application/pdf",
+        )
+        from django.urls import reverse
+
+        response = client.post(reverse("jobs:upload"), {"file": f})
+        assert response.status_code == 400

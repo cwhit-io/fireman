@@ -1,4 +1,11 @@
+import io
+import logging
+from pathlib import Path
+
 from celery import shared_task
+from django.core.files.base import ContentFile
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -9,10 +16,6 @@ def process_job_task(job_id: str) -> None:
     2. Impose the PDF using the assigned template
     3. Send the imposed PDF to the printer (if a routing preset is set)
     """
-    import io
-    import logging
-
-    from django.core.files.base import ContentFile
 
     from core.services import get_job_barcode_config
 
@@ -57,16 +60,14 @@ def process_job_task(job_id: str) -> None:
             )
             buf_out.seek(0)
 
-            from pathlib import Path as _Path
-
-            stem = _Path(job.name).stem if job.name else f"job_{job.pk}"
+            stem = Path(job.name).stem if job.name else f"job_{job.pk}"
             barcode_suffix = f"_{bc['barcode_value']}" if bc["barcode_value"] else ""
             imposed_name = f"{stem}{barcode_suffix}_imposed.pdf"
             job.imposed_file.save(imposed_name, ContentFile(buf_out.read()), save=True)
             job.status = PrintJob.Status.IMPOSED
             job.save(update_fields=["status"])
         except Exception as exc:
-            logging.getLogger(__name__).exception(
+            logger.exception(
                 "Imposition failed for job %s", job.pk
             )
             job.status = PrintJob.Status.ERROR
