@@ -42,15 +42,11 @@ INSTALLED_APPS = [
     # Local
     "core",
     # Apps
-    "apps.pages",
     "apps.jobs",
     "apps.impose",
     "apps.cutter",
     "apps.routing",
     "apps.rules",
-    "modelcluster",
-    "taggit",
-    # Wagtail and related apps removed
 ]
 
 AUTH_USER_MODEL = "core.User"

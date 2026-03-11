@@ -282,10 +282,9 @@ class TestPreflight:
         from django.core.files.base import ContentFile
         from pypdf import PageObject, PdfWriter
 
+        from apps.impose.models import ImpositionTemplate
         from apps.jobs.models import PrintJob
         from apps.jobs.services import run_preflight_for_job
-
-        from apps.impose.models import ImpositionTemplate
 
         tmpl = ImpositionTemplate.objects.create(
             name="Preflight Test Tmpl",
