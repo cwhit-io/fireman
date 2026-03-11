@@ -46,7 +46,6 @@ INSTALLED_APPS = [
     "apps.impose",
     "apps.cutter",
     "apps.routing",
-    "apps.rules",
 ]
 
 AUTH_USER_MODEL = "core.User"
