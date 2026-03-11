@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 # ─────────────── Ember messages ─────────────────────────────────────────────
 
+# user-facing messages for each rule
 PREFLIGHT_MESSAGES: dict[str, str] = {
     "R1": (
         "I didn't see any bleed, so I stretched the edges for you! Give it a "
@@ -77,6 +78,21 @@ PREFLIGHT_MESSAGES: dict[str, str] = {
     ),
 }
 
+# optional photo for each rule; templates resolve via static tag
+PREFLIGHT_IMAGES: dict[str, str] = {
+    "R1": "r1.png",
+    "R2": "r2.png",
+    "R3": "r3.png",
+    "R4": "r4.png",
+    "R5": "r5.png",
+    "R6": "r6.png",
+    "R7": "r7.png",
+    "R8": "r8.png",
+    "R9_MARGINAL": "r9_marginal.png",
+    "R9_CRITICAL": "r9_critical.png",
+    "R10": "r10.png",
+}
+
 # ─────────────── Result dataclass ───────────────────────────────────────────
 
 
@@ -85,6 +101,7 @@ class PreflightResult:
     status: Literal["ok", "warn", "error"] = "ok"
     rules_triggered: list[str] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
+    images: list[str] = field(default_factory=list)  # corresponding photo file names
     modified: bool = False
     original_size: tuple[float, float] = (0.0, 0.0)
     output_size: tuple[float, float] = (0.0, 0.0)
@@ -108,11 +125,19 @@ class PreflightResult:
         status: str = "warn",
         note: str = "",
     ) -> None:
-        """Record a triggered rule using the canonical Ember message."""
+        """Record a triggered rule using the canonical Ember message.
+
+        If an image has been defined for *rule_id*, add it to the
+        ``images`` list; this keeps the messages/images arrays in
+        parallel so templates can zip them easily.
+        """
         if rule_id not in self.rules_triggered:
             self.rules_triggered.append(rule_id)
             msg = PREFLIGHT_MESSAGES.get(rule_id, f"Rule {rule_id} triggered.")
             self.messages.append(msg)
+            img = PREFLIGHT_IMAGES.get(rule_id)
+            if img:
+                self.images.append(img)
         if note:
             self.notes.append(note)
         self._elevate(status)

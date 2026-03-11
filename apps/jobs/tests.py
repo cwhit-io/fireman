@@ -191,6 +191,8 @@ class TestPreflight:
         result = run_preflight(self._make_pdf_bytes(), 0.0, 0.0)
         # No trim dims — checks skipped, notes explain why
         assert any("skipped" in n.lower() for n in result.notes)
+        # images should be empty when nothing triggered
+        assert result.images == []
 
     def test_exact_trim_no_bleed_triggers_r1(self):
         """PDF exactly matches trim → R1 (no bleed)."""
@@ -201,6 +203,9 @@ class TestPreflight:
         result = run_preflight(self._make_pdf_bytes(trim_w, trim_h), trim_w, trim_h)
         assert "R1" in result.rules_triggered
         assert result.status == "warn"
+        # message/image pairing remains aligned
+        assert len(result.images) == len(result.messages)
+        assert result.images[0] == "r1.png"
 
     def test_clean_bleed_triggers_r2(self):
         """PDF with ~9pt bleed per side → R2 (clean bleed)."""
@@ -312,6 +317,11 @@ class TestPreflight:
         assert job.preflight_status in ("ok", "warn", "error")
         assert isinstance(job.preflight_rules_triggered, list)
         assert isinstance(job.preflight_messages, list)
+        assert isinstance(job.preflight_images, list)
+        # message_pairs should be a list of 2-tuples and line up
+        pairs = job.preflight_message_pairs
+        assert all(isinstance(p, tuple) and len(p) == 2 for p in pairs)
+        assert len(pairs) == len(job.preflight_messages)
         assert job.preflight_acknowledged is False
 
 

@@ -678,7 +678,18 @@
         <img src="{% static 'stop.png' %}" alt="Preflight" class="w-20 h-20 object-contain opacity-80">
         <h3 class="font-bold text-xl text-success">Everything looks Pawwwfect! 🐾</h3>
         <p class="text-base-content/70 text-sm">Ember ran a full preflight check and didn't find any issues. This file looks great — you're good to go!</p>
-        {% if job.preflight_messages %}<ul class="space-y-2 mt-2 text-left w-full">{% for msg in job.preflight_messages %}<li class="flex gap-2 text-sm bg-success/10 rounded-lg px-3 py-2"><span>{{ msg }}</span></li>{% endfor %}</ul>{% endif %}
+        {% if job.preflight_message_pairs %}
+          <ul class="space-y-2 mt-2 text-left w-full">
+            {% for msg,img in job.preflight_message_pairs %}
+              <li class="flex gap-2 text-sm bg-success/10 rounded-lg px-3 py-2">
+                {% if img %}
+                  <img src="{% static 'preflight/'|add:img %}" alt="" class="w-6 h-6 object-contain">
+                {% endif %}
+                <span>{{ msg }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
       </div>
       {% else %}
       <div class="flex items-center gap-3 mb-4">
@@ -688,7 +699,20 @@
           <p class="text-xs text-base-content/60">Ember checked your file and found a few things to review.</p>
         </div>
       </div>
-      {% if job.preflight_messages %}<ul class="space-y-3 mb-4">{% for msg in job.preflight_messages %}<li class="flex gap-2 text-sm bg-base-200 rounded-lg px-3 py-2"><span class="shrink-0 mt-0.5">⚠️</span><span>{{ msg }}</span></li>{% endfor %}</ul>{% endif %}
+      {% if job.preflight_message_pairs %}
+        <ul class="space-y-3 mb-4">
+          {% for msg,img in job.preflight_message_pairs %}
+            <li class="flex gap-2 text-sm bg-base-200 rounded-lg px-3 py-2">
+              {% if img %}
+                <img src="{% static 'preflight/'|add:img %}" alt="" class="w-5 h-5 object-contain shrink-0">
+              {% else %}
+                <span class="shrink-0 mt-0.5">⚠️</span>
+              {% endif %}
+              <span>{{ msg }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
       {% endif %}
       <div class="modal-action mt-2">
         <form method="post" action="{% url 'jobs:preflight_acknowledge' job.pk %}">
