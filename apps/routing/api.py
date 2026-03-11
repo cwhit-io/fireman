@@ -32,7 +32,9 @@ class RoutingPresetIn(Schema):
     extra_lpr_options: str = ""
 
 
-@router.get("/presets", response=list[RoutingPresetOut], summary="List active routing presets")
+@router.get(
+    "/presets", response=list[RoutingPresetOut], summary="List active routing presets"
+)
 def list_presets(request):
     """Return all active routing presets."""
     from apps.routing.models import RoutingPreset

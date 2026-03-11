@@ -73,9 +73,7 @@ def process_job_task(job_id: str) -> None:
             job.status = PrintJob.Status.IMPOSED
             job.save(update_fields=["status"])
         except Exception as exc:
-            logger.exception(
-                "Imposition failed for job %s", job.pk
-            )
+            logger.exception("Imposition failed for job %s", job.pk)
             job.status = PrintJob.Status.ERROR
             job.error_message = f"Imposition failed: {exc}"
             job.save(update_fields=["status", "error_message"])

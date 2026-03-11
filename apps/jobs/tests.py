@@ -319,6 +319,7 @@ class TestPreflight:
 # Intake service tests
 # ---------------------------------------------------------------------------
 
+
 class TestIntakeService:
     """Tests for apps/jobs/services.py intake helpers."""
 
@@ -385,6 +386,7 @@ class TestIntakeService:
 # PrintJob immutability / field tests
 # ---------------------------------------------------------------------------
 
+
 class TestPrintJobImmutability:
     """Verify that critical PrintJob fields behave as expected after creation."""
 
@@ -434,6 +436,7 @@ class TestPrintJobImmutability:
 # ---------------------------------------------------------------------------
 # Celery task behaviour
 # ---------------------------------------------------------------------------
+
 
 class TestProcessJobTaskBehavior:
     """Integration tests for apps/jobs/tasks.process_job_task."""
@@ -496,6 +499,7 @@ class TestProcessJobTaskBehavior:
 # ---------------------------------------------------------------------------
 # Upload view security: file size limit
 # ---------------------------------------------------------------------------
+
 
 class TestUploadFileSizeLimit:
     """The upload view must reject files that exceed MAX_PDF_UPLOAD_BYTES."""

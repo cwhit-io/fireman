@@ -77,4 +77,3 @@ def run_preflight_for_job(job, pdf_bytes: bytes | None = None) -> None:
             "preflight_acknowledged",
         ]
     )
-

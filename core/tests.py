@@ -126,7 +126,8 @@ class TestJobStatusConsumer:
 
         job_id = str(uuid.uuid4())
         communicator = WebsocketCommunicator(
-            application, f"/ws/jobs/{job_id}/",
+            application,
+            f"/ws/jobs/{job_id}/",
             headers=[(b"origin", b"http://localhost")],
         )
         connected, _ = await communicator.connect()
@@ -163,7 +164,8 @@ class TestJobStatusConsumer:
 
         job_id = str(uuid.uuid4())
         communicator = WebsocketCommunicator(
-            application, f"/ws/jobs/{job_id}/",
+            application,
+            f"/ws/jobs/{job_id}/",
             headers=[(b"origin", b"http://localhost")],
         )
         connected, _ = await communicator.connect()
@@ -181,7 +183,8 @@ class TestJobStatusConsumer:
 
         job_id = str(uuid.uuid4())
         communicator = WebsocketCommunicator(
-            application, f"/ws/jobs/{job_id}/",
+            application,
+            f"/ws/jobs/{job_id}/",
             headers=[(b"origin", b"http://localhost")],
         )
         await communicator.connect()
