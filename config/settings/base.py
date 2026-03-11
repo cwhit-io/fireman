@@ -147,6 +147,10 @@ ALLOW_RGB = env.bool("ALLOW_RGB", default=False)
 # Spot/Pantone colors allowed without warning
 ALLOW_SPOT = env.bool("ALLOW_SPOT", default=True)
 
+# ── File upload limits ───────────────────────────────────────────────────────
+# Maximum PDF upload size in bytes (default: 50 MB)
+MAX_PDF_UPLOAD_BYTES = env.int("MAX_PDF_UPLOAD_BYTES", default=50 * 1024 * 1024)
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email

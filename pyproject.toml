@@ -30,6 +30,7 @@ known-first-party = ["core", "config"]
 DJANGO_SETTINGS_MODULE = "config.settings.dev"
 python_files = ["tests.py", "test_*.py", "*_test.py"]
 addopts = "--cov=. --cov-report=term-missing"
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["."]
