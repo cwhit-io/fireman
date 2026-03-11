@@ -1,0 +1,43 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<h1>Reprocess and Reroute Selected Jobs</h1>
+
+<p>Select a <strong>Routing Preset</strong> to apply to the {{ queryset.count }} selected job(s).
+Each job's status will be reset to <em>Pending</em> and re-queued for processing.</p>
+
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="reprocess_and_reroute" />
+  <input type="hidden" name="apply" value="1" />
+  {% for job in queryset %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ job.pk }}" />
+  {% endfor %}
+
+  <div style="margin: 1.5em 0;">
+    <label for="routing_preset"><strong>Routing Preset:</strong></label>&nbsp;
+    <select name="routing_preset" id="routing_preset" required style="padding:4px 8px;">
+      <option value="">— choose a preset —</option>
+      {% for preset in presets %}
+        <option value="{{ preset.pk }}">{{ preset.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <p>
+    <strong>Jobs that will be re-queued:</strong>
+  </p>
+  <ul>
+    {% for job in queryset %}
+      <li>{{ job.name|default:job.pk }} (current status: {{ job.get_status_display }})</li>
+    {% endfor %}
+  </ul>
+
+  <div style="margin-top:1.5em;">
+    <input type="submit" value="Confirm Reroute" class="default" />
+    &nbsp;
+    <a href="{% url 'admin:jobs_printjob_changelist' %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
