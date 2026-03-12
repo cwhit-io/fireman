@@ -243,7 +243,7 @@ class TestImpositionTemplateModel:
 
         t = ImpositionTemplate.objects.create(
             name="Test 2-Up",
-            layout_type=ImpositionTemplate.LayoutType.TWO_UP,
+            layout_type=ImpositionTemplate.LayoutType.CUSTOM,
             sheet_width=1224,
             sheet_height=792,
             columns=2,
@@ -309,7 +309,11 @@ class TestImposeFromTemplateOptions:
     """Test that pages_are_unique flag drives step-repeat vs n-up."""
 
     def test_pages_not_unique_uses_step_repeat(self):
-        """pages_are_unique=False should produce step-and-repeat output."""
+        """pages_are_unique=False should produce a single step-and-repeat sheet.
+
+        Only the first source page is used; a multi-page input is truncated so
+        that customers who upload a 2-page file still get one gang-up sheet.
+        """
         import io as _io
 
         from pypdf import PdfReader
@@ -338,8 +342,9 @@ class TestImposeFromTemplateOptions:
         impose_from_template(tmpl, buf, out, pages_are_unique=False)
         out.seek(0)
         reader = PdfReader(out)
-        # Step-repeat produces one output sheet per source page (2 pages → 2 sheets).
-        assert len(reader.pages) == 2
+        # Step-repeat uses only the first source page → exactly 1 output sheet
+        # regardless of how many pages the source PDF contains.
+        assert len(reader.pages) == 1
 
 
 class TestImposeStepRepeat:
@@ -467,8 +472,41 @@ class TestDoubleSidedNup:
         out.seek(0)
         assert len(PdfReader(out).pages) == 1
 
+    def test_multipage_unique_uses_nup(self):
+        """pages_are_unique=True with a multi-page PDF should gang all pages
+        sequentially across output sheets using the template's dimensions."""
+        from pypdf import PdfReader, PageObject, PdfWriter
 
-class TestCutSizeMarginComputation:
+        from apps.impose.models import ImpositionTemplate
+        from apps.impose.services import impose_from_template
+
+        # 3 unique business-card-sized pages
+        buf = io.BytesIO()
+        w = PdfWriter()
+        for _ in range(3):
+            w.add_page(PageObject.create_blank_page(width=252, height=144))
+        w.write(buf)
+        buf.seek(0)
+
+        # 3×7 = 21-up template (standard business card layout dimensions)
+        tmpl = ImpositionTemplate.objects.create(
+            name="Business card n-up test",
+            sheet_width=900,   # 12.5"
+            sheet_height=1368, # 19"
+            cut_width=252,     # 3.5"
+            cut_height=144,    # 2"
+            bleed=9,           # 0.125"
+            columns=3,
+            rows=7,
+        )
+        out = io.BytesIO()
+        impose_from_template(tmpl, buf, out, pages_are_unique=True)
+        out.seek(0)
+        # 3 pages × 21-up = 1 sheet (21 cells, first 3 filled)
+        assert len(PdfReader(out).pages) == 1
+
+
+
     """Test that cut_width/cut_height drives proper centred margins."""
 
     def test_cut_size_centres_grid(self):

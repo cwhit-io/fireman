@@ -72,22 +72,10 @@ class ImpositionTemplate(models.Model):
     """Defines how pages should be imposed onto a press sheet."""
 
     class LayoutType(models.TextChoices):
-        TWO_UP = "2up", "2-Up"
-        FOUR_UP = "4up", "4-Up"
-        EIGHT_UP = "8up", "8-Up"
-        CUT_STACK = "cut_stack", "Cut & Stack"
         STEP_REPEAT = "step_repeat", "Step & Repeat"
-        BUSINESS_CARD = "business_card", "Business Card (21-up)"
-        POSTCARD = "postcard", "Postcard"
-        RACK_CARD = "rack_card", "Rack Card"
         CUSTOM = "custom", "Custom"
 
     name = models.CharField(max_length=100, unique=True)
-    category = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Optional category for grouping templates (e.g. 'Business Cards', 'Postcards')",
-    )
     product_category = models.ForeignKey(
         "impose.ProductCategory",
         null=True,
