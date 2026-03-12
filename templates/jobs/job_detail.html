@@ -504,7 +504,8 @@
             const page = await _pdfDoc.getPage(this.currentPage);
             const viewport = page.getViewport({ scale: 1.0 });
 
-            // Scale to fit the available container width at full quality
+            // Scale to fill the available container width at full quality.
+            // The 32px subtraction accounts for the container's inner padding.
             const container = document.getElementById('pdf-preview-canvas');
             const containerW = container ? container.closest('.relative.overflow-auto').clientWidth - 32 : window.innerWidth - 64;
             const maxW = Math.max(containerW, 400);
@@ -781,6 +782,8 @@
 document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.preflight-msg').forEach(function(el) {
     var text = el.textContent.trim();
+    // Match text up to and including the first sentence-ending punctuation (. ! ?),
+    // then capture any remaining text after optional whitespace.
     var match = text.match(/^([^.!?]+[.!?]+)\s*([\s\S]*)/);
     if (match && match[2]) {
       el.innerHTML = '<strong>' + match[1] + '</strong> ' + match[2];
