@@ -465,7 +465,9 @@
     const PREVIEW_GRID = {% if job.imposition_template and job.imposition_template.cut_width and job.imposition_template.cut_height %}{
       cut_w_pt: {{ job.imposition_template.cut_width }},
       cut_h_pt: {{ job.imposition_template.cut_height }},
-      bleed_pt: {{ job.imposition_template.bleed }}
+      bleed_pt: {{ job.imposition_template.bleed }},
+      columns: {{ job.imposition_template.columns }},
+      rows: {{ job.imposition_template.rows }}
     }{% else %}null{% endif %};
 
     function pdfPreview(url) {
@@ -540,7 +542,7 @@
 
           if (!PREVIEW_GRID) return;
 
-          const { cut_w_pt, cut_h_pt, bleed_pt } = PREVIEW_GRID;
+          const { cut_w_pt, cut_h_pt, bleed_pt, columns, rows } = PREVIEW_GRID;
           if (!cut_w_pt || !cut_h_pt) return;
 
           const canvasW = overlay.width;
@@ -552,33 +554,50 @@
           const px_per_pt_x = canvasW / page_w_pt;
           const px_per_pt_y = canvasH / page_h_pt;
 
-          // Always center the cut box on the page, regardless of whether the
-          // source PDF includes bleed or is trim-only.
-          const cut_w_px = cut_w_pt * px_per_pt_x;
-          const cut_h_px = cut_h_pt * px_per_pt_y;
-          const cut_x = (canvasW - cut_w_px) / 2;
-          const cut_y = (canvasH - cut_h_px) / 2;
+          // Cell size = trim + bleed on each side (matches impose_from_template)
+          const cell_w_pt = cut_w_pt + 2 * bleed_pt;
+          const cell_h_pt = cut_h_pt + 2 * bleed_pt;
 
-          // Bleed box (dashed, outset from cut box by bleed amount)
-          if (bleed_pt > 0) {
-            const bleed_px_x = bleed_pt * px_per_pt_x;
-            const bleed_px_y = bleed_pt * px_per_pt_y;
-            ctx.strokeStyle = 'rgba(239,68,68,0.5)';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([6, 4]);
-            ctx.strokeRect(
-              cut_x - bleed_px_x,
-              cut_y - bleed_px_y,
-              cut_w_px + 2 * bleed_px_x,
-              cut_h_px + 2 * bleed_px_y
-            );
+          // Auto-centre the grid on the sheet
+          const grid_w_pt = columns * cell_w_pt;
+          const grid_h_pt = rows * cell_h_pt;
+          const grid_offset_x_pt = (page_w_pt - grid_w_pt) / 2;
+          const grid_offset_y_pt = (page_h_pt - grid_h_pt) / 2;
+
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < columns; c++) {
+              // Trim box position in PDF points (Y from bottom, increasing upward)
+              const trim_left_pt   = grid_offset_x_pt + c * cell_w_pt + bleed_pt;
+              const trim_bottom_pt = page_h_pt - grid_offset_y_pt - (r + 1) * cell_h_pt + bleed_pt;
+
+              // Convert to canvas pixels (canvas Y from top)
+              const trim_x_px = trim_left_pt * px_per_pt_x;
+              const trim_y_px = (page_h_pt - trim_bottom_pt - cut_h_pt) * px_per_pt_y;
+              const trim_w_px = cut_w_pt * px_per_pt_x;
+              const trim_h_px = cut_h_pt * px_per_pt_y;
+
+              // Bleed box (dashed, outset from trim by bleed amount)
+              if (bleed_pt > 0) {
+                const bleed_px_x = bleed_pt * px_per_pt_x;
+                const bleed_px_y = bleed_pt * px_per_pt_y;
+                ctx.strokeStyle = 'rgba(239,68,68,0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([6, 4]);
+                ctx.strokeRect(
+                  trim_x_px - bleed_px_x,
+                  trim_y_px - bleed_px_y,
+                  trim_w_px + 2 * bleed_px_x,
+                  trim_h_px + 2 * bleed_px_y
+                );
+              }
+
+              // Trim/cut box (solid red)
+              ctx.setLineDash([]);
+              ctx.strokeStyle = 'rgba(239,68,68,1)';
+              ctx.lineWidth = 1.5;
+              ctx.strokeRect(trim_x_px, trim_y_px, trim_w_px, trim_h_px);
+            }
           }
-
-          // Trim/cut box (solid red, centered)
-          ctx.setLineDash([]);
-          ctx.strokeStyle = 'rgba(239,68,68,1)';
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(cut_x, cut_y, cut_w_px, cut_h_px);
         },
 
         async nextPage() {
