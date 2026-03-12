@@ -8,7 +8,7 @@
   <div class="modal" :class="deleteModal ? 'modal-open' : ''" role="dialog" aria-modal="true">
     <div class="modal-box max-w-sm">
       <div class="flex flex-col items-center gap-3 text-center">
-        <img src="{% static 'stop.png' %}" alt="Ember the dog says stop" class="w-24 h-24 object-contain">
+        <img src="{% static 'stop.png' %}" alt="Ember the dog says stop" class="w-40 h-40 object-contain">
         <h3 class="font-bold text-lg">Hold on, Ember needs to check in!</h3>
         <p class="text-base-content/70 text-sm">Are you sure you want to delete this job? Once it's gone, it's gone — even Ember can't bring it back.</p>
       </div>
@@ -56,13 +56,22 @@
                 </div>
                 <p class="text-xs text-base-content/40 mt-1">{{ job.created_at|date:"M j, Y H:i" }} · {{ job.page_count|default:"—" }} pages · {{ job.page_size_label }}</p>
               </div>
-              {% if user.is_authenticated %}
-              <form method="post" action="{% url 'jobs:toggle_save' job.pk %}" class="shrink-0">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{% url 'jobs:list' %}">
-                <button type="submit" class="btn btn-xs btn-warning">Unsave</button>
-              </form>
-              {% endif %}
+              <div class="flex flex-col gap-1 shrink-0 items-end">
+                {% if job.routing_preset %}
+                <form method="post" action="{% url 'jobs:resend' job.pk %}">
+                  {% csrf_token %}
+                  {% if job.is_double_sided %}<input type="hidden" name="is_double_sided" value="1">{% endif %}
+                  <button type="submit" class="btn btn-xs btn-primary">🖨 Send</button>
+                </form>
+                {% endif %}
+                {% if user.is_authenticated %}
+                <form method="post" action="{% url 'jobs:toggle_save' job.pk %}" class="shrink-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{% url 'jobs:list' %}">
+                  <button type="submit" class="btn btn-xs btn-warning">Unsave</button>
+                </form>
+                {% endif %}
+              </div>
             </div>
           </li>
           {% endfor %}
@@ -116,6 +125,13 @@
               </td>
               <td class="px-6 py-4 text-sm text-base-content/60">{{ job.created_at|date:"M j, Y H:i" }}</td>
               <td class="px-6 py-4 text-right flex items-center justify-end gap-2">
+                {% if job.routing_preset %}
+                <form method="post" action="{% url 'jobs:resend' job.pk %}">
+                  {% csrf_token %}
+                  {% if job.is_double_sided %}<input type="hidden" name="is_double_sided" value="1">{% endif %}
+                  <button type="submit" title="Send directly to printer" class="btn btn-xs btn-primary">🖨 Send to Printer</button>
+                </form>
+                {% endif %}
                 {% if user.is_authenticated %}
                 <form method="post" action="{% url 'jobs:toggle_save' job.pk %}">
                   {% csrf_token %}
