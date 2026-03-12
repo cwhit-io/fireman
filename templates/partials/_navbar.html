@@ -1,74 +1,109 @@
 {% load static %}
-{# Sticky top navbar — uses daisyUI `navbar` + Alpine.js for mobile drawer toggle #}
-<header class="sticky bg-base-200 top-0 z-50 shadow-sm">
-  <div class="navbar max-w-6xl mx-auto px-4">
+<header class="sticky top-0 z-50 border-b border-base-300/50 bg-base-100/80 backdrop-blur-md">
+  <div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
 
-    {# ── Brand / logo ──────────────────────────────── #}
-    <div class="navbar-start gap-2">
-      {# Mobile hamburger (visible on small screens only) #}
-      <div class="dropdown lg:hidden" x-data="{ open: false }">
-        <button
-          class="btn btn-ghost btn-square"
-          aria-label="Open navigation menu"
-          :aria-expanded="open.toString()"
-          @click="open = !open"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        <ul
-          class="menu menu-sm dropdown-content bg-base-100 rounded-box z-50 mt-3 w-52 p-2 shadow-lg"
-          x-show="open"
-          @click.outside="open = false"
-          x-transition
-        >
-          {# <li><a href="{% url 'jobs:list' %}">Jobs</a></li> #}
-        </ul>
-      </div>
+    {# ── Brand ──────────────────────────────────────── #}
+    <a href="{% url 'homepage' %}" class="flex items-center gap-2 shrink-0 group">
+      <img src="{% static 'logo.png' %}" alt="Ember" class="w-12 h-12 transition-transform group-hover:scale-110" />
+    </a>
 
-      {# Logo + App name #}
-      <a href="{% url 'homepage' %}" class="btn btn-ghost text-xl font-bold flex items-center gap-2 px-2">
-        <img
-          src="{% static 'logo.png' %}"
-          alt="Ember logo"
-          class="w-14 h-14"
-        />
-        <span class="text-primary">Ember</span>
-      </a>
-    </div>
+    {# ── Spacer ─────────────────────────────────────── #}
+    <div class="flex-1"></div>
 
-    {# ── Desktop nav links ─────────────────────────── #}
-    <div class="navbar-center hidden lg:flex">
-      <ul class="menu menu-horizontal px-1 gap-1">
-        {# <li><a href="{% url 'jobs:list' %}" class="font-medium">Jobs</a></li> #}
-      </ul>
-    </div>
+    {# ── Desktop actions ────────────────────────────── #}
+    <nav class="hidden sm:flex items-center gap-1">
 
-    {# ── Right side: CTA + user menu ───────────────── #}
-    <div class="navbar-end gap-2">
-      {# Admin icon #}
-      <a href="/admin/" class="btn btn-ghost btn-circle" aria-label="Login to admin" title="Login to admin">
-<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
-     viewBox="0 0 24 26" stroke="currentColor" aria-hidden="true">
-  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-        d="M12 7.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7zM5 20a7 7 0 0114 0" />
-</svg>
-
-
-      </a>
-
-
-       {# Upload icon #}
-      <a href="{% url 'jobs:upload' %}" class="btn btn-ghost btn-circle" aria-label="Upload print job" title="Upload Print Job">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+      {# Upload #}
+      <a href="{% url 'jobs:upload' %}"
+         class="btn btn-ghost btn-sm gap-1.5 font-medium text-sm"
+         title="Upload Print Job">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 0L8 8m4-4l4 4"/>
         </svg>
+        Upload
       </a>
 
-      <a href="{% url 'jobs:list' %}" class="btn btn-primary btn-sm hidden sm:inline-flex">
+      {# Print Jobs #}
+      <a href="{% url 'jobs:list' %}"
+         class="btn btn-primary btn-sm gap-1.5 font-semibold text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V6a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/>
+        </svg>
         Print Jobs
       </a>
+
+      {# Divider #}
+      <div class="w-px h-5 bg-base-300 mx-1"></div>
+
+      {# User / Admin menu #}
+      <div class="dropdown dropdown-end" x-data="{ open: false }">
+        <button
+          @click="open = !open"
+          :aria-expanded="open.toString()"
+          class="btn btn-ghost btn-sm gap-2 font-medium text-sm pl-2 pr-3"
+          aria-label="User menu"
+        >
+          {# Avatar circle #}
+          <span class="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+          </span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-base-content/50 transition-transform duration-150" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+
+        <ul
+          class="dropdown-content menu menu-sm bg-base-100 border border-base-300/70 rounded-xl shadow-xl w-44 p-1.5 mt-1"
+          x-show="open"
+          x-transition:enter="transition ease-out duration-100"
+          x-transition:enter-start="opacity-0 scale-95"
+          x-transition:enter-end="opacity-100 scale-100"
+          x-transition:leave="transition ease-in duration-75"
+          x-transition:leave-start="opacity-100 scale-100"
+          x-transition:leave-end="opacity-0 scale-95"
+          @click.outside="open = false"
+        >
+          <li>
+            <a href="/admin/" class="flex items-center gap-2 text-sm py-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              Admin
+            </a>
+          </li>
+          <li class="divider m-0.5"></li>
+          <li class="menu-title text-xs px-3 py-1 opacity-50">Theme</li>
+          <li><button data-set-theme="fireman"  class="text-sm py-1.5">Fireman</button></li>
+          <li><button data-set-theme="bumblebee" class="text-sm py-1.5">Bumblebee</button></li>
+          <li><button data-set-theme="dark"      class="text-sm py-1.5">Dark</button></li>
+        </ul>
+      </div>
+    </nav>
+
+    {# ── Mobile hamburger ───────────────────────────── #}
+    <div class="sm:hidden" x-data="{ open: false }">
+      <button
+        @click="open = !open"
+        :aria-expanded="open.toString()"
+        class="btn btn-ghost btn-sm btn-square"
+        aria-label="Open menu"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7"/>
+        </svg>
+      </button>
+      <div
+        class="absolute top-14 left-0 right-0 bg-base-100 border-b border-base-300 shadow-md px-4 py-3 flex flex-col gap-1"
+        x-show="open"
+        x-transition
+        @click.outside="open = false"
+      >
+        <a href="{% url 'jobs:upload' %}" class="btn btn-ghost btn-sm justify-start gap-2">Upload</a>
+        <a href="{% url 'jobs:list' %}"   class="btn btn-primary btn-sm justify-start gap-2">Print Jobs</a>
+        <div class="divider my-1"></div>
+        <a href="/admin/" class="btn btn-ghost btn-sm justify-start gap-2">Admin</a>
       </div>
     </div>
 

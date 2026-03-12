@@ -109,13 +109,18 @@
 {# ── §2 HOW IT WORKS ─────────────────────────────── #}
 <section id="how-it-works" class="py-12 md:py-20 bg-base-200" aria-labelledby="how-it-works-heading">
   <div class="max-w-6xl mx-auto px-4 sm:px-6">
-    {% include "partials/_section_header.html" with title="How it works" subtitle="Three easy steps from PDF to printer — no jargon, no guessing." %}
-
-    <ul class="steps steps-vertical md:steps-horizontal w-full mb-8 md:mb-12 text-sm font-medium">
+    {% include "partials/_section_header.html" with title="How Ember tames Fiery" subtitle="Three easy steps from PDF to printer — no jargon, no guessing." %}
+        <ul class="steps steps-vertical md:steps-horizontal w-full mb-8 md:mb-12 text-sm font-medium">
       <li class="step step-primary">Add your PDF</li>
       <li class="step step-primary">Confirm details</li>
       <li class="step step-primary">Send to print</li>
     </ul>
+    <div class="flex justify-center my-6">
+      <img src="{% static 'fiery.png' %}" alt="Fiery logo" class="max-w-full rounded-md shadow-md" />
+    </div>
+    <div class="py-10"></div>
+
+
 
     <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
       <div class="card bg-base-100 shadow-md border border-base-300 hover:shadow-lg transition-shadow">
@@ -147,6 +152,7 @@
 <section class="py-12 md:py-20 bg-base-100" aria-labelledby="benefits-heading">
   <div class="max-w-6xl mx-auto px-4 sm:px-6">
     {% include "partials/_section_header.html" with title="Why teams love Ember" subtitle="Less time chasing jobs. More time doing great work." %}
+
 
     <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
       <div class="card bg-base-200 shadow border border-base-300 hover:shadow-lg transition-shadow">
