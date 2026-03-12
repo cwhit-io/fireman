@@ -32,9 +32,9 @@
 </style>
 
 <div class="max-w-4xl mx-auto px-4 py-8 pb-36"
-     x-data="{ showChange: false, showDeleteModal: false, showBarcodeInfo: false, showHowModal: false, showRenameModal: false, showPreview: true, showPreflightModal: {% if job.preflight_status and not job.preflight_acknowledged %}true{% else %}false{% endif %} }"
-     @keydown.arrow-right.window="if (showPreview) $dispatch('preview-next')"
-     @keydown.arrow-left.window="if (showPreview) $dispatch('preview-prev')">
+     x-data="{ showChange: false, showDeleteModal: false, showHowModal: false, showRenameModal: false, showPreflightReport: {% if job.preflight_status and not job.preflight_acknowledged %}true{% else %}false{% endif %} }"
+     @keydown.arrow-right.window="$dispatch('preview-next')"
+     @keydown.arrow-left.window="$dispatch('preview-prev')">
 
   {# ── Breadcrumb ── #}
   <div class="breadcrumbs text-sm mb-4">
@@ -74,7 +74,167 @@
     {% endif %}
   </div>
 
-  {# ── Operator Checklist ── #}
+  {# ── Collapsible Job Details (collapsed by default) ── #}
+  <div class="collapse collapse-arrow bg-base-100 border border-base-300 shadow mb-6">
+    <input type="checkbox">
+    <div class="collapse-title font-semibold">Job Details</div>
+    <div class="collapse-content">
+      <table class="table table-sm">
+        <tbody>
+          <tr><th>Job ID</th><td class="font-mono text-sm">{{ job.pk }}</td></tr>
+          <tr><th>Created</th><td>{{ job.created_at|date:"M j, Y H:i" }}</td></tr>
+          <tr><th>Paper Size</th><td class="font-semibold">
+            {% if job.imposition_template and job.imposition_template.sheet_size %}
+              {{ job.imposition_template.sheet_size.label }}
+            {% elif job.imposition_template and job.imposition_template.sheet_width %}
+              {{ job.imposition_template.sheet_size_label }}
+            {% else %}—{% endif %}
+          </td></tr>
+          <tr><th>Imposition</th><td>
+            {% if job.pages_are_unique %}N-up (unique pages){% else %}Step-and-repeat{% endif %}
+          </td></tr>
+          {% if job.imposition_template %}
+          <tr><th>Template</th><td>{{ job.imposition_template.name }}</td></tr>
+          {% endif %}
+          {% if job.cutter_program %}
+          <tr><th>Cutter Code</th><td class="font-semibold">
+            {% if job.cutter_program.duplo_code %}#{{ job.cutter_program.duplo_code }}{% else %}{{ job.cutter_program }}{% endif %}
+          </td></tr>
+          {% endif %}
+          {% if job.routing_preset %}
+          <tr><th>Printer Preset</th><td>{{ job.routing_preset }}</td></tr>
+          {% endif %}
+          {% if fiery_name %}
+          <tr><th>Fiery Name</th><td class="font-mono text-sm">{{ fiery_name }}</td></tr>
+          {% endif %}
+          <tr><th>Page Count</th><td>{{ job.page_count|default:"—" }}</td></tr>
+          <tr><th>Page Size</th><td>{{ job.page_size_label }}</td></tr>
+          <tr><th>Type</th><td>{{ job.get_product_type_display|default:"—" }}</td></tr>
+          <tr><th>Double-sided</th><td>{% if job.is_double_sided %}Yes{% else %}No{% endif %}</td></tr>
+          <tr><th>Unique pages</th><td>
+            {% if job.pages_are_unique %}Yes (n-up){% else %}No (step-and-repeat){% endif %}
+          </td></tr>
+        </tbody>
+      </table>
+
+      {% if job.error_message %}
+      <div class="alert alert-error mt-4">
+        <div>
+          <p class="font-medium">Error:</p>
+          <pre class="text-xs mt-1 whitespace-pre-wrap">{{ job.error_message }}</pre>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if job.notes %}
+      <div class="mt-4">
+        <p class="text-sm text-base-content/60">Notes</p>
+        <p class="mt-1">{{ job.notes }}</p>
+      </div>
+      {% endif %}
+
+      <div class="card-actions justify-end mt-4 pt-4 border-t border-base-300">
+        <button @click="showChange = !showChange" class="btn btn-sm btn-outline">Change Template</button>
+        {% if user.is_authenticated %}
+        <button type="button" @click="showRenameModal = true" class="btn btn-sm btn-outline">Rename</button>
+        {% endif %}
+        {% if user.is_authenticated %}
+        <form method="post" action="{% url 'jobs:toggle_save' job.pk %}" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          {% if job.is_saved %}
+            <button type="submit" class="btn btn-sm btn-outline">Unsave</button>
+          {% else %}
+            <button type="submit" class="btn btn-sm btn-outline">Save</button>
+          {% endif %}
+        </form>
+        {% endif %}
+        <button type="button" @click="showDeleteModal = true"
+                class="btn btn-sm btn-error btn-outline">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  {# ── Preflight Report (inline, collapsed by default, auto-expands if unacknowledged) ── #}
+  {% if job.preflight_status %}
+  <div class="collapse collapse-arrow border shadow mb-6
+    {% if job.preflight_status == 'ok' %}bg-success/5 border-success/30{% elif job.preflight_status == 'error' %}bg-error/5 border-error/30{% else %}bg-warning/5 border-warning/30{% endif %}"
+    x-data="{ open: showPreflightReport }" :class="open ? 'collapse-open' : ''">
+    <input type="checkbox" x-model="open">
+    <div class="collapse-title font-semibold flex items-center gap-2">
+      {% if job.preflight_status == 'ok' %}
+        <span class="text-success">✅</span>
+        <span class="text-success">Preflight Report — All Clear</span>
+      {% elif job.preflight_status == 'error' %}
+        <span class="text-error">🚨</span>
+        <span class="text-error">Preflight Report — Issues Found</span>
+      {% else %}
+        <span class="text-warning">⚠️</span>
+        <span class="text-warning">Preflight Report — Review Needed</span>
+      {% endif %}
+      {% if not job.preflight_acknowledged %}
+        <span class="badge badge-sm {% if job.preflight_status == 'ok' %}badge-success{% elif job.preflight_status == 'error' %}badge-error{% else %}badge-warning{% endif %} ml-auto">New</span>
+      {% endif %}
+    </div>
+    <div class="collapse-content">
+      {% if job.preflight_status == 'ok' %}
+      <div class="flex flex-col sm:flex-row items-center gap-6 py-4">
+        <img src="{% static 'preflight/medal.png' %}" alt="Preflight passed" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
+        <div class="flex-1">
+          <h3 class="font-bold text-xl text-success mb-2">Everything looks Pawwwfect! 🐾</h3>
+          <p class="text-base-content/70 text-sm mb-4">Ember ran a full preflight check and didn't find any issues. This file looks great — you're good to go!</p>
+          {% if job.preflight_message_pairs %}
+          <ul class="space-y-3">
+            {% for msg,img in job.preflight_message_pairs %}
+            <li class="flex gap-4 bg-success/10 rounded-xl px-4 py-3 items-start">
+              {% if img %}
+              <img src="{% static 'preflight/'|add:img %}" alt="" class="w-14 h-14 object-contain shrink-0">
+              {% endif %}
+              <p class="text-sm preflight-msg leading-relaxed">{{ msg }}</p>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <div class="flex flex-col sm:flex-row items-center gap-6 py-4 mb-4">
+        {% if job.preflight_status == 'error' %}
+        <img src="{% static 'preflight/caution_tape.png' %}" alt="Preflight issues" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
+        {% else %}
+        <img src="{% static 'preflight/yield.png' %}" alt="Preflight warning" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
+        {% endif %}
+        <div class="flex-1">
+          <h3 class="font-bold text-xl {% if job.preflight_status == 'error' %}text-error{% else %}text-warning{% endif %} mb-1">Preflight Report</h3>
+          <p class="text-base-content/60 text-sm">Ember checked your file and found a few things to review before printing.</p>
+        </div>
+      </div>
+      {% if job.preflight_message_pairs %}
+      <ul class="space-y-4 mb-4">
+        {% for msg,img in job.preflight_message_pairs %}
+        <li class="flex gap-4 bg-base-200 rounded-xl px-4 py-4 items-start">
+          {% if img %}
+          <img src="{% static 'preflight/'|add:img %}" alt="" class="w-16 h-16 object-contain shrink-0">
+          {% else %}
+          <span class="text-2xl shrink-0">⚠️</span>
+          {% endif %}
+          <p class="text-sm preflight-msg leading-relaxed">{{ msg }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% endif %}
+      {% if not job.preflight_acknowledged %}
+      <div class="flex justify-end pt-2 border-t border-base-300">
+        <form method="post" action="{% url 'jobs:preflight_acknowledge' job.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-primary">Got it — mark as reviewed</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
   {% if job.imposed_file %}
   <div class="card card-bordered shadow mb-6 overflow-hidden">
 
@@ -228,7 +388,7 @@
             {% endif %}
           </p>
         </div>
-        <img src="{% static 'inspector.png' %}" alt="Ember Inspector" class="w-36 h-36 object-contain drop-shadow-md" />
+        <img src="{% static 'inspector.png' %}" alt="Ember Inspector" class="w-48 h-48 object-contain drop-shadow-md" />
       </div>
 
     </div>
@@ -237,7 +397,7 @@
 
   {# ── PDF Preview ── #}
   {% if job.imposed_file %}
-  <div class="card card-bordered shadow mb-6 overflow-hidden" x-data="pdfPreview('{% url 'jobs:source_preview' job.pk %}')" @preview-next.window="nextPage()" @preview-prev.window="prevPage()" x-init="init()">
+  <div class="card card-bordered shadow mb-6 overflow-hidden" x-data="pdfPreview('{% url 'jobs:preview' job.pk %}')" @preview-next.window="nextPage()" @preview-prev.window="prevPage()" x-init="init()">
 
     <div class="bg-base-200 border-b border-base-300 px-5 py-3 flex items-center gap-2">
       <span class="text-xl">🔍</span>
@@ -344,8 +504,11 @@
             const page = await _pdfDoc.getPage(this.currentPage);
             const viewport = page.getViewport({ scale: 1.0 });
 
-            // Scale to fit container (max ~800px wide)
-            const maxW = Math.min(window.innerWidth - 64, 800);
+            // Scale to fill the available container width at full quality.
+            // The 32px subtraction accounts for the container's inner padding.
+            const container = document.getElementById('pdf-preview-canvas');
+            const containerW = container ? container.closest('.relative.overflow-auto').clientWidth - 32 : window.innerWidth - 64;
+            const maxW = Math.max(containerW, 400);
             const scale = maxW / viewport.width;
             const scaledViewport = page.getViewport({ scale });
 
@@ -463,87 +626,6 @@
         No templates available. <a href="{% url 'impose:create' %}" class="link">Create a template</a>.
       </p>
       {% endif %}
-    </div>
-  </div>
-
-  {# ── Collapsible Job Details ── #}
-  <div class="collapse collapse-arrow bg-base-100 border border-base-300 shadow mb-6">
-    <input type="checkbox">
-    <div class="collapse-title font-semibold">Job Details</div>
-    <div class="collapse-content">
-      <table class="table table-sm">
-        <tbody>
-          <tr><th>Job ID</th><td class="font-mono text-sm">{{ job.pk }}</td></tr>
-          <tr><th>Created</th><td>{{ job.created_at|date:"M j, Y H:i" }}</td></tr>
-          <tr><th>Paper Size</th><td class="font-semibold">
-            {% if job.imposition_template and job.imposition_template.sheet_size %}
-              {{ job.imposition_template.sheet_size.label }}
-            {% elif job.imposition_template and job.imposition_template.sheet_width %}
-              {{ job.imposition_template.sheet_size_label }}
-            {% else %}—{% endif %}
-          </td></tr>
-          <tr><th>Imposition</th><td>
-            {% if job.pages_are_unique %}N-up (unique pages){% else %}Step-and-repeat{% endif %}
-          </td></tr>
-          {% if job.imposition_template %}
-          <tr><th>Template</th><td>{{ job.imposition_template.name }}</td></tr>
-          {% endif %}
-          {% if job.cutter_program %}
-          <tr><th>Cutter Code</th><td class="font-semibold">
-            {% if job.cutter_program.duplo_code %}#{{ job.cutter_program.duplo_code }}{% else %}{{ job.cutter_program }}{% endif %}
-          </td></tr>
-          {% endif %}
-          {% if job.routing_preset %}
-          <tr><th>Printer Preset</th><td>{{ job.routing_preset }}</td></tr>
-          {% endif %}
-          {% if fiery_name %}
-          <tr><th>Fiery Name</th><td class="font-mono text-sm">{{ fiery_name }}</td></tr>
-          {% endif %}
-          <tr><th>Page Count</th><td>{{ job.page_count|default:"—" }}</td></tr>
-          <tr><th>Page Size</th><td>{{ job.page_size_label }}</td></tr>
-          <tr><th>Type</th><td>{{ job.get_product_type_display|default:"—" }}</td></tr>
-          <tr><th>Double-sided</th><td>{% if job.is_double_sided %}Yes{% else %}No{% endif %}</td></tr>
-          <tr><th>Unique pages</th><td>
-            {% if job.pages_are_unique %}Yes (n-up){% else %}No (step-and-repeat){% endif %}
-          </td></tr>
-        </tbody>
-      </table>
-
-      {% if job.error_message %}
-      <div class="alert alert-error mt-4">
-        <div>
-          <p class="font-medium">Error:</p>
-          <pre class="text-xs mt-1 whitespace-pre-wrap">{{ job.error_message }}</pre>
-        </div>
-      </div>
-      {% endif %}
-
-      {% if job.notes %}
-      <div class="mt-4">
-        <p class="text-sm text-base-content/60">Notes</p>
-        <p class="mt-1">{{ job.notes }}</p>
-      </div>
-      {% endif %}
-
-      <div class="card-actions justify-end mt-4 pt-4 border-t border-base-300">
-        <button @click="showChange = !showChange" class="btn btn-sm btn-outline">Change Template</button>
-        {% if user.is_authenticated %}
-        <button type="button" @click="showRenameModal = true" class="btn btn-sm btn-outline">Rename</button>
-        {% endif %}
-        {% if user.is_authenticated %}
-        <form method="post" action="{% url 'jobs:toggle_save' job.pk %}" class="inline">
-          {% csrf_token %}
-          <input type="hidden" name="next" value="{{ request.path }}">
-          {% if job.is_saved %}
-            <button type="submit" class="btn btn-sm btn-outline">Unsave</button>
-          {% else %}
-            <button type="submit" class="btn btn-sm btn-outline">Save</button>
-          {% endif %}
-        </form>
-        {% endif %}
-        <button type="button" @click="showDeleteModal = true"
-                class="btn btn-sm btn-error btn-outline">Delete</button>
-      </div>
     </div>
   </div>
 
@@ -669,63 +751,6 @@
     <div class="modal-backdrop" aria-hidden="true" @click="showHowModal = false"></div>
   </div>
 
-  {# ── Preflight Modal ── #}
-  {% if job.preflight_status %}
-  <div class="modal" :class="{ 'modal-open': showPreflightModal }" role="dialog" aria-modal="true">
-    <div class="modal-box max-w-lg">
-      {% if job.preflight_status == 'ok' %}
-      <div class="flex flex-col items-center text-center gap-4 py-2">
-        <img src="{% static 'stop.png' %}" alt="Preflight" class="w-20 h-20 object-contain opacity-80">
-        <h3 class="font-bold text-xl text-success">Everything looks Pawwwfect! 🐾</h3>
-        <p class="text-base-content/70 text-sm">Ember ran a full preflight check and didn't find any issues. This file looks great — you're good to go!</p>
-        {% if job.preflight_message_pairs %}
-          <ul class="space-y-2 mt-2 text-left w-full">
-            {% for msg,img in job.preflight_message_pairs %}
-              <li class="flex gap-2 text-sm bg-success/10 rounded-lg px-3 py-2">
-                {% if img %}
-                  <img src="{% static 'preflight/'|add:img %}" alt="" class="w-6 h-6 object-contain">
-                {% endif %}
-                <span>{{ msg }}</span>
-              </li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-      </div>
-      {% else %}
-      <div class="flex items-center gap-3 mb-4">
-        <img src="{% static 'stop.png' %}" alt="Preflight Warning" class="w-12 h-12 object-contain shrink-0">
-        <div>
-          <h3 class="font-bold text-lg">Preflight Report</h3>
-          <p class="text-xs text-base-content/60">Ember checked your file and found a few things to review.</p>
-        </div>
-      </div>
-      {% if job.preflight_message_pairs %}
-        <ul class="space-y-3 mb-4">
-          {% for msg,img in job.preflight_message_pairs %}
-            <li class="flex gap-2 text-sm bg-base-200 rounded-lg px-3 py-2">
-              {% if img %}
-                <img src="{% static 'preflight/'|add:img %}" alt="" class="w-5 h-5 object-contain shrink-0">
-              {% else %}
-                <span class="shrink-0 mt-0.5">⚠️</span>
-              {% endif %}
-              <span>{{ msg }}</span>
-            </li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-      {% endif %}
-      <div class="modal-action mt-2">
-        <form method="post" action="{% url 'jobs:preflight_acknowledge' job.pk %}">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-primary btn-sm">Got it — clear this</button>
-        </form>
-        <button type="button" class="btn btn-ghost btn-sm" @click="showPreflightModal = false">Dismiss</button>
-      </div>
-    </div>
-    <div class="modal-backdrop" aria-hidden="true" @click="showPreflightModal = false"></div>
-  </div>
-  {% endif %}
-
 </div>
 
 {# ── Sticky Bottom Action Bar ── #}
@@ -740,7 +765,8 @@
         {% csrf_token %}
         <label class="flex items-center gap-1 text-sm cursor-pointer select-none">
           <input type="checkbox" class="checkbox checkbox-sm checkbox-primary"
-                 name="is_double_sided" value="1">
+                 name="is_double_sided" value="1"
+                 {% if job.is_double_sided %}checked{% endif %}>
           <span>2-sided</span>
         </label>
         <button type="submit" class="btn btn-primary">Send to Printer</button>
@@ -751,5 +777,21 @@
   </div>
 </div>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.preflight-msg').forEach(function(el) {
+    var text = el.textContent.trim();
+    // Match text up to and including the first sentence-ending punctuation (. ! ?),
+    // then capture any remaining text after optional whitespace.
+    var match = text.match(/^([^.!?]+[.!?]+)\s*([\s\S]*)/);
+    if (match && match[2]) {
+      el.innerHTML = '<strong>' + match[1] + '</strong> ' + match[2];
+    } else {
+      el.innerHTML = '<strong>' + text + '</strong>';
+    }
+  });
+});
+</script>
 
 {% endblock %}
