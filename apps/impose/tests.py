@@ -243,7 +243,6 @@ class TestImpositionTemplateModel:
 
         t = ImpositionTemplate.objects.create(
             name="Test 2-Up",
-            layout_type=ImpositionTemplate.LayoutType.CUSTOM,
             sheet_width=1224,
             sheet_height=792,
             columns=2,
@@ -475,7 +474,7 @@ class TestDoubleSidedNup:
     def test_multipage_unique_uses_nup(self):
         """pages_are_unique=True with a multi-page PDF should gang all pages
         sequentially across output sheets using the template's dimensions."""
-        from pypdf import PdfReader, PageObject, PdfWriter
+        from pypdf import PageObject, PdfReader, PdfWriter
 
         from apps.impose.models import ImpositionTemplate
         from apps.impose.services import impose_from_template
@@ -491,11 +490,11 @@ class TestDoubleSidedNup:
         # 3×7 = 21-up template (standard business card layout dimensions)
         tmpl = ImpositionTemplate.objects.create(
             name="Business card n-up test",
-            sheet_width=900,   # 12.5"
-            sheet_height=1368, # 19"
-            cut_width=252,     # 3.5"
-            cut_height=144,    # 2"
-            bleed=9,           # 0.125"
+            sheet_width=900,  # 12.5"
+            sheet_height=1368,  # 19"
+            cut_width=252,  # 3.5"
+            cut_height=144,  # 2"
+            bleed=9,  # 0.125"
             columns=3,
             rows=7,
         )
@@ -504,8 +503,6 @@ class TestDoubleSidedNup:
         out.seek(0)
         # 3 pages × 21-up = 1 sheet (21 cells, first 3 filled)
         assert len(PdfReader(out).pages) == 1
-
-
 
     """Test that cut_width/cut_height drives proper centred margins."""
 

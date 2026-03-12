@@ -9,7 +9,6 @@ class TemplateOut(Schema):
 
     id: int
     name: str
-    layout_type: str
     sheet_width: float
     sheet_height: float
     columns: int
@@ -23,14 +22,9 @@ class TemplateIn(Schema):
     """Fields required to create a new imposition template."""
 
     name: str
-    layout_type: str
     sheet_width: float
     sheet_height: float
     bleed: float = 0.0
-    margin_top: float = 0.0
-    margin_right: float = 0.0
-    margin_bottom: float = 0.0
-    margin_left: float = 0.0
     columns: int = 1
     rows: int = 1
     barcode_x: float | None = None
