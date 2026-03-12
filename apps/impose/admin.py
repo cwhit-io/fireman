@@ -2,7 +2,7 @@ import json
 
 from django.contrib import admin, messages
 from django.http import HttpResponse
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils.html import format_html
 
 from apps.jobs.models import PrintJob
@@ -197,6 +197,7 @@ class ImpositionTemplateAdmin(admin.ModelAdmin):
             "Barcode",
             {
                 "fields": [
+                    "cutter_program",
                     "print_barcode",
                     ("barcode_x", "barcode_y"),
                     ("barcode_width", "barcode_height"),
@@ -204,9 +205,9 @@ class ImpositionTemplateAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "Linked Presets",
+            "Printer Presets",
             {
-                "fields": [("cutter_program", "routing_preset")],
+                "fields": [("routing_preset")],
             },
         ),
         (
@@ -217,6 +218,122 @@ class ImpositionTemplateAdmin(admin.ModelAdmin):
             },
         ),
     ]
+
+    def get_urls(self):
+        custom = [
+            path(
+                "layout-preview/",
+                self.admin_site.admin_view(self.layout_preview_view),
+                name="impose_impositiontemplate_layout_preview",
+            ),
+        ]
+        return custom + super().get_urls()
+
+    def layout_preview_view(self, request):
+        """Return an SVG snippet for the live layout preview panel."""
+        from apps.impose.views import _build_preview_svg
+
+        PT = POINTS_PER_INCH
+
+        def _pts_to_in(key, default=0.0):
+            try:
+                v = float(request.POST.get(key) or 0)
+                return v / PT if v else default
+            except (TypeError, ValueError):
+                return default
+
+        cut_w_in = cut_h_in = 0.0
+        sheet_w_in = sheet_h_in = 0.0
+
+        cut_size_id = (request.POST.get("cut_size") or "").strip()
+        if cut_size_id:
+            try:
+                cs = PrintSize.objects.get(pk=int(cut_size_id))
+                cut_w_in = float(cs.width) / PT
+                cut_h_in = float(cs.height) / PT
+            except (PrintSize.DoesNotExist, ValueError):
+                pass
+
+        sheet_size_id = (request.POST.get("sheet_size") or "").strip()
+        if sheet_size_id:
+            try:
+                ss = PrintSize.objects.get(pk=int(sheet_size_id))
+                sheet_w_in = float(ss.width) / PT
+                sheet_h_in = float(ss.height) / PT
+            except (PrintSize.DoesNotExist, ValueError):
+                pass
+
+        bx_raw = (request.POST.get("barcode_x") or "").strip()
+        by_raw = (request.POST.get("barcode_y") or "").strip()
+
+        data = {
+            "cut_width": str(cut_w_in) if cut_w_in else "",
+            "cut_height": str(cut_h_in) if cut_h_in else "",
+            "sheet_width": str(sheet_w_in),
+            "sheet_height": str(sheet_h_in),
+            "bleed": str(_pts_to_in("bleed")),
+            "columns": request.POST.get("columns") or "1",
+            "rows": request.POST.get("rows") or "1",
+            "barcode_x": str(_pts_to_in("barcode_x")) if bx_raw else "",
+            "barcode_y": str(_pts_to_in("barcode_y")) if by_raw else "",
+            "barcode_width": str(_pts_to_in("barcode_width", 1.25)),
+            "barcode_height": str(_pts_to_in("barcode_height", 0.35)),
+        }
+        return HttpResponse(_build_preview_svg(data), content_type="text/html")
+
+    def _initial_preview_svg(self, tmpl):
+        """Build the initial SVG for an existing template instance."""
+        from apps.impose.views import _build_preview_svg
+
+        PT = POINTS_PER_INCH
+
+        def _in(pts):
+            return str(round(float(pts) / PT, 6)) if pts is not None else ""
+
+        if tmpl.cut_size_id:
+            cut_w = _in(tmpl.cut_size.width)
+            cut_h = _in(tmpl.cut_size.height)
+        else:
+            cut_w = _in(tmpl.cut_width)
+            cut_h = _in(tmpl.cut_height)
+
+        if tmpl.sheet_size_id:
+            sheet_w = _in(tmpl.sheet_size.width)
+            sheet_h = _in(tmpl.sheet_size.height)
+        else:
+            sheet_w = _in(tmpl.sheet_width)
+            sheet_h = _in(tmpl.sheet_height)
+
+        return _build_preview_svg(
+            {
+                "cut_width": cut_w,
+                "cut_height": cut_h,
+                "sheet_width": sheet_w,
+                "sheet_height": sheet_h,
+                "bleed": _in(tmpl.bleed),
+                "columns": str(tmpl.columns),
+                "rows": str(tmpl.rows),
+                "barcode_x": _in(tmpl.barcode_x),
+                "barcode_y": _in(tmpl.barcode_y),
+                "barcode_width": _in(tmpl.barcode_width),
+                "barcode_height": _in(tmpl.barcode_height),
+            }
+        )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["layout_preview_url"] = reverse(
+            "admin:impose_impositiontemplate_layout_preview"
+        )
+        if object_id:
+            try:
+                tmpl = ImpositionTemplate.objects.select_related(
+                    "cut_size", "sheet_size"
+                ).get(pk=object_id)
+                extra_context["preview_svg"] = self._initial_preview_svg(tmpl)
+            except ImpositionTemplate.DoesNotExist:
+                pass
+        return super().changeform_view(request, object_id, form_url, extra_context)
 
     def get_actions(self, request):
         actions = super().get_actions(request)

@@ -24,9 +24,6 @@
           x-transition
         >
           {# <li><a href="{% url 'jobs:list' %}">Jobs</a></li> #}
-          {% if user.is_authenticated %}
-          <li><a href="{% url 'impose:list' %}">Templates</a></li>
-          {% endif %}
         </ul>
       </div>
 
@@ -45,72 +42,33 @@
     <div class="navbar-center hidden lg:flex">
       <ul class="menu menu-horizontal px-1 gap-1">
         {# <li><a href="{% url 'jobs:list' %}" class="font-medium">Jobs</a></li> #}
-        {% if user.is_authenticated %}
-        <li><a href="{% url 'impose:list' %}" class="font-medium">Templates</a></li>
-        {% endif %}
       </ul>
     </div>
 
     {# ── Right side: CTA + user menu ───────────────── #}
     <div class="navbar-end gap-2">
-      <a href="{% url 'jobs:list' %}" class="btn btn-primary btn-sm hidden sm:inline-flex">
-        Get Started
+      {# Admin icon #}
+      <a href="/admin/" class="btn btn-ghost btn-circle" aria-label="Login to admin" title="Login to admin">
+<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+     viewBox="0 0 24 26" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 7.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7zM5 20a7 7 0 0114 0" />
+</svg>
+
+
       </a>
 
-      {# Upload icon #}
+
+       {# Upload icon #}
       <a href="{% url 'jobs:upload' %}" class="btn btn-ghost btn-circle" aria-label="Upload print job" title="Upload Print Job">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
         </svg>
       </a>
 
-      {# Theme switcher #}
-      <div class="dropdown dropdown-end" x-data="{ open: false }">
-        <button
-          class="btn btn-ghost btn-circle"
-          aria-label="Theme switcher"
-          :aria-expanded="open.toString()"
-          @click="open = !open"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-        </button>
-        <ul
-          class="menu menu-sm dropdown-content bg-base-100 rounded-box z-50 mt-3 w-32 p-2 shadow-lg"
-          x-show="open"
-          @click.outside="open = false"
-          x-transition
-        >
-          <li><button data-set-theme="fireman" class="btn btn-sm btn-ghost">Fireman</button></li>
-          <li><button data-set-theme="bumblebee" class="btn btn-sm btn-ghost">Bumblebee</button></li>
-          <li><button data-set-theme="dark" class="btn btn-sm btn-ghost">Dark</button></li>
-        </ul>
-      </div>
-
-      {# User menu placeholder (expand with auth views later) #}
-      <div class="dropdown dropdown-end" x-data="{ open: false }">
-        <button
-          class="btn btn-ghost btn-circle avatar"
-          aria-label="User menu"
-          :aria-expanded="open.toString()"
-          @click="open = !open"
-        >
-          <div class="w-8 rounded-full bg-base-300 flex items-center justify-center text-base-content/60">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M5.121 17.804A8 8 0 1118.879 6.196M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </div>
-        </button>
-        <ul
-          class="menu menu-sm dropdown-content bg-base-100 rounded-box z-50 mt-3 w-48 p-2 shadow-lg"
-          x-show="open"
-          @click.outside="open = false"
-          x-transition
-        >
-          <li><a href="/admin/">Admin</a></li>
-        </ul>
+      <a href="{% url 'jobs:list' %}" class="btn btn-primary btn-sm hidden sm:inline-flex">
+        Print Jobs
+      </a>
       </div>
     </div>
 
