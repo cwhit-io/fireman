@@ -1,0 +1,89 @@
+{% extends "admin/change_form.html" %}
+
+{% block content %}{{ block.super }}
+<div id="impose-layout-preview" style="
+  position:fixed;
+  bottom:16px;
+  right:16px;
+  z-index:9999;
+  width:320px;
+  background:#fff;
+  border:1px solid #dee2e6;
+  border-radius:6px;
+  box-shadow:0 4px 18px rgba(0,0,0,.18);
+  padding:12px 14px 10px;
+">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <span style="font-size:11px;font-weight:600;color:#444;text-transform:uppercase;letter-spacing:0.06em;">
+      Layout Preview
+    </span>
+    <span style="font-size:10px;color:#bbb;">updates on change</span>
+  </div>
+  <div id="impose-preview-svg" style="overflow:auto;line-height:0;max-height:460px;">
+    {% if preview_svg %}
+      {{ preview_svg|safe }}
+    {% else %}
+      <svg xmlns="http://www.w3.org/2000/svg" width="240" height="40">
+        <text x="10" y="25" fill="#bbb" font-size="12">Select sizes to preview.</text>
+      </svg>
+    {% endif %}
+  </div>
+  <p style="margin:6px 0 0;font-size:10px;color:#bbb;">Blue = trim &nbsp;·&nbsp; Orange = barcode (DC-646)</p>
+</div>
+
+<script>
+(function () {
+  var PREVIEW_URL = "{{ layout_preview_url|escapejs }}";
+  var svgDiv = document.getElementById("impose-preview-svg");
+  var csrfEl = document.querySelector("[name=csrfmiddlewaretoken]");
+  if (!svgDiv || !csrfEl) return;
+
+  function val(id) {
+    var el = document.getElementById(id);
+    return el ? el.value : "";
+  }
+
+  function doFetch() {
+    var params = new URLSearchParams({
+      cut_size:       val("id_cut_size"),
+      sheet_size:     val("id_sheet_size"),
+      bleed:          val("id_bleed"),
+      columns:        val("id_columns"),
+      rows:           val("id_rows"),
+      barcode_x:      val("id_barcode_x"),
+      barcode_y:      val("id_barcode_y"),
+      barcode_width:  val("id_barcode_width"),
+      barcode_height: val("id_barcode_height"),
+    });
+    fetch(PREVIEW_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-CSRFToken": csrfEl.value,
+      },
+      body: params.toString(),
+    })
+      .then(function (r) { return r.text(); })
+      .then(function (html) { svgDiv.innerHTML = html; })
+      .catch(function () {});
+  }
+
+  var timer = null;
+  function debounced() {
+    clearTimeout(timer);
+    timer = setTimeout(doFetch, 400);
+  }
+
+  ["id_cut_size", "id_sheet_size", "id_bleed",
+   "id_columns", "id_rows",
+   "id_barcode_x", "id_barcode_y", "id_barcode_width", "id_barcode_height"
+  ].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("change", doFetch);
+      el.addEventListener("input", debounced);
+    }
+  });
+}());
+</script>
+{% endblock %}

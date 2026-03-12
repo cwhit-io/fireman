@@ -4,7 +4,7 @@ from django.apps import AppConfig
 class CoreConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "core"
-    verbose_name = "Core"
+    verbose_name = "👤 Users"
 
     def ready(self):
         import core.checks  # noqa: F401 — registers system checks
