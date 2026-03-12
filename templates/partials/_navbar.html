@@ -26,7 +26,6 @@
           {# <li><a href="{% url 'jobs:list' %}">Jobs</a></li> #}
           {% if user.is_authenticated %}
           <li><a href="{% url 'impose:list' %}">Templates</a></li>
-          <li><a href="{% url 'routing:list' %}">Printer Presets</a></li>
           {% endif %}
         </ul>
       </div>
@@ -48,7 +47,6 @@
         {# <li><a href="{% url 'jobs:list' %}" class="font-medium">Jobs</a></li> #}
         {% if user.is_authenticated %}
         <li><a href="{% url 'impose:list' %}" class="font-medium">Templates</a></li>
-        <li><a href="{% url 'routing:list' %}" class="font-medium">Printer Presets</a></li>
         {% endif %}
       </ul>
     </div>
