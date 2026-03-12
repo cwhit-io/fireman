@@ -636,7 +636,7 @@ def impose_from_template(
 
     Modes
     -----
-    * ``pages_are_unique=False`` or ``layout_type == STEP_REPEAT``:
+    * ``pages_are_unique=False``:
       step-and-repeat — only the **first** source page is used; every cell on
       every output sheet shows that one design.  Multi-page source PDFs are
       truncated to the first page so that a customer who accidentally submits a
@@ -667,9 +667,6 @@ def impose_from_template(
     """
     from pypdf import PdfReader, PdfWriter
 
-    from apps.impose.models import ImpositionTemplate
-
-    lt = template.layout_type
     sheet_w = float(template.sheet_width)
     sheet_h = float(template.sheet_height)
     bleed = float(template.bleed)
@@ -703,7 +700,7 @@ def impose_from_template(
     # ── Run the core imposition ────────────────────────────────────────────
     imposed_buf = io.BytesIO()
 
-    if not pages_are_unique or lt == ImpositionTemplate.LayoutType.STEP_REPEAT:
+    if not pages_are_unique:
         # Step-and-repeat: use only the first source page.  A multi-page
         # source PDF is truncated so that customers who upload a 2-page file
         # still get a single gang-up sheet rather than one sheet per page.

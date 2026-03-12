@@ -71,10 +71,6 @@ class PrintSize(models.Model):
 class ImpositionTemplate(models.Model):
     """Defines how pages should be imposed onto a press sheet."""
 
-    class LayoutType(models.TextChoices):
-        STEP_REPEAT = "step_repeat", "Step & Repeat"
-        CUSTOM = "custom", "Custom"
-
     name = models.CharField(max_length=100, unique=True)
     product_category = models.ForeignKey(
         "impose.ProductCategory",
@@ -99,9 +95,6 @@ class ImpositionTemplate(models.Model):
         on_delete=models.SET_NULL,
         related_name="templates_sheet",
         help_text="Named sheet size (press sheet dimensions) from the lookup table",
-    )
-    layout_type = models.CharField(
-        max_length=20, choices=LayoutType.choices, blank=True, default="custom"
     )
     # Cut size — the finished (trimmed) product dimensions, excluding bleed
     cut_width = models.DecimalField(

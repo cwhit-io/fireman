@@ -97,7 +97,6 @@ def _build_form_context():
     from .models import PrintSize, ProductCategory
 
     return {
-        "layout_types": ImpositionTemplate.LayoutType.choices,
         "cutter_programs": CutterProgram.objects.filter(active=True).order_by("name"),
         "routing_presets": RoutingPreset.objects.filter(active=True).order_by("name"),
         "product_categories": ProductCategory.objects.order_by("name"),
@@ -119,7 +118,6 @@ def _get_initial_form_values(tmpl=None):
             else "",
             "cut_size": str(tmpl.cut_size_id) if tmpl.cut_size_id else "",
             "sheet_size": str(tmpl.sheet_size_id) if tmpl.sheet_size_id else "",
-            "layout_type": tmpl.layout_type,
             "cut_width": _pts_to_in(tmpl.cut_width)
             if tmpl.cut_width is not None
             else "",
@@ -153,7 +151,6 @@ def _get_initial_form_values(tmpl=None):
         "product_category": "",
         "cut_size": "",
         "sheet_size": "",
-        "layout_type": "custom",
         "cut_width": "",
         "cut_height": "",
         "sheet_width": "",
@@ -217,7 +214,6 @@ def _template_from_post(data):
         "product_category_id": _int_or_none("product_category"),
         "cut_size_id": _int_or_none("cut_size"),
         "sheet_size_id": _int_or_none("sheet_size"),
-        "layout_type": data.get("layout_type", "custom") or "custom",
         "cut_width": _fld("cut_width"),
         "cut_height": _fld("cut_height"),
         "sheet_width": _fld("sheet_width"),
