@@ -73,7 +73,7 @@
               <span class="font-medium text-sm">{{ tmpl.name }}</span>
             </td>
             <td class="px-4 py-3 text-sm text-base-content/60">
-              {% if tmpl.product_category %}{{ tmpl.product_category.name }}{% elif tmpl.category %}{{ tmpl.category }}{% else %}—{% endif %}
+              {% if tmpl.product_category %}{{ tmpl.product_category.name }}{% else %}—{% endif %}
             </td>
             <td class="px-4 py-3 text-sm font-mono text-base-content/70">{{ tmpl.cut_size_label }}</td>
             <td class="px-4 py-3 text-sm font-mono text-base-content/70">{{ tmpl.sheet_size_label }}</td>

@@ -178,7 +178,15 @@
               </div>
             </div>
 
-            <input id="id_layout_type" name="layout_type" type="hidden" value="{{ values.layout_type|default:'custom' }}" hx-post="{% if template %}{% url 'impose:edit' template.pk %}{% else %}{% url 'impose:create' %}{% endif %}" hx-include="#impose-form" hx-vals='{"_preview": "1"}' hx-target="#preview-svg" hx-trigger="change">
+            <div class="form-control mb-4">
+              <label class="label cursor-pointer py-0 gap-3">
+                <input id="id_layout_type" name="layout_type" type="checkbox" value="step_repeat" {% if values.layout_type == 'step_repeat' %}checked{% endif %} class="checkbox checkbox-primary checkbox-sm" hx-post="{% if template %}{% url 'impose:edit' template.pk %}{% else %}{% url 'impose:create' %}{% endif %}" hx-include="#impose-form" hx-vals='{"_preview": "1"}' hx-target="#preview-svg" hx-trigger="change">
+                <span class="label-text text-sm">
+                  Force step-and-repeat
+                  <span class="block text-xs text-base-content/50 mt-0.5">When checked, always gang-stamp one design per sheet — ignores per-job unique-pages setting.</span>
+                </span>
+              </label>
+            </div>
 
             <div class="divider my-3"></div>
 

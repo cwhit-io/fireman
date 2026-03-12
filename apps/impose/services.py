@@ -564,12 +564,16 @@ def impose_from_template(
     Modes
     -----
     * ``pages_are_unique=False`` or ``layout_type == STEP_REPEAT``:
-      step-and-repeat — every cell on the sheet shows the same (first) page.
+      step-and-repeat — only the **first** source page is used; every cell on
+      every output sheet shows that one design.  Multi-page source PDFs are
+      truncated to the first page so that a customer who accidentally submits a
+      two-page file still gets a single gang-up sheet.
     * ``is_double_sided=True`` and ``pages_are_unique=True``:
       double-sided n-up — each source page fills one complete output sheet
       (e.g. page 1 × 8-up → sheet 1, page 2 × 8-up → sheet 2) so the job
       can be duplexed correctly.
-    * Otherwise: standard sequential n-up.
+    * Otherwise: standard sequential n-up — pages are gang-imposed across
+      sheets using the template's grid dimensions.
 
     Post-processing overlays
     ------------------------
@@ -589,6 +593,7 @@ def impose_from_template(
     the sheet the template's explicit ``margin_*`` fields are used instead.
     """
     from apps.impose.models import ImpositionTemplate
+    from pypdf import PdfReader, PdfWriter
 
     lt = template.layout_type
     sheet_w = float(template.sheet_width)
@@ -625,8 +630,20 @@ def impose_from_template(
     imposed_buf = io.BytesIO()
 
     if not pages_are_unique or lt == ImpositionTemplate.LayoutType.STEP_REPEAT:
+        # Step-and-repeat: use only the first source page.  A multi-page
+        # source PDF is truncated so that customers who upload a 2-page file
+        # still get a single gang-up sheet rather than one sheet per page.
+        raw = input_pdf.read()
+        first_page_buf = io.BytesIO()
+        reader_tmp = PdfReader(io.BytesIO(raw))
+        if reader_tmp.pages:
+            w_tmp = PdfWriter()
+            w_tmp.add_page(reader_tmp.pages[0])
+            w_tmp.write(first_page_buf)
+        first_page_buf.seek(0)
+
         impose_step_repeat(
-            input_pdf,
+            first_page_buf,
             imposed_buf,
             columns=template.columns,
             rows=template.rows,
@@ -653,8 +670,6 @@ def impose_from_template(
             margin_left=eff_margin_left,
             auto_rotate=auto_rotate,
         )
-    elif lt == ImpositionTemplate.LayoutType.BUSINESS_CARD:
-        impose_business_card_21up(input_pdf, imposed_buf)
     else:
         impose_nup(
             input_pdf,
@@ -740,8 +755,6 @@ def impose_from_template(
         return
 
     # ── Merge overlay onto every output sheet ─────────────────────────────
-    from pypdf import PdfReader, PdfWriter
-
     imposed_buf.seek(0)
     reader = PdfReader(imposed_buf)
     writer = PdfWriter()
