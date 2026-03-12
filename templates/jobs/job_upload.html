@@ -167,18 +167,19 @@
                 <label class="flex items-start gap-3 cursor-pointer group">
                   <input id="is_double_sided" name="is_double_sided" type="checkbox"
                     class="checkbox checkbox-info mt-0.5"
-                    x-ref="doubleSidedCheck"
-                    checked>
+                    x-model="isDoubleSided"
+                    @change="if(isDoubleSided){ pagesAreUnique=false; updateHints() }">
                   <div>
                     <p class="text-sm font-medium text-base-content group-hover:text-info transition-colors">Two-sided (duplex)</p>
-                    <p class="text-xs text-base-content/60 mt-1">Print on both sides of the sheet. Uncheck for single-sided.</p>
+                    <p class="text-xs text-base-content/60 mt-1">Print on both sides of the sheet. Selecting this clears "Pages are unique".</p>
                   </div>
                 </label>
 
                 <label class="flex items-start gap-3 cursor-pointer group">
                   <input id="pages_are_unique" name="pages_are_unique" type="checkbox"
                     class="checkbox checkbox-info mt-0.5"
-                    @change="pagesUniqueChanged($event)">
+                    x-model="pagesAreUnique"
+                    @change="if(pagesAreUnique){ isDoubleSided=false }; updateHints()">
                   <div>
                     <p class="text-sm font-medium text-base-content group-hover:text-info transition-colors">Pages are unique</p>
                     <p class="text-xs text-base-content/60 mt-1" x-text="pagesUniqueHint"></p>
@@ -221,6 +222,8 @@ function uploadForm() {
     fileName: '',
     dropLabel: 'Click or drag a PDF here',
     submitting: false,
+    isDoubleSided: true,
+    pagesAreUnique: false,
     pagesUniqueHint: 'Step-and-repeat / stack-cut: all positions print the same content.',
 
     onSubmit(event) {
@@ -285,8 +288,8 @@ function uploadForm() {
       });
     },
 
-    pagesUniqueChanged(event) {
-      this.pagesUniqueHint = event.target.checked
+    updateHints() {
+      this.pagesUniqueHint = this.pagesAreUnique
         ? 'Each page has different content — imposed as unique pages (n-up).'
         : 'Step-and-repeat / stack-cut: all positions print the same content.';
     }

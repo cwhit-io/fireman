@@ -147,10 +147,9 @@ class PrintJobAdmin(admin.ModelAdmin):
     def original_file_preview(self, obj):
         if not obj.file:
             return "—"
-        try:
-            url = obj.file.url
-        except ValueError:
-            return "—"
+        from django.urls import reverse
+
+        url = reverse("jobs:source_preview", kwargs={"pk": obj.pk})
         return format_html(
             '<iframe src="{}" width="100%" height="500px"'
             ' style="border:1px solid #ccc;border-radius:4px;"></iframe>',
@@ -161,10 +160,9 @@ class PrintJobAdmin(admin.ModelAdmin):
     def imposed_file_preview(self, obj):
         if not obj.imposed_file:
             return "—"
-        try:
-            url = obj.imposed_file.url
-        except ValueError:
-            return "—"
+        from django.urls import reverse
+
+        url = reverse("jobs:preview", kwargs={"pk": obj.pk})
         return format_html(
             '<iframe src="{}" width="100%" height="500px"'
             ' style="border:1px solid #ccc;border-radius:4px;"></iframe>',

@@ -41,7 +41,7 @@ class JobListView(ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["saved_jobs"] = PrintJob.objects.filter(is_saved=True).select_related(
-            "imposition_template__sheet_size", "cutter_program"
+            "imposition_template__sheet_size", "cutter_program", "routing_preset"
         )
         return ctx
 
@@ -121,11 +121,7 @@ class JobUploadView(View):
 
         # Capture user-provided job options
         pages_are_unique = request.POST.get("pages_are_unique") == "on"
-        # is_double_sided: explicit form field (checked by default for multi-page).
-        # Step-and-repeat jobs (pages_are_unique=False) cannot be double-sided.
-        is_double_sided = (
-            request.POST.get("is_double_sided") == "on" if pages_are_unique else False
-        )
+        is_double_sided = request.POST.get("is_double_sided") == "on"
 
         job = PrintJob.objects.create(
             name=file.name,
