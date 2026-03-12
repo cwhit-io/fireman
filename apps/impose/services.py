@@ -252,6 +252,68 @@ def _make_overlay_page(sheet_w: float, sheet_h: float, content_stream: bytes):
     return PdfReader(buf).pages[0]
 
 
+def _clip_page_content_to_box(
+    page,
+    clip_x: float,
+    clip_y: float,
+    clip_w: float,
+    clip_h: float,
+):
+    """Return a copy of *page* whose content is clipped to the given rectangle.
+
+    The rectangle is expressed in the source page's own coordinate space (PDF
+    points, Y axis up from the page bottom).  The clip is implemented by
+    wrapping the existing content stream in a PDF graphics-state save/restore
+    with a rectangular clipping path:
+
+        q
+        <clip_x> <clip_y> <clip_w> <clip_h> re W n
+        … original content …
+        Q
+
+    This prevents any content outside the rectangle (e.g. oversized bleed)
+    from being visible after the page is placed on the press sheet, regardless
+    of the transformation matrix applied by ``merge_transformed_page``.
+    """
+    from copy import deepcopy
+
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import DecodedStreamObject, NameObject
+
+    # Work on a shallow copy so we don't mutate the original page object.
+    writer = PdfWriter()
+    writer.add_page(deepcopy(page))
+    clipped = writer.pages[0]
+
+    # Build the clip wrapper around the existing stream bytes.
+    existing_stream: bytes
+    contents = clipped.get("/Contents")
+    if contents is None:
+        existing_stream = b""
+    elif hasattr(contents, "get_data"):
+        existing_stream = contents.get_data()
+    else:
+        # Array of streams — concatenate them.
+        existing_stream = b" ".join(obj.get_object().get_data() for obj in contents)
+
+    clip_cmd = (
+        f"{clip_x:.4f} {clip_y:.4f} {clip_w:.4f} {clip_h:.4f} re W n\n"
+    ).encode()
+
+    wrapped = b"q\n" + clip_cmd + existing_stream + b"\nQ"
+
+    new_stream = DecodedStreamObject()
+    new_stream.set_data(wrapped)
+    clipped[NameObject("/Contents")] = new_stream
+
+    # Round-trip through PdfReader so merge_transformed_page gets a proper
+    # page object rather than a PdfWriter-internal one.
+    buf = io.BytesIO()
+    writer.write(buf)
+    buf.seek(0)
+    return PdfReader(buf).pages[0]
+
+
 def impose_nup(
     input_pdf: IO[bytes],
     output_pdf: IO[bytes],
@@ -387,7 +449,18 @@ def impose_nup(
 
                 transform = Transformation().scale(scale).translate(tx, ty)
 
-            sheet.merge_transformed_page(src, transform)
+            # Clip the source page to exactly trim + allowed bleed before merging.
+            # This prevents oversized source bleed from overflowing into adjacent cells.
+            # The clip box is expressed in source page coordinates (before transformation).
+            src_allowed_bleed = bleed / scale if scale else 0.0
+            clipped_src = _clip_page_content_to_box(
+                src,
+                src_trim_left - src_allowed_bleed,
+                src_trim_bottom - src_allowed_bleed,
+                src_trim_w + 2 * src_allowed_bleed,
+                src_trim_h + 2 * src_allowed_bleed,
+            )
+            sheet.merge_transformed_page(clipped_src, transform)
 
         writer.add_page(sheet)
 
@@ -592,8 +665,9 @@ def impose_from_template(
     centred on the sheet automatically.  If the cut-size grid would overflow
     the sheet the template's explicit ``margin_*`` fields are used instead.
     """
-    from apps.impose.models import ImpositionTemplate
     from pypdf import PdfReader, PdfWriter
+
+    from apps.impose.models import ImpositionTemplate
 
     lt = template.layout_type
     sheet_w = float(template.sheet_width)
