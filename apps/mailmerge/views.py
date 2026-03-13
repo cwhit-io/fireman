@@ -1,15 +1,21 @@
+import io
 import logging
 
 from django.contrib import messages
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
 from .models import MailMergeJob
+from .services import inspect_artwork_pdf
 from .tasks import process_mail_merge_task
 
 logger = logging.getLogger(__name__)
+
+# Default address block anchor values (inches)
+_ADDR_X_DEFAULT_IN = None  # card_width - 4.5 in
+_ADDR_Y_DEFAULT_IN = 2.5
 
 
 class MailMergeJobListView(ListView):
@@ -23,6 +29,20 @@ class MailMergeJobDetailView(DetailView):
     model = MailMergeJob
     template_name = "mailmerge/job_detail.html"
     context_object_name = "job"
+
+
+class MailMergeArtworkInspectView(View):
+    """HTMX/JSON endpoint: inspect an uploaded artwork PDF and return page info."""
+
+    def post(self, request):
+        artwork = request.FILES.get("artwork_file")
+        if not artwork:
+            return JsonResponse({"error": "No file uploaded."}, status=400)
+        if not artwork.name.lower().endswith(".pdf"):
+            return JsonResponse({"error": "File must be a PDF."}, status=400)
+
+        data = inspect_artwork_pdf(io.BytesIO(artwork.read()))
+        return JsonResponse(data)
 
 
 class MailMergeJobUploadView(View):
@@ -51,10 +71,50 @@ class MailMergeJobUploadView(View):
                 messages.error(request, msg)
             return render(request, self.template_name, status=400)
 
+        # Inspect the artwork to capture page count and dimensions
+        artwork.seek(0)
+        pdf_info = inspect_artwork_pdf(io.BytesIO(artwork.read()))
+        artwork.seek(0)
+
+        page_count = pdf_info.get("page_count", 1)
+        pages = pdf_info.get("pages", [])
+
+        # merge_page: which page gets the address (1-based, default 1)
+        try:
+            merge_page = int(request.POST.get("merge_page", 1))
+        except (TypeError, ValueError):
+            merge_page = 1
+        merge_page = max(1, min(merge_page, max(page_count, 1)))
+
+        # Card dimensions from the chosen merge page
+        card_width = None
+        card_height = None
+        if pages and merge_page <= len(pages):
+            p = pages[merge_page - 1]
+            card_width = p["width_pt"]
+            card_height = p["height_pt"]
+
+        # Address block position (inches)
+        def _parse_float(key):
+            val = request.POST.get(key, "").strip()
+            try:
+                return float(val) if val else None
+            except ValueError:
+                return None
+
+        addr_x_in = _parse_float("addr_x_in")
+        addr_y_in = _parse_float("addr_y_in")
+
         job = MailMergeJob.objects.create(
             name=name or artwork.name,
             artwork_file=artwork,
             csv_file=csv_file,
+            artwork_page_count=page_count,
+            merge_page=merge_page,
+            card_width=card_width,
+            card_height=card_height,
+            addr_x_in=addr_x_in,
+            addr_y_in=addr_y_in,
         )
         process_mail_merge_task.delay(str(job.pk))
         messages.success(request, "Mail-merge job submitted.")
