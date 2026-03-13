@@ -9,8 +9,17 @@ Workflow
 
 Address block position (per user spec)
 ---------------------------------------
-- Bottom of address block: 2.5 inches from the bottom of the card.
-- Left edge of address block: (card_width - 4.5 inches) from the left.
+- Bottom of address block: 2.5 inches from the bottom of the card (default).
+- Left edge of address block: (card_width - 4.5 inches) from the left (default).
+- Both values can be overridden at job creation time via ``addr_x_in`` /
+  ``addr_y_in`` (in inches).
+
+Two-page artwork PDFs
+---------------------
+When the artwork PDF contains exactly two pages (front and address side), the
+caller specifies which page receives the address block via ``merge_page``
+(1-based).  For each record the output contains **both** pages: the non-address
+page is copied as-is and the address page gets the overlay.
 
 Address block line order (bottom → top)
 ----------------------------------------
@@ -35,9 +44,9 @@ logger = logging.getLogger(__name__)
 # PDF geometry constants
 _PT_PER_IN: float = 72.0
 
-# Address block anchor (inches)
-_ADDR_BOTTOM_IN: float = 2.5  # bottom of address block from card bottom
-_ADDR_FROM_RIGHT_IN: float = 4.5  # address block left edge = card_width - this
+# Address block anchor defaults (inches)
+_ADDR_BOTTOM_IN_DEFAULT: float = 2.5  # bottom of address block from card bottom
+_ADDR_FROM_RIGHT_IN_DEFAULT: float = 4.5  # address block left edge = card_width - this
 
 # Text rendering
 _FONT_NAME: bytes = b"/Helvetica"
@@ -71,6 +80,39 @@ def parse_usps_csv(csv_file: IO[bytes]) -> list[dict[str, str]]:
     return records
 
 
+def inspect_artwork_pdf(artwork_pdf: IO[bytes]) -> dict:
+    """Return basic metadata about an artwork PDF without modifying it.
+
+    Returns a dict with keys:
+        page_count (int): number of pages
+        pages (list[dict]): per-page width/height in points and inches
+    """
+    from pypdf import PdfReader
+
+    artwork_bytes = artwork_pdf.read()
+    if not artwork_bytes:
+        return {"page_count": 0, "pages": []}
+
+    try:
+        reader = PdfReader(io.BytesIO(artwork_bytes))
+    except Exception:
+        return {"page_count": 0, "pages": []}
+
+    pages = []
+    for page in reader.pages:
+        w = float(page.mediabox.width)
+        h = float(page.mediabox.height)
+        pages.append(
+            {
+                "width_pt": w,
+                "height_pt": h,
+                "width_in": round(w / _PT_PER_IN, 4),
+                "height_in": round(h / _PT_PER_IN, 4),
+            }
+        )
+    return {"page_count": len(pages), "pages": pages}
+
+
 def _escape_pdf_string(text: str) -> bytes:
     """Escape a string for use inside a PDF literal string ``(…)``."""
     out = []
@@ -99,12 +141,23 @@ def _address_text_stream(
     record: dict[str, str],
     card_w: float,
     card_h: float,
+    addr_x: float | None = None,
+    addr_y: float | None = None,
 ) -> bytes:
     """Return a PDF content-stream fragment that draws the address block.
 
     The stream uses only the built-in Helvetica Type1 font (/F1), which
     requires no font embedding.  The font resource must be declared on the
     page that receives this stream (see ``_make_address_overlay_page``).
+
+    Parameters
+    ----------
+    addr_x:
+        X coordinate (points from left) of the address block left edge.
+        Defaults to ``card_w - 4.5 * 72``.
+    addr_y:
+        Y coordinate (points from bottom) of the address block baseline.
+        Defaults to ``2.5 * 72``.
     """
     # ── Build address lines (bottom → top) ──────────────────────────────
     lines: list[str] = []
@@ -141,8 +194,13 @@ def _address_text_stream(
         return b""
 
     # ── Compute anchor position ─────────────────────────────────────────
-    x = card_w - _ADDR_FROM_RIGHT_IN * _PT_PER_IN
-    y_base = _ADDR_BOTTOM_IN * _PT_PER_IN  # baseline of the lowest line
+    if addr_x is None:
+        addr_x = card_w - _ADDR_FROM_RIGHT_IN_DEFAULT * _PT_PER_IN
+    if addr_y is None:
+        addr_y = _ADDR_BOTTOM_IN_DEFAULT * _PT_PER_IN
+
+    x = addr_x
+    y_base = addr_y  # baseline of the lowest line
 
     # ── Build the PDF text content stream ───────────────────────────────
     parts: list[bytes] = [b"BT", f"/F1 {_FONT_SIZE:.1f} Tf".encode()]
@@ -212,25 +270,41 @@ def merge_postcards(
     artwork_pdf: IO[bytes],
     records: list[dict[str, str]],
     output_pdf: IO[bytes],
+    merge_page: int = 1,
+    addr_x_in: float | None = None,
+    addr_y_in: float | None = None,
 ) -> int:
-    """Produce a mail-merged PDF with one page per address record.
+    """Produce a mail-merged PDF with one (or two) pages per address record.
 
-    Each output page is a copy of the artwork page with the USPS address
-    block overlaid in the bottom-right area.
+    For single-page artwork, each output page is a copy of the artwork page
+    with the USPS address block overlaid.
+
+    For two-page artwork (front + address side), each output record produces
+    two pages: the non-address page is copied verbatim and the address page
+    receives the overlay.  The output order matches the artwork page order.
 
     Parameters
     ----------
     artwork_pdf:
-        Readable binary stream of the postcard artwork PDF (single page).
+        Readable binary stream of the postcard artwork PDF (1 or 2 pages).
     records:
         Parsed address records from :func:`parse_usps_csv`.
     output_pdf:
         Writable binary stream for the merged output.
+    merge_page:
+        1-based page number within the artwork that should receive the address
+        block.  Ignored for single-page artwork (always page 1).
+    addr_x_in:
+        Left edge of the address block in inches from the card's left edge.
+        ``None`` uses the default (card_width - 4.5 in).
+    addr_y_in:
+        Bottom baseline of the address block in inches from the card's bottom.
+        ``None`` uses the default (2.5 in).
 
     Returns
     -------
     int
-        Number of pages written (= number of records processed).
+        Number of *records* processed (not total pages written).
     """
     from pypdf import PdfReader, PdfWriter
 
@@ -242,26 +316,40 @@ def merge_postcards(
     if not artwork_reader.pages:
         raise ValueError("Artwork PDF contains no pages.")
 
-    artwork_page = artwork_reader.pages[0]
-    mediabox = artwork_page.mediabox
-    card_w = float(mediabox.width)
-    card_h = float(mediabox.height)
+    num_artwork_pages = len(artwork_reader.pages)
+
+    # Clamp merge_page to valid range
+    merge_page = max(1, min(merge_page, num_artwork_pages))
+    merge_page_idx = merge_page - 1  # 0-based
+
+    # Resolve address block anchor in points
+    addr_x_pt = addr_x_in * _PT_PER_IN if addr_x_in is not None else None
+    addr_y_pt = addr_y_in * _PT_PER_IN if addr_y_in is not None else None
+
+    # Dimensions of the address page
+    addr_page_media = artwork_reader.pages[merge_page_idx].mediabox
+    card_w = float(addr_page_media.width)
+    card_h = float(addr_page_media.height)
 
     writer = PdfWriter()
     pages_written = 0
 
     for record in records:
-        # Clone the artwork page for this recipient
-        buf = io.BytesIO(artwork_bytes)
-        reader = PdfReader(buf)
-        page = reader.pages[0]
+        for page_idx in range(num_artwork_pages):
+            # Re-read the artwork for each page/record to get a fresh copy
+            reader = PdfReader(io.BytesIO(artwork_bytes))
+            page = reader.pages[page_idx]
 
-        stream = _address_text_stream(record, card_w, card_h)
-        if stream:
-            overlay = _make_address_overlay_page(card_w, card_h, stream)
-            page.merge_page(overlay)
+            if page_idx == merge_page_idx:
+                stream = _address_text_stream(
+                    record, card_w, card_h, addr_x=addr_x_pt, addr_y=addr_y_pt
+                )
+                if stream:
+                    overlay = _make_address_overlay_page(card_w, card_h, stream)
+                    page.merge_page(overlay)
 
-        writer.add_page(page)
+            writer.add_page(page)
+
         pages_written += 1
 
     writer.write(output_pdf)
