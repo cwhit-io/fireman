@@ -266,6 +266,307 @@ def _make_address_overlay_page(card_w: float, card_h: float, stream_bytes: bytes
     return PdfReader(buf).pages[0]
 
 
+def compute_gangup_grid(
+    card_w_pt: float,
+    card_h_pt: float,
+    sheet_w_pt: float = 864.0,  # 12"
+    sheet_h_pt: float = 1296.0,  # 18"
+) -> tuple[int, int]:
+    """Return (columns, rows) that maximise per-sheet card count on the given sheet.
+
+    Both orientations (upright and rotated 90°) are considered and the one
+    that places more cards per sheet is chosen.
+    """
+    if card_w_pt <= 0 or card_h_pt <= 0:
+        return 1, 1
+
+    # Normal orientation
+    cols_n = max(1, int(sheet_w_pt / card_w_pt))
+    rows_n = max(1, int(sheet_h_pt / card_h_pt))
+
+    # Rotated 90° orientation
+    cols_r = max(1, int(sheet_w_pt / card_h_pt))
+    rows_r = max(1, int(sheet_h_pt / card_w_pt))
+
+    if cols_r * rows_r > cols_n * rows_n:
+        return cols_r, rows_r
+    return cols_n, rows_n
+
+
+def build_artwork_gangup(
+    artwork_pdf: IO[bytes],
+    cols: int,
+    rows: int,
+    sheet_w_pt: float,
+    sheet_h_pt: float,
+    output_pdf: IO[bytes],
+) -> None:
+    """Produce an N-up gang-up press sheet from the artwork PDF.
+
+    Single-page artwork: tile the one design *cols × rows* times per sheet.
+    Two-page artwork: produce two sheets — sheet 1 has *cols × rows* copies of
+    page 1 (front) and sheet 2 has *cols × rows* copies of page 2 (address side).
+    This layout can be duplexed on a press so fronts and backs align.
+    """
+    from pypdf import PdfReader, PdfWriter
+
+    artwork_bytes = artwork_pdf.read()
+    reader = PdfReader(io.BytesIO(artwork_bytes))
+    if not reader.pages:
+        return
+
+    per_sheet = cols * rows
+    final_writer = PdfWriter()
+
+    for src_page in reader.pages:
+        # Build a temporary PDF with per_sheet copies of this page.
+        tmp_buf = io.BytesIO()
+        tmp_w = PdfWriter()
+        for _ in range(per_sheet):
+            tmp_w.add_page(src_page)
+        tmp_w.write(tmp_buf)
+        tmp_buf.seek(0)
+
+        sheet_buf = io.BytesIO()
+        _impose_nup_simple(
+            tmp_buf, sheet_buf,
+            cols, rows,
+            sheet_w_pt, sheet_h_pt,
+        )
+        sheet_buf.seek(0)
+        for page in PdfReader(sheet_buf).pages:
+            final_writer.add_page(page)
+
+    final_writer.write(output_pdf)
+
+
+def _impose_nup_simple(
+    input_pdf: IO[bytes],
+    output_pdf: IO[bytes],
+    columns: int,
+    rows: int,
+    sheet_w: float,
+    sheet_h: float,
+) -> None:
+    """Minimal N-up imposition: tile source pages onto press sheets.
+
+    Pages are placed sequentially left-to-right, top-to-bottom.  Each source
+    page is scaled to fit its cell uniformly (aspect-ratio preserved) and
+    centred within the cell.  The grid is centred on the sheet.
+    """
+    from pypdf import PageObject, PdfReader, PdfWriter, Transformation
+
+    reader = PdfReader(input_pdf)
+    writer = PdfWriter()
+    pages = list(reader.pages)
+    if not pages:
+        return
+
+    per_sheet = columns * rows
+    cell_w = sheet_w / columns
+    cell_h = sheet_h / rows
+
+    for sheet_start in range(0, len(pages), per_sheet):
+        sheet = PageObject.create_blank_page(width=sheet_w, height=sheet_h)
+        for idx in range(per_sheet):
+            page_idx = sheet_start + idx
+            if page_idx >= len(pages):
+                break
+            src = pages[page_idx]
+
+            col = idx % columns
+            row = idx // columns
+
+            src_w = float(src.mediabox.width)
+            src_h = float(src.mediabox.height)
+            src_left = float(src.mediabox.left)
+            src_bottom = float(src.mediabox.bottom)
+
+            # Try both orientations and pick the one that fills the cell better.
+            scale_n = min(cell_w / src_w, cell_h / src_h) if src_w and src_h else 1.0
+            scale_r = min(cell_w / src_h, cell_h / src_w) if src_w and src_h else 1.0
+            rotated = scale_r > scale_n
+            scale = scale_r if rotated else scale_n
+
+            # Bottom-left corner of the cell on the sheet.
+            cell_left = col * cell_w
+            cell_bottom = sheet_h - (row + 1) * cell_h
+
+            if rotated:
+                # 90° CW: effective dims become src_h × src_w after rotation
+                placed_w = src_h * scale
+                placed_h = src_w * scale
+                center_x = (cell_w - placed_w) / 2
+                center_y = (cell_h - placed_h) / 2
+                target_left = cell_left + center_x
+                target_bottom = cell_bottom + center_y
+                tx = target_left - scale * src_bottom
+                ty = target_bottom + scale * (src_left + src_w)
+                transform = Transformation(ctm=(0, -scale, scale, 0, tx, ty))
+            else:
+                placed_w = src_w * scale
+                placed_h = src_h * scale
+                center_x = (cell_w - placed_w) / 2
+                center_y = (cell_h - placed_h) / 2
+                target_left = cell_left + center_x
+                target_bottom = cell_bottom + center_y
+                tx = target_left - scale * src_left
+                ty = target_bottom - scale * src_bottom
+                transform = Transformation().scale(scale).translate(tx, ty)
+
+            sheet.merge_transformed_page(src, transform)
+
+        writer.add_page(sheet)
+
+    writer.write(output_pdf)
+
+
+def build_address_steprepeat(
+    records: list[dict[str, str]],
+    card_w: float,
+    card_h: float,
+    cols: int,
+    rows: int,
+    sheet_w: float,
+    sheet_h: float,
+    addr_x: float | None,
+    addr_y: float | None,
+    output_pdf: IO[bytes],
+) -> int:
+    """Produce a step-and-repeat PDF containing only address blocks (no artwork).
+
+    Each output sheet holds *cols × rows* address blocks placed in the same
+    grid positions as the corresponding artwork tiles in the gang-up sheet.
+    The first sheet contains records 1…(cols*rows), the second sheet has the
+    next batch, and so on.
+
+    The function does **not** scale the address blocks — they are written at
+    the same point size as in ``merge_postcards``, placed at the card-relative
+    position converted to sheet coordinates.
+
+    Returns the number of records written.
+    """
+    from pypdf import PageObject, PdfWriter
+
+    if addr_x is None:
+        addr_x = card_w - _ADDR_FROM_RIGHT_IN_DEFAULT * _PT_PER_IN
+    if addr_y is None:
+        addr_y = _ADDR_BOTTOM_IN_DEFAULT * _PT_PER_IN
+
+    per_sheet = cols * rows
+    cell_w = sheet_w / cols
+    cell_h = sheet_h / rows
+
+    writer = PdfWriter()
+
+    for sheet_start in range(0, len(records), per_sheet):
+        sheet = PageObject.create_blank_page(width=sheet_w, height=sheet_h)
+
+        # Collect all text streams for this sheet into one combined stream.
+        combined_parts: list[bytes] = []
+
+        for idx in range(per_sheet):
+            rec_idx = sheet_start + idx
+            if rec_idx >= len(records):
+                break
+            record = records[rec_idx]
+
+            col = idx % cols
+            row = idx // cols
+
+            # Determine scale so card fits cell (same logic as _impose_nup_simple).
+            scale_n = min(cell_w / card_w, cell_h / card_h) if card_w and card_h else 1.0
+            scale_r = min(cell_w / card_h, cell_h / card_w) if card_w and card_h else 1.0
+            rotated = scale_r > scale_n
+            scale = scale_r if rotated else scale_n
+
+            cell_left = col * cell_w
+            cell_bottom = sheet_h - (row + 1) * cell_h
+
+            if rotated:
+                placed_h = card_w * scale
+                center_y = (cell_h - placed_h) / 2
+                target_bottom = cell_bottom + center_y
+                # When rotated 90° CW, the card's "bottom" maps to the right side.
+                # addr_x (from card left) → vertical offset from card bottom after rotation
+                # addr_y (from card bottom) → horizontal offset from card left after rotation
+                # The rotated coordinate: sheet_x = target_left + addr_y * scale,
+                #                         sheet_y = target_bottom + (card_w - addr_x) * scale - LINE_HEIGHT
+                # This places the address block correctly in the rotated card orientation.
+                placed_w = card_h * scale
+                center_x = (cell_w - placed_w) / 2
+                target_left = cell_left + center_x
+                sheet_addr_x = target_left + addr_y * scale
+                sheet_addr_y = target_bottom + (card_w - addr_x - _FONT_SIZE) * scale
+            else:
+                placed_w = card_w * scale
+                placed_h = card_h * scale
+                center_x = (cell_w - placed_w) / 2
+                center_y = (cell_h - placed_h) / 2
+                target_left = cell_left + center_x
+                target_bottom = cell_bottom + center_y
+                sheet_addr_x = target_left + addr_x * scale
+                sheet_addr_y = target_bottom + addr_y * scale
+
+            # Build address lines (same logic as _address_text_stream).
+            lines: list[str] = []
+            for field in (
+                "city-state-zip", "primary street", "sec-primary street",
+                "urbanization", "company", "name", "imbno",
+            ):
+                val = record.get(field, "").strip()
+                if val:
+                    lines.append(val)
+            if not lines:
+                continue
+
+            parts: list[bytes] = [
+                b"BT",
+                f"/F1 {_FONT_SIZE:.1f} Tf".encode(),
+            ]
+            for i, line in enumerate(lines):
+                y = sheet_addr_y + i * _LINE_HEIGHT
+                escaped = _escape_pdf_string(line)
+                parts.append(f"{sheet_addr_x:.3f} {y:.3f} Td".encode())
+                parts.append(b"(" + escaped + b") Tj")
+                parts.append(f"{-sheet_addr_x:.3f} {-y:.3f} Td".encode())
+            parts.append(b"ET")
+            combined_parts.extend(parts)
+
+        if combined_parts:
+            _apply_text_stream_to_page(sheet, b"\n".join(combined_parts))
+
+        writer.add_page(sheet)
+
+    writer.write(output_pdf)
+    return len(records)
+
+
+def _apply_text_stream_to_page(page, stream_bytes: bytes) -> None:
+    """Attach a PDF text content stream to *page* in-place, declaring /F1=Helvetica."""
+    from pypdf.generic import (
+        DecodedStreamObject,
+        DictionaryObject,
+        NameObject,
+    )
+
+    font_dict = DictionaryObject({
+        NameObject("/Type"): NameObject("/Font"),
+        NameObject("/Subtype"): NameObject("/Type1"),
+        NameObject("/BaseFont"): NameObject("/Helvetica"),
+    })
+    resources = DictionaryObject({
+        NameObject("/Font"): DictionaryObject({
+            NameObject("/F1"): font_dict,
+        })
+    })
+    page[NameObject("/Resources")] = resources
+
+    stream_obj = DecodedStreamObject()
+    stream_obj.set_data(stream_bytes)
+    page[NameObject("/Contents")] = stream_obj
+
+
 def merge_postcards(
     artwork_pdf: IO[bytes],
     records: list[dict[str, str]],

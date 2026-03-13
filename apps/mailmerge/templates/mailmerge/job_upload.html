@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}New Mail Merge Job — Ember{% endblock %}
 
@@ -77,7 +78,7 @@
               <template x-for="(page, idx) in (pdfInfo ? pdfInfo.pages : [])" :key="idx">
                 <label class="cursor-pointer">
                   <input type="radio" name="merge_page" :value="idx + 1" class="radio radio-primary sr-only"
-                         x-model="mergePage" @change="mergePage = idx + 1">
+                         x-model="mergePage" @change="onMergePageChange(idx + 1)">
                   <div class="border-2 rounded-lg p-3 text-sm transition-colors"
                        :class="mergePage == (idx + 1) ? 'border-primary bg-primary/10' : 'border-base-300 hover:border-primary/50'">
                     <div class="font-semibold mb-0.5" x-text="'Page ' + (idx + 1)"></div>
@@ -102,6 +103,7 @@
                 <input type="number" name="addr_x_in" id="addr_x_in" step="0.0625" min="0"
                        class="input input-bordered w-full"
                        x-model="addrXIn"
+                       @input="renderPreview()"
                        :placeholder="addrXPlaceholder">
                 <label class="label">
                   <span class="label-text-alt text-base-content/40">
@@ -116,6 +118,7 @@
                 <input type="number" name="addr_y_in" id="addr_y_in" step="0.0625" min="0"
                        class="input input-bordered w-full"
                        x-model="addrYIn"
+                       @input="renderPreview()"
                        placeholder="2.5">
                 <label class="label">
                   <span class="label-text-alt text-base-content/40">Default: 2.5&Prime;</span>
@@ -128,10 +131,19 @@
           <div>
             <div class="flex items-center justify-between mb-2">
               <p class="text-sm font-medium text-base-content">Preview</p>
-              <span class="text-xs text-base-content/40">Address block shown in blue</span>
+              <span class="text-xs text-base-content/40">Drag the blue address block to reposition</span>
             </div>
             <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3">
-              <canvas id="previewCanvas" class="max-w-full rounded shadow-sm" style="max-height:320px;"></canvas>
+              <canvas id="previewCanvas"
+                      class="max-w-full rounded shadow-sm"
+                      style="max-height:320px; cursor:grab;"
+                      @mousedown="onCanvasMouseDown($event)"
+                      @mousemove="onCanvasMouseMove($event)"
+                      @mouseup="onCanvasMouseUp($event)"
+                      @mouseleave="onCanvasMouseUp($event)"
+                      @touchstart.prevent="onTouchStart($event)"
+                      @touchmove.prevent="onTouchMove($event)"
+                      @touchend.prevent="onCanvasMouseUp($event)"></canvas>
             </div>
           </div>
 
@@ -180,28 +192,76 @@
 
 </div>
 
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
+(function () {
+  if (typeof pdfjsLib !== 'undefined') {
+    var _w = new URL('{% static "vendor/pdfjs/pdf.worker.min.js" %}', window.location.origin).href;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = _w;
+  }
+})();
+
+var PT_PER_IN = 72;
+var LINE_HEIGHT = 13;
+var NUM_LINES = 7;
+var ADDR_BLOCK_W_PT = 4.25 * PT_PER_IN;
+var ADDR_BLOCK_H_PT = NUM_LINES * LINE_HEIGHT;
+var EM_DASH = '\u2014';
+
 function mailMergeUpload() {
   return {
     pdfInfo: null,
     mergePage: 1,
     addrXIn: '',
     addrYIn: '',
+    isDragging: false,
+    _dragOffsetX: 0,
+    _dragOffsetY: 0,
+    _artworkFile: null,
+    _pdfDoc: null,
+    _scale: 1,
+    _cardWPt: 0,
+    _cardHPt: 0,
 
     get addrXPlaceholder() {
-      if (!this.pdfInfo || !this.pdfInfo.pages) return '—';
-      const idx = Math.max(0, this.mergePage - 1);
-      const page = this.pdfInfo.pages[idx];
-      if (!page) return '—';
-      const x = Math.max(0, page.width_in - 4.5);
+      if (!this.pdfInfo || !this.pdfInfo.pages) return EM_DASH;
+      var idx = Math.max(0, this.mergePage - 1);
+      var page = this.pdfInfo.pages[idx];
+      if (!page) return EM_DASH;
+      var x = Math.max(0, page.width_in - 4.5);
       return x.toFixed(4).replace(/\.?0+$/, '') || '0';
     },
 
-    onArtworkChange(event) {
-      const file = event.target.files[0];
-      if (!file) { this.pdfInfo = null; return; }
+    _getCardInfo() {
+      if (!this.pdfInfo || !this.pdfInfo.pages) return null;
+      var idx = Math.max(0, this.mergePage - 1);
+      return this.pdfInfo.pages[idx] || null;
+    },
 
-      const formData = new FormData();
+    _resolveAddrPt(pageInfo) {
+      var cardWPt = pageInfo.width_pt;
+      var cardHPt = pageInfo.height_pt;
+      var addrX = this.addrXIn !== '' ? parseFloat(this.addrXIn) * PT_PER_IN
+                                      : Math.max(0, cardWPt - 4.5 * PT_PER_IN);
+      var addrY = this.addrYIn !== '' ? parseFloat(this.addrYIn) * PT_PER_IN
+                                      : 2.5 * PT_PER_IN;
+      return { addrX: addrX, addrY: addrY, cardWPt: cardWPt, cardHPt: cardHPt };
+    },
+
+    onMergePageChange(page) {
+      this.mergePage = page;
+      this._pdfDoc = null;
+      this.renderPreview();
+    },
+
+    onArtworkChange(event) {
+      var file = event.target.files[0];
+      if (!file) { this.pdfInfo = null; return; }
+      this._artworkFile = file;
+      this._pdfDoc = null;
+
+      var self = this;
+      var formData = new FormData();
       formData.append('artwork_file', file);
       formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
@@ -209,60 +269,69 @@ function mailMergeUpload() {
         method: 'POST',
         body: formData,
       })
-        .then(r => r.json())
-        .then(data => {
-          this.pdfInfo = data;
-          this.mergePage = 1;
-          this.$nextTick(() => this.renderPreview(file));
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          self.pdfInfo = data;
+          self.mergePage = 1;
+          self.$nextTick(function() { self.renderPreview(); });
         })
-        .catch(() => { this.pdfInfo = null; });
+        .catch(function() { self.pdfInfo = null; });
     },
 
-    renderPreview(file) {
-      const canvas = document.getElementById('previewCanvas');
+    renderPreview() {
+      var canvas = document.getElementById('previewCanvas');
       if (!canvas || !this.pdfInfo || !this.pdfInfo.pages) return;
 
-      const pageIdx = Math.max(0, this.mergePage - 1);
-      const pageInfo = this.pdfInfo.pages[pageIdx];
+      var pageInfo = this._getCardInfo();
       if (!pageInfo) return;
 
-      const PT_PER_IN = 72;
-      const cardWPt = pageInfo.width_pt;
-      const cardHPt = pageInfo.height_pt;
+      var p = this._resolveAddrPt(pageInfo);
+      var addrX = p.addrX, addrY = p.addrY, cardWPt = p.cardWPt, cardHPt = p.cardHPt;
 
-      // Resolve address block anchor
-      const addrX = this.addrXIn !== '' ? parseFloat(this.addrXIn) * PT_PER_IN
-                                        : Math.max(0, cardWPt - 4.5 * PT_PER_IN);
-      const addrY = this.addrYIn !== '' ? parseFloat(this.addrYIn) * PT_PER_IN
-                                        : 2.5 * PT_PER_IN;
+      var maxW = canvas.parentElement.clientWidth - 24;
+      var maxH = 300;
+      var scale = Math.min(maxW / cardWPt, maxH / cardHPt, 1);
+      canvas.width  = Math.round(cardWPt * scale);
+      canvas.height = Math.round(cardHPt * scale);
 
-      // Scale to fit canvas
-      const maxW = canvas.parentElement.clientWidth - 24;
-      const maxH = 300;
-      const scale = Math.min(maxW / cardWPt, maxH / cardHPt, 1);
+      this._scale = scale;
+      this._cardWPt = cardWPt;
+      this._cardHPt = cardHPt;
 
-      canvas.width  = cardWPt * scale;
-      canvas.height = cardHPt * scale;
+      var ctx = canvas.getContext('2d');
+      var self = this;
 
-      const ctx = canvas.getContext('2d');
+      if (this._artworkFile && typeof pdfjsLib !== 'undefined') {
+        var pageIdx = Math.max(0, this.mergePage - 1);
 
-      // Draw PDF page via pdf.js if available, otherwise draw placeholder
-      if (typeof pdfjsLib !== 'undefined') {
-        const url = URL.createObjectURL(file);
-        pdfjsLib.getDocument(url).promise.then(pdf => {
-          pdf.getPage(pageIdx + 1).then(page => {
-            const viewport = page.getViewport({ scale });
+        var renderPage = function(doc) {
+          doc.getPage(pageIdx + 1).then(function(page) {
+            var viewport = page.getViewport({ scale: scale });
             canvas.width  = viewport.width;
             canvas.height = viewport.height;
-            page.render({ canvasContext: ctx, viewport }).promise.then(() => {
-              URL.revokeObjectURL(url);
-              this._drawAddressBlock(ctx, addrX, addrY, scale, cardHPt);
+            page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
+              self._drawAddressBlock(ctx, addrX, addrY, scale, cardHPt);
             });
+          }).catch(function() {
+            self._drawPlaceholder(ctx, canvas.width, canvas.height, addrX, addrY, scale, cardHPt);
           });
-        }).catch(() => {
-          URL.revokeObjectURL(url);
-          this._drawPlaceholder(ctx, canvas.width, canvas.height, addrX, addrY, scale, cardHPt);
-        });
+        };
+
+        if (this._pdfDoc) {
+          renderPage(this._pdfDoc);
+        } else {
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            var typedarray = new Uint8Array(e.target.result);
+            pdfjsLib.getDocument({ data: typedarray }).promise.then(function(doc) {
+              self._pdfDoc = doc;
+              renderPage(doc);
+            }).catch(function() {
+              self._drawPlaceholder(ctx, canvas.width, canvas.height, addrX, addrY, scale, cardHPt);
+            });
+          };
+          reader.readAsArrayBuffer(this._artworkFile);
+        }
       } else {
         this._drawPlaceholder(ctx, canvas.width, canvas.height, addrX, addrY, scale, cardHPt);
       }
@@ -275,26 +344,19 @@ function mailMergeUpload() {
       ctx.lineWidth = 1;
       ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
       ctx.fillStyle = '#94a3b8';
-      ctx.font = `${Math.max(10, 14 * scale)}px sans-serif`;
+      ctx.font = Math.max(10, 14 * scale) + 'px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('Artwork page ' + this.mergePage, w / 2, h / 2 - 8 * scale);
-      ctx.font = `${Math.max(8, 11 * scale)}px sans-serif`;
-      ctx.fillText('(PDF preview requires pdf.js)', w / 2, h / 2 + 8 * scale);
+      ctx.font = Math.max(8, 11 * scale) + 'px sans-serif';
+      ctx.fillText('(upload a PDF to see preview)', w / 2, h / 2 + 8 * scale);
       this._drawAddressBlock(ctx, addrX, addrY, scale, cardHPt);
     },
 
     _drawAddressBlock(ctx, addrX, addrY, scale, cardHPt) {
-      const PT_PER_IN = 72;
-      const LINE_HEIGHT = 13;
-      const NUM_LINES = 7;
-      const BLOCK_W = 4.25 * PT_PER_IN;
-      const BLOCK_H = NUM_LINES * LINE_HEIGHT;
-
-      // PDF origin is bottom-left; canvas origin is top-left
-      const cx = addrX * scale;
-      const cy = (cardHPt - addrY - BLOCK_H) * scale;
-      const cw = BLOCK_W * scale;
-      const ch = BLOCK_H * scale;
+      var cx = addrX * scale;
+      var cy = (cardHPt - addrY - ADDR_BLOCK_H_PT) * scale;
+      var cw = ADDR_BLOCK_W_PT * scale;
+      var ch = ADDR_BLOCK_H_PT * scale;
 
       ctx.save();
       ctx.fillStyle = 'rgba(59,130,246,0.12)';
@@ -302,13 +364,86 @@ function mailMergeUpload() {
       ctx.strokeStyle = 'rgba(59,130,246,0.7)';
       ctx.lineWidth = 1.5;
       ctx.strokeRect(cx, cy, cw, ch);
-
       ctx.fillStyle = 'rgba(59,130,246,0.85)';
-      ctx.font = `bold ${Math.max(8, 9 * scale)}px sans-serif`;
+      ctx.font = 'bold ' + Math.max(8, 9 * scale) + 'px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('Address Block', cx + 3 * scale, cy + 10 * scale);
+      ctx.fillText('Address Block', cx + 3 * scale, cy + 12 * scale);
+      ctx.fillStyle = 'rgba(59,130,246,0.6)';
+      ctx.font = Math.max(7, 8 * scale) + 'px sans-serif';
+      ctx.fillText('drag to reposition', cx + 3 * scale, cy + 22 * scale);
       ctx.restore();
     },
+
+    _canvasEventCoords(event) {
+      var canvas = document.getElementById('previewCanvas');
+      var rect = canvas.getBoundingClientRect();
+      var scaleX = canvas.width / rect.width;
+      var scaleY = canvas.height / rect.height;
+      var src = event.touches ? event.touches[0] : event;
+      return {
+        cx: (src.clientX - rect.left) * scaleX,
+        cy: (src.clientY - rect.top) * scaleY,
+      };
+    },
+
+    _isInsideBlock(cx, cy) {
+      var pageInfo = this._getCardInfo();
+      if (!pageInfo) return false;
+      var p = this._resolveAddrPt(pageInfo);
+      var scale = this._scale || 1;
+      var bx = p.addrX * scale;
+      var by = (p.cardHPt - p.addrY - ADDR_BLOCK_H_PT) * scale;
+      var bw = ADDR_BLOCK_W_PT * scale;
+      var bh = ADDR_BLOCK_H_PT * scale;
+      return cx >= bx && cx <= bx + bw && cy >= by && cy <= by + bh;
+    },
+
+    onCanvasMouseDown(event) {
+      var coords = this._canvasEventCoords(event);
+      if (!this._isInsideBlock(coords.cx, coords.cy)) return;
+      var pageInfo = this._getCardInfo();
+      if (!pageInfo) return;
+      var p = this._resolveAddrPt(pageInfo);
+      var scale = this._scale || 1;
+      var bx = p.addrX * scale;
+      var by = (p.cardHPt - p.addrY - ADDR_BLOCK_H_PT) * scale;
+      this.isDragging = true;
+      this._dragOffsetX = coords.cx - bx;
+      this._dragOffsetY = coords.cy - by;
+      event.target.style.cursor = 'grabbing';
+    },
+
+    onCanvasMouseMove(event) {
+      if (!this.isDragging) return;
+      var pageInfo = this._getCardInfo();
+      if (!pageInfo) return;
+      var coords = this._canvasEventCoords(event);
+      var scale = this._scale || 1;
+      var cardWPt = pageInfo.width_pt;
+      var cardHPt = pageInfo.height_pt;
+
+      var newLeftPt  = (coords.cx - this._dragOffsetX) / scale;
+      var newTopCvPt = (coords.cy - this._dragOffsetY) / scale;
+      var newAddrY = cardHPt - newTopCvPt - ADDR_BLOCK_H_PT;
+
+      var clampedX = Math.max(0, Math.min(newLeftPt, cardWPt - ADDR_BLOCK_W_PT));
+      var clampedY = Math.max(0, Math.min(newAddrY, cardHPt - ADDR_BLOCK_H_PT));
+
+      this.addrXIn = (clampedX / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
+      this.addrYIn = (clampedY / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
+      this.renderPreview();
+    },
+
+    onCanvasMouseUp(event) {
+      if (this.isDragging) {
+        this.isDragging = false;
+        var canvas = document.getElementById('previewCanvas');
+        if (canvas) canvas.style.cursor = 'grab';
+      }
+    },
+
+    onTouchStart(event) { this.onCanvasMouseDown(event); },
+    onTouchMove(event)  { this.onCanvasMouseMove(event); },
   };
 }
 </script>
