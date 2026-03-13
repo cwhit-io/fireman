@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 
 
@@ -50,6 +51,18 @@ class PrintJob(models.Model):
     is_saved = models.BooleanField(
         default=False,
         help_text="Mark this job to keep it beyond the 30-day auto-cleanup window.",
+    )
+    is_global = models.BooleanField(
+        default=False,
+        help_text="Saved job visible to all users (admin-controlled). Only applies when is_saved=True.",
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="print_jobs",
+        help_text="User who uploaded this job.",
     )
     notes = models.TextField(blank=True)
     error_message = models.TextField(blank=True)

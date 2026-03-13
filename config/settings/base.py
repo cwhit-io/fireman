@@ -153,6 +153,11 @@ MAX_PDF_UPLOAD_BYTES = env.int("MAX_PDF_UPLOAD_BYTES", default=50 * 1024 * 1024)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Authentication
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/jobs/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
+
 # Email
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_HOST = env("EMAIL_HOST", default="localhost")

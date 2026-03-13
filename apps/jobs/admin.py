@@ -91,13 +91,16 @@ _reprocess_and_reroute.short_description = "Reprocess and Reroute Selected Jobs"
 class PrintJobAdmin(admin.ModelAdmin):
     list_display = [
         "name",
+        "owner",
         "colored_status",
         "page_count",
         "page_size_label",
         "product_type",
+        "is_saved",
+        "is_global",
         "created_at",
     ]
-    list_filter = ["status", "product_type"]
+    list_filter = ["status", "product_type", "is_saved", "is_global"]
     search_fields = ["name", "product_type"]
     readonly_fields = [
         "job_id_with_copy",

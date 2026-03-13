@@ -5,7 +5,7 @@ from .models import MailMergeJob
 
 @admin.register(MailMergeJob)
 class MailMergeJobAdmin(admin.ModelAdmin):
-    list_display = ("name", "status", "record_count", "created_at")
+    list_display = ("name", "owner", "status", "record_count", "created_at")
     list_filter = ("status",)
     readonly_fields = (
         "id",
