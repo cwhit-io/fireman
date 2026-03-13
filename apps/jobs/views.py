@@ -319,7 +319,8 @@ class JobPreviewView(LoginRequiredMixin, View):
         else:
             job = get_object_or_404(
                 PrintJob,
-                models.Q(pk=pk) & (models.Q(owner=request.user) | models.Q(is_global=True, is_saved=True)),
+                models.Q(owner=request.user) | models.Q(is_global=True, is_saved=True),
+                pk=pk,
             )
         if not job.imposed_file:
             raise Http404("No imposed file available for this job.")
@@ -343,7 +344,8 @@ class JobSourcePreviewView(LoginRequiredMixin, View):
         else:
             job = get_object_or_404(
                 PrintJob,
-                models.Q(pk=pk) & (models.Q(owner=request.user) | models.Q(is_global=True, is_saved=True)),
+                models.Q(owner=request.user) | models.Q(is_global=True, is_saved=True),
+                pk=pk,
             )
         if not job.file:
             raise Http404("No source file available for this job.")
@@ -367,7 +369,8 @@ class JobDownloadView(LoginRequiredMixin, View):
         else:
             job = get_object_or_404(
                 PrintJob,
-                models.Q(pk=pk) & (models.Q(owner=request.user) | models.Q(is_global=True, is_saved=True)),
+                models.Q(owner=request.user) | models.Q(is_global=True, is_saved=True),
+                pk=pk,
             )
         if not job.imposed_file:
             raise Http404("No imposed file available for this job.")
