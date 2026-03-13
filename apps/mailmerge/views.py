@@ -2,6 +2,7 @@ import io
 import logging
 
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
@@ -18,20 +19,32 @@ _ADDR_X_DEFAULT_IN = None  # card_width - 4.5 in
 _ADDR_Y_DEFAULT_IN = 2.5
 
 
-class MailMergeJobListView(ListView):
+class MailMergeJobListView(LoginRequiredMixin, ListView):
     model = MailMergeJob
     template_name = "mailmerge/job_list.html"
     context_object_name = "jobs"
     paginate_by = 25
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(owner=self.request.user)
+        return qs
 
-class MailMergeJobDetailView(DetailView):
+
+class MailMergeJobDetailView(LoginRequiredMixin, DetailView):
     model = MailMergeJob
     template_name = "mailmerge/job_detail.html"
     context_object_name = "job"
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(owner=self.request.user)
+        return qs
 
-class MailMergeArtworkInspectView(View):
+
+class MailMergeArtworkInspectView(LoginRequiredMixin, View):
     """HTMX/JSON endpoint: inspect an uploaded artwork PDF and return page info."""
 
     def post(self, request):
@@ -45,7 +58,7 @@ class MailMergeArtworkInspectView(View):
         return JsonResponse(data)
 
 
-class MailMergeJobUploadView(View):
+class MailMergeJobUploadView(LoginRequiredMixin, View):
     template_name = "mailmerge/job_upload.html"
 
     def get(self, request):
@@ -115,16 +128,23 @@ class MailMergeJobUploadView(View):
             card_height=card_height,
             addr_x_in=addr_x_in,
             addr_y_in=addr_y_in,
+            owner=request.user if request.user.is_authenticated else None,
         )
         process_mail_merge_task.delay(str(job.pk))
         messages.success(request, "Mail-merge job submitted.")
         return redirect("mailmerge:detail", pk=job.pk)
 
 
-class MailMergeJobDeleteView(DeleteView):
+class MailMergeJobDeleteView(LoginRequiredMixin, DeleteView):
     model = MailMergeJob
     template_name = "mailmerge/job_confirm_delete.html"
     success_url = "/mailmerge/"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(owner=self.request.user)
+        return qs
 
     def form_valid(self, form):
         job = self.get_object()
@@ -139,9 +159,12 @@ class MailMergeJobDeleteView(DeleteView):
         return super().form_valid(form)
 
 
-class MailMergeJobDownloadView(View):
+class MailMergeJobDownloadView(LoginRequiredMixin, View):
     def get(self, request, pk):
-        job = get_object_or_404(MailMergeJob, pk=pk)
+        if request.user.is_staff:
+            job = get_object_or_404(MailMergeJob, pk=pk)
+        else:
+            job = get_object_or_404(MailMergeJob, pk=pk, owner=request.user)
         if not job.output_file:
             raise Http404("Output file not yet available.")
         try:

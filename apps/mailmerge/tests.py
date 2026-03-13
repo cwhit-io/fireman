@@ -250,26 +250,31 @@ class TestMergePostcards:
 
 
 class TestMailMergeListView:
-    def test_get_returns_200(self, client):
+    def test_get_returns_200(self, client, user):
+        client.force_login(user)
         response = client.get(reverse("mailmerge:list"))
         assert response.status_code == 200
 
-    def test_shows_jobs(self, client):
-        MailMergeJob.objects.create(name="Test Run")
+    def test_shows_jobs(self, client, user):
+        client.force_login(user)
+        MailMergeJob.objects.create(name="Test Run", owner=user)
         response = client.get(reverse("mailmerge:list"))
         assert b"Test Run" in response.content
 
 
 class TestMailMergeUploadView:
-    def test_get_returns_200(self, client):
+    def test_get_returns_200(self, client, user):
+        client.force_login(user)
         response = client.get(reverse("mailmerge:upload"))
         assert response.status_code == 200
 
-    def test_post_no_files_returns_400(self, client):
+    def test_post_no_files_returns_400(self, client, user):
+        client.force_login(user)
         response = client.post(reverse("mailmerge:upload"), {})
         assert response.status_code == 400
 
-    def test_post_non_pdf_artwork_returns_400(self, client):
+    def test_post_non_pdf_artwork_returns_400(self, client, user):
+        client.force_login(user)
         artwork = SimpleUploadedFile("art.txt", b"not a pdf", content_type="text/plain")
         csv_f = SimpleUploadedFile(
             "addr.csv", _sample_csv_bytes(), content_type="text/csv"
@@ -280,7 +285,8 @@ class TestMailMergeUploadView:
         )
         assert response.status_code == 400
 
-    def test_post_valid_files_creates_job_and_redirects(self, client, monkeypatch):
+    def test_post_valid_files_creates_job_and_redirects(self, client, user, monkeypatch):
+        client.force_login(user)
         monkeypatch.setattr(
             "apps.mailmerge.views.process_mail_merge_task.delay",
             lambda *a, **kw: None,
@@ -299,7 +305,8 @@ class TestMailMergeUploadView:
         job = MailMergeJob.objects.get(name="Spring Run")
         assert str(job.pk) in response["Location"]
 
-    def test_post_stores_merge_page_and_address_position(self, client, monkeypatch):
+    def test_post_stores_merge_page_and_address_position(self, client, user, monkeypatch):
+        client.force_login(user)
         monkeypatch.setattr(
             "apps.mailmerge.views.process_mail_merge_task.delay",
             lambda *a, **kw: None,
@@ -330,16 +337,19 @@ class TestMailMergeUploadView:
 
 
 class TestMailMergeArtworkInspectView:
-    def test_post_no_file_returns_400(self, client):
+    def test_post_no_file_returns_400(self, client, user):
+        client.force_login(user)
         response = client.post(reverse("mailmerge:inspect_artwork"), {})
         assert response.status_code == 400
 
-    def test_post_non_pdf_returns_400(self, client):
+    def test_post_non_pdf_returns_400(self, client, user):
+        client.force_login(user)
         f = SimpleUploadedFile("art.txt", b"not pdf", content_type="text/plain")
         response = client.post(reverse("mailmerge:inspect_artwork"), {"artwork_file": f})
         assert response.status_code == 400
 
-    def test_post_valid_pdf_returns_page_info(self, client):
+    def test_post_valid_pdf_returns_page_info(self, client, user):
+        client.force_login(user)
         f = SimpleUploadedFile(
             "card.pdf", _make_minimal_pdf(), content_type="application/pdf"
         )
@@ -350,7 +360,8 @@ class TestMailMergeArtworkInspectView:
         assert data["page_count"] == 1
         assert len(data["pages"]) == 1
 
-    def test_post_two_page_pdf_returns_two_pages(self, client):
+    def test_post_two_page_pdf_returns_two_pages(self, client, user):
+        client.force_login(user)
         f = SimpleUploadedFile(
             "card.pdf", _make_two_page_pdf(), content_type="application/pdf"
         )
@@ -362,25 +373,29 @@ class TestMailMergeArtworkInspectView:
 
 
 class TestMailMergeDetailView:
-    def test_get_returns_200(self, client):
-        job = MailMergeJob.objects.create(name="Run A")
+    def test_get_returns_200(self, client, user):
+        client.force_login(user)
+        job = MailMergeJob.objects.create(name="Run A", owner=user)
         response = client.get(reverse("mailmerge:detail", kwargs={"pk": job.pk}))
         assert response.status_code == 200
 
-    def test_shows_job_name(self, client):
-        job = MailMergeJob.objects.create(name="Run A")
+    def test_shows_job_name(self, client, user):
+        client.force_login(user)
+        job = MailMergeJob.objects.create(name="Run A", owner=user)
         response = client.get(reverse("mailmerge:detail", kwargs={"pk": job.pk}))
         assert b"Run A" in response.content
 
 
 class TestMailMergeDeleteView:
-    def test_get_confirm_page(self, client):
-        job = MailMergeJob.objects.create(name="Delete Me")
+    def test_get_confirm_page(self, client, user):
+        client.force_login(user)
+        job = MailMergeJob.objects.create(name="Delete Me", owner=user)
         response = client.get(reverse("mailmerge:delete", kwargs={"pk": job.pk}))
         assert response.status_code == 200
 
-    def test_post_deletes_job(self, client):
-        job = MailMergeJob.objects.create(name="Delete Me")
+    def test_post_deletes_job(self, client, user):
+        client.force_login(user)
+        job = MailMergeJob.objects.create(name="Delete Me", owner=user)
         pk = job.pk
         client.post(reverse("mailmerge:delete", kwargs={"pk": pk}))
         assert not MailMergeJob.objects.filter(pk=pk).exists()
