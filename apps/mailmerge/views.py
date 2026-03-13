@@ -328,7 +328,9 @@ class MailMergeGenerateMergedView(LoginRequiredMixin, View):
             job = get_object_or_404(MailMergeJob, pk=pk, owner=request.user)
 
         if job.status not in (MailMergeJob.Status.DONE, MailMergeJob.Status.ERROR):
-            messages.warning(request, "Job must be completed before generating merged PDF.")
+            messages.warning(
+                request, "Job must be completed before generating merged PDF."
+            )
             return redirect("mailmerge:detail", pk=pk)
 
         from .tasks import generate_merged_pdf_task
@@ -355,18 +357,22 @@ class MailMergeJobSendGangupToFieryView(LoginRequiredMixin, View):
         if job.impose_template and job.impose_template.routing_preset:
             preset = job.impose_template.routing_preset
         if not preset:
-            messages.error(request, "No printer preset assigned. Set an imposition template with a routing preset.")
+            messages.error(
+                request,
+                "No printer preset assigned. Set an imposition template with a routing preset.",
+            )
             return redirect("mailmerge:detail", pk=pk)
 
         tmp_path = None
         try:
             from apps.routing.services import send_to_fiery_lpr
+
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
                 with job.gangup_file.open("rb") as f:
                     shutil.copyfileobj(f, tmp)
                 tmp_path = tmp.name
 
-            title = f"{job.name or str(job.pk)}_gangup"
+            title = f"{job.name or str(job.pk)}_master"
             send_to_fiery_lpr(tmp_path, preset, title=title)
             messages.success(request, "Gang-up PDF sent to printer.")
         except Exception as exc:
@@ -382,7 +388,14 @@ class MailMergeJobSendGangupToFieryView(LoginRequiredMixin, View):
 
 
 class MailMergeJobSendAddressesToFieryView(LoginRequiredMixin, View):
-    """Send the address step-and-repeat PDF to the Fiery, using the gang-up as master."""
+    """Send the address step-and-repeat PDF to the Fiery with blank pages interleaved.
+
+    For two-sided printing the address PDF needs a blank page paired with each
+    address sheet so the press feeds correctly:
+
+    * merge_page == 1  (address on front/side 1) → [addr, blank, addr, blank, …]
+    * merge_page != 1  (address on back/side 2)  → [blank, addr, blank, addr, …]
+    """
 
     def post(self, request, pk):
         if request.user.is_staff:
@@ -394,20 +407,46 @@ class MailMergeJobSendAddressesToFieryView(LoginRequiredMixin, View):
             messages.error(request, "Address PDF not yet available.")
             return redirect("mailmerge:detail", pk=pk)
 
-        # Use the impose template's routing preset if available
         preset = None
         if job.impose_template and job.impose_template.routing_preset:
             preset = job.impose_template.routing_preset
         if not preset:
-            messages.error(request, "No printer preset assigned. Set an imposition template with a routing preset.")
+            messages.error(
+                request,
+                "No printer preset assigned. Set an imposition template with a routing preset.",
+            )
             return redirect("mailmerge:detail", pk=pk)
 
         tmp_path = None
         try:
+            from pypdf import PdfReader, PdfWriter
+
             from apps.routing.services import send_to_fiery_lpr
+
+            # Build a new PDF with blank pages interleaved for duplex printing.
+            with job.address_pdf_file.open("rb") as f:
+                reader = PdfReader(f)
+                writer = PdfWriter()
+                for page in reader.pages:
+                    mb = page.mediabox
+                    w, h = float(mb.width), float(mb.height)
+                    if job.merge_page == 1:
+                        # Address on front — blank goes on the back
+                        writer.add_page(page)
+                        writer.add_blank_page(width=w, height=h)
+                    else:
+                        # Address on back — blank goes on the front
+                        writer.add_blank_page(width=w, height=h)
+                        writer.add_page(page)
+
+                import io as _io
+
+                buf = _io.BytesIO()
+                writer.write(buf)
+                address_bytes = buf.getvalue()
+
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                with job.address_pdf_file.open("rb") as f:
-                    shutil.copyfileobj(f, tmp)
+                tmp.write(address_bytes)
                 tmp_path = tmp.name
 
             title = f"{job.name or str(job.pk)}_addresses"
@@ -438,6 +477,7 @@ class MailMergeJobRecordsView(LoginRequiredMixin, View):
             return JsonResponse({"records": []})
 
         from .services import parse_usps_csv
+
         try:
             with job.csv_file.open("rb") as fh:
                 records = parse_usps_csv(fh)
