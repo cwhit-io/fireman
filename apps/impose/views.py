@@ -28,7 +28,7 @@ _PT_FIELDS = [
     "barcode_width",
     "barcode_height",
 ]
-_PLAIN_FIELDS = ["name", "columns", "rows", "notes", "print_barcode"]
+_PLAIN_FIELDS = ["name", "columns", "rows", "notes", "print_barcode", "allow_mailmerge"]
 
 
 def _template_to_dict(tmpl: ImpositionTemplate) -> dict:
@@ -60,6 +60,9 @@ def _dict_to_template_fields(d: dict) -> dict:
     # Boolean field — default to True for legacy exports that pre-date the field
     if fields.get("print_barcode") is None:
         fields["print_barcode"] = True
+    # Boolean field — default to False for legacy exports
+    if fields.get("allow_mailmerge") is None:
+        fields["allow_mailmerge"] = False
     # Resolve product_category name → FK id
     cat_name = d.get("product_category") or ""
     if cat_name:
@@ -138,6 +141,7 @@ def _get_initial_form_values(tmpl=None):
             "barcode_width": _pts_to_in(tmpl.barcode_width),
             "barcode_height": _pts_to_in(tmpl.barcode_height),
             "print_barcode": tmpl.print_barcode,
+            "allow_mailmerge": tmpl.allow_mailmerge,
             "cutter_program": str(tmpl.cutter_program_id)
             if tmpl.cutter_program_id
             else "",
@@ -163,6 +167,7 @@ def _get_initial_form_values(tmpl=None):
         "barcode_width": "1.25",  # DC-646 default: 1.25" wide (3-digit Code 39)
         "barcode_height": "0.35",  # DC-646 default: 0.35" tall
         "print_barcode": True,
+        "allow_mailmerge": False,
         "cutter_program": "",
         "routing_preset": "",
         "notes": "",
@@ -231,6 +236,7 @@ def _template_from_post(data):
         "barcode_width": _fld("barcode_width") or 90.0,  # 1.25" default
         "barcode_height": _fld("barcode_height") or 25.2,  # 0.35" default
         "print_barcode": data.get("print_barcode") == "on",
+        "allow_mailmerge": data.get("allow_mailmerge") == "on",
         "cutter_program_id": int(data.get("cutter_program"))
         if data.get("cutter_program", "").strip()
         else None,
