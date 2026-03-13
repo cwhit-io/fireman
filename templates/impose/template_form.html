@@ -205,15 +205,6 @@
                 </label>
                 <textarea id="id_notes" name="notes" rows="3" placeholder="Optional notes about this template…" class="textarea textarea-bordered" hx-post="{% if template %}{% url 'impose:edit' template.pk %}{% else %}{% url 'impose:create' %}{% endif %}" hx-include="#impose-form" hx-vals='{"_preview": "1"}' hx-target="#preview-svg" hx-trigger="change, keyup delay:400ms">{{ values.notes }}</textarea>
               </div>
-              <div class="form-control mt-2">
-                <label class="label cursor-pointer py-0">
-                  <input id="id_allow_mailmerge" name="allow_mailmerge" type="checkbox" {% if values.allow_mailmerge %}checked{% endif %} class="checkbox checkbox-primary checkbox-sm">
-                  <span class="label-text ml-2 text-sm">
-                    Allow use in Mail Merge
-                    <span class="block text-xs text-base-content/50 mt-0.5">Makes this template available for selection when creating a mail merge job.</span>
-                  </span>
-                </label>
-              </div>
             </div>
 
             <div class="card-actions justify-end">
