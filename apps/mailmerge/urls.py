@@ -40,4 +40,14 @@ urlpatterns = [
         views.MailMergeGenerateMergedView.as_view(),
         name="generate_merged",
     ),
+    path(
+        "<uuid:pk>/send-gangup/",
+        views.MailMergeJobSendGangupToFieryView.as_view(),
+        name="send_gangup_to_fiery",
+    ),
+    path(
+        "<uuid:pk>/send-addresses/",
+        views.MailMergeJobSendAddressesToFieryView.as_view(),
+        name="send_addresses_to_fiery",
+    ),
 ]
