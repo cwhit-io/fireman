@@ -45,6 +45,10 @@
       <div class="stat-value text-xl">{{ job.record_count|default:"—" }}</div>
     </div>
     <div class="stat">
+      <div class="stat-title">Pages / Job</div>
+      <div class="stat-value text-xl">{{ job.artwork_page_count|default:"1" }}</div>
+    </div>
+    <div class="stat">
       <div class="stat-title">Updated</div>
       <div class="stat-desc">{{ job.updated_at|date:"M j, Y g:i A" }}</div>
     </div>
@@ -69,6 +73,52 @@
   </div>
   {% endif %}
 
+  <!-- Job configuration -->
+  <div class="card bg-base-100 border border-base-300 shadow-sm mb-4">
+    <div class="card-body gap-3">
+      <h2 class="card-title text-base">Configuration</h2>
+      <div class="divide-y divide-base-200">
+
+        {% if job.card_width and job.card_height %}
+        <div class="py-2 flex justify-between text-sm">
+          <span class="text-base-content/60">Card size</span>
+          <span class="font-medium">
+            {% widthratio job.card_width 72 1 as w_in %}
+            {% widthratio job.card_height 72 1 as h_in %}
+            {{ job.card_width|floatformat:1 }} × {{ job.card_height|floatformat:1 }} pt
+          </span>
+        </div>
+        {% endif %}
+
+        <div class="py-2 flex justify-between text-sm">
+          <span class="text-base-content/60">Artwork pages</span>
+          <span class="font-medium">{{ job.artwork_page_count|default:"1" }}</span>
+        </div>
+
+        <div class="py-2 flex justify-between text-sm">
+          <span class="text-base-content/60">Address block on page</span>
+          <span class="font-medium">{{ job.merge_page|default:"1" }}</span>
+        </div>
+
+        <div class="py-2 flex justify-between text-sm">
+          <span class="text-base-content/60">Address block — left edge</span>
+          <span class="font-medium">
+            {% if job.addr_x_in %}{{ job.addr_x_in }}&Prime;{% else %}<span class="text-base-content/40">default (card width − 4.5&Prime;)</span>{% endif %}
+          </span>
+        </div>
+
+        <div class="py-2 flex justify-between text-sm">
+          <span class="text-base-content/60">Address block — bottom edge</span>
+          <span class="font-medium">
+            {% if job.addr_y_in %}{{ job.addr_y_in }}&Prime;{% else %}<span class="text-base-content/40">default (2.5&Prime;)</span>{% endif %}
+          </span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Job files -->
   <div class="card bg-base-100 border border-base-300 shadow-sm">
     <div class="card-body gap-3">
       <h2 class="card-title text-base">Job Files</h2>

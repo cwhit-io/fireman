@@ -36,8 +36,19 @@ def process_mail_merge_task(job_id: str) -> None:
         with job.artwork_file.open("rb") as art_fh:
             artwork_bytes = art_fh.read()
 
+        # Resolve optional address block position
+        addr_x_in = float(job.addr_x_in) if job.addr_x_in is not None else None
+        addr_y_in = float(job.addr_y_in) if job.addr_y_in is not None else None
+
         output_buf = io.BytesIO()
-        merge_postcards(io.BytesIO(artwork_bytes), records, output_buf)
+        merge_postcards(
+            io.BytesIO(artwork_bytes),
+            records,
+            output_buf,
+            merge_page=job.merge_page or 1,
+            addr_x_in=addr_x_in,
+            addr_y_in=addr_y_in,
+        )
         output_buf.seek(0)
 
         safe_name = job.name or f"mailmerge_{job.pk}"
