@@ -5,7 +5,7 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto px-4 py-10"
-     x-data="mailMergeEdit({% if job.card_width %}{{ job.card_width }},{{ job.card_height }}{% else %}0,0{% endif %}, {{ job.artwork_page_count|default:1 }}, {{ job.merge_page|default:1 }}, '{% url "mailmerge:serve_artwork" job.pk %}', '{% url "mailmerge:records" job.pk %}')"
+     x-data="mailMergeEdit({% if job.card_width %}{{ job.card_width }},{{ job.card_height }}{% else %}0,0{% endif %}, {{ job.artwork_page_count|default:1 }}, {{ job.merge_page|default:1 }}, '{% url "mailmerge:serve_artwork" job.pk %}', '')"
      @keydown.window="onKeyNav($event)">
 
   <div class="mb-6">
