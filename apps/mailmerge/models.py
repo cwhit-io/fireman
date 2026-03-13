@@ -28,6 +28,18 @@ class MailMergeJob(models.Model):
         null=True,
         help_text="Generated mail-merged PDF (one page per recipient).",
     )
+    gangup_file = models.FileField(
+        upload_to="mailmerge/output/",
+        blank=True,
+        null=True,
+        help_text="Artwork gang-up PDF (N-up press sheet, for use as Fiery master).",
+    )
+    address_pdf_file = models.FileField(
+        upload_to="mailmerge/output/",
+        blank=True,
+        null=True,
+        help_text="Address step-and-repeat PDF (one sheet per N records).",
+    )
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -79,6 +91,17 @@ class MailMergeJob(models.Model):
         blank=True,
         help_text="Address block bottom edge, in inches from the bottom of the card. "
         "Defaults to 2.5 in when blank.",
+    )
+    # ── Gang-up grid ─────────────────────────────────────────────────────
+    gangup_cols = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of columns in the artwork gang-up grid.",
+    )
+    gangup_rows = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of rows in the artwork gang-up grid.",
     )
     error_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
