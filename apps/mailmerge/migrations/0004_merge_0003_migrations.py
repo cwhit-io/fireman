@@ -1,0 +1,12 @@
+from django.db import migrations
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('mailmerge', '0003_add_gangup_and_address_pdf_fields'),
+        ('mailmerge', '0003_add_owner'),
+    ]
+
+    operations = [
+    ]

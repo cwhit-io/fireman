@@ -36,6 +36,24 @@
                  class="input input-bordered w-full" maxlength="255">
         </div>
 
+        <!-- Imposition Template -->
+        {% if impose_templates %}
+        <div class="form-control">
+          <label class="label" for="impose_template_id">
+            <span class="label-text font-medium">Imposition Template <span class="text-base-content/40">(optional)</span></span>
+          </label>
+          <select name="impose_template_id" id="impose_template_id" class="select select-bordered w-full">
+            <option value="">— None (auto-compute gang-up grid) —</option>
+            {% for tmpl in impose_templates %}
+            <option value="{{ tmpl.pk }}">{{ tmpl.name }}{% if tmpl.sheet_size %} ({{ tmpl.sheet_size_label }}, {{ tmpl.columns }}×{{ tmpl.rows }}){% endif %}</option>
+            {% endfor %}
+          </select>
+          <label class="label">
+            <span class="label-text-alt text-base-content/50">Select a template to use its sheet size and grid for the gang-up and addresses PDFs.</span>
+          </label>
+        </div>
+        {% endif %}
+
         <!-- Artwork PDF -->
         <div class="form-control">
           <label class="label" for="artwork_file">
@@ -103,7 +121,7 @@
                 <input type="number" name="addr_x_in" id="addr_x_in" step="0.0625" min="0"
                        class="input input-bordered w-full"
                        x-model="addrXIn"
-                       @input="renderPreview()"
+                       @input="onAddrInputChange()"
                        :placeholder="addrXPlaceholder">
                 <label class="label">
                   <span class="label-text-alt text-base-content/40">
@@ -118,7 +136,7 @@
                 <input type="number" name="addr_y_in" id="addr_y_in" step="0.0625" min="0"
                        class="input input-bordered w-full"
                        x-model="addrYIn"
-                       @input="renderPreview()"
+                       @input="onAddrInputChange()"
                        placeholder="2.5">
                 <label class="label">
                   <span class="label-text-alt text-base-content/40">Default: 2.5&Prime;</span>
@@ -130,7 +148,16 @@
           <!-- Canvas preview -->
           <div>
             <div class="flex items-center justify-between mb-2">
-              <p class="text-sm font-medium text-base-content">Preview</p>
+              <div class="flex items-center gap-3">
+                <p class="text-sm font-medium text-base-content">Preview</p>
+                <template x-if="csvRecords.length > 0">
+                  <div class="flex items-center gap-1 text-xs text-base-content/60">
+                    <button type="button" class="btn btn-ghost btn-xs px-1" @click="prevRecord()" :disabled="recordIdx === 0">&#8592;</button>
+                    <span>Record <span x-text="recordIdx + 1"></span>/<span x-text="csvRecords.length"></span></span>
+                    <button type="button" class="btn btn-ghost btn-xs px-1" @click="nextRecord()" :disabled="recordIdx === csvRecords.length - 1">&#8594;</button>
+                  </div>
+                </template>
+              </div>
               <span class="text-xs text-base-content/40">Drag the blue address block to reposition</span>
             </div>
             <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3">
@@ -155,7 +182,8 @@
             <span class="label-text font-medium">Address CSV <span class="text-error">*</span></span>
           </label>
           <input type="file" name="csv_file" id="csv_file" accept=".csv" required
-                 class="file-input file-input-bordered w-full">
+                 class="file-input file-input-bordered w-full"
+                 @change="onCsvChange($event)">
           <label class="label">
             <span class="label-text-alt text-base-content/50">USPS Intelligent Mail CSV with name, address, and IMb columns.</span>
           </label>
@@ -175,7 +203,7 @@
 
         <div class="pt-2">
           <button type="submit" class="btn btn-primary w-full">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 0L8 8m4-4l4 4"/>
             </svg>
             Submit Mail Merge Job
@@ -207,6 +235,7 @@ var NUM_LINES = 7;
 var ADDR_BLOCK_W_PT = 4.25 * PT_PER_IN;
 var ADDR_BLOCK_H_PT = NUM_LINES * LINE_HEIGHT;
 var EM_DASH = '\u2014';
+var GRID_SNAP_IN = 0.0625; // snap to 1/16"
 
 function mailMergeUpload() {
   return {
@@ -222,6 +251,12 @@ function mailMergeUpload() {
     _scale: 1,
     _cardWPt: 0,
     _cardHPt: 0,
+    // Cached background: holds the rendered PDF page (without address block)
+    _bgCanvas: null,
+    _bgValid: false,
+    // CSV record preview
+    csvRecords: [],
+    recordIdx: 0,
 
     get addrXPlaceholder() {
       if (!this.pdfInfo || !this.pdfInfo.pages) return EM_DASH;
@@ -230,6 +265,17 @@ function mailMergeUpload() {
       if (!page) return EM_DASH;
       var x = Math.max(0, page.width_in - 4.5);
       return x.toFixed(4).replace(/\.?0+$/, '') || '0';
+    },
+
+    get currentRecord() {
+      return this.csvRecords[this.recordIdx] || null;
+    },
+
+    prevRecord() {
+      if (this.recordIdx > 0) { this.recordIdx--; this._drawOverlay(); }
+    },
+    nextRecord() {
+      if (this.recordIdx < this.csvRecords.length - 1) { this.recordIdx++; this._drawOverlay(); }
     },
 
     _getCardInfo() {
@@ -251,6 +297,7 @@ function mailMergeUpload() {
     onMergePageChange(page) {
       this.mergePage = page;
       this._pdfDoc = null;
+      this._bgValid = false;
       this.renderPreview();
     },
 
@@ -259,6 +306,7 @@ function mailMergeUpload() {
       if (!file) { this.pdfInfo = null; return; }
       this._artworkFile = file;
       this._pdfDoc = null;
+      this._bgValid = false;
 
       var self = this;
       var formData = new FormData();
@@ -278,6 +326,26 @@ function mailMergeUpload() {
         .catch(function() { self.pdfInfo = null; });
     },
 
+    onCsvChange(event) {
+      var file = event.target.files[0];
+      if (!file) { this.csvRecords = []; return; }
+      var self = this;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var text = e.target.result;
+        self.csvRecords = _parseSimpleCsv(text);
+        self.recordIdx = 0;
+        self._drawOverlay();
+      };
+      reader.readAsText(file);
+    },
+
+    onAddrInputChange() {
+      this._bgValid = false;
+      this.renderPreview();
+    },
+
+    // Full re-render: renders PDF background + address block overlay
     renderPreview() {
       var canvas = document.getElementById('previewCanvas');
       if (!canvas || !this.pdfInfo || !this.pdfInfo.pages) return;
@@ -297,6 +365,7 @@ function mailMergeUpload() {
       this._scale = scale;
       this._cardWPt = cardWPt;
       this._cardHPt = cardHPt;
+      this._bgValid = false;
 
       var ctx = canvas.getContext('2d');
       var self = this;
@@ -310,6 +379,7 @@ function mailMergeUpload() {
             canvas.width  = viewport.width;
             canvas.height = viewport.height;
             page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
+              self._cacheBg(canvas);
               self._drawAddressBlock(ctx, addrX, addrY, scale, cardHPt);
             });
           }).catch(function() {
@@ -337,6 +407,33 @@ function mailMergeUpload() {
       }
     },
 
+    // Cache the background (PDF render without address block)
+    _cacheBg(canvas) {
+      if (!this._bgCanvas) this._bgCanvas = document.createElement('canvas');
+      this._bgCanvas.width = canvas.width;
+      this._bgCanvas.height = canvas.height;
+      this._bgCanvas.getContext('2d').drawImage(canvas, 0, 0);
+      this._bgValid = true;
+    },
+
+    // Redraw only the overlay (fast, no PDF re-render) — used during drag and record navigation
+    _drawOverlay() {
+      var canvas = document.getElementById('previewCanvas');
+      if (!canvas) return;
+      var pageInfo = this._getCardInfo();
+      if (!pageInfo) return;
+      var p = this._resolveAddrPt(pageInfo);
+      var scale = this._scale || 1;
+      var ctx = canvas.getContext('2d');
+      if (this._bgValid && this._bgCanvas) {
+        ctx.drawImage(this._bgCanvas, 0, 0);
+      } else {
+        this.renderPreview();
+        return;
+      }
+      this._drawAddressBlock(ctx, p.addrX, p.addrY, scale, p.cardHPt);
+    },
+
     _drawPlaceholder(ctx, w, h, addrX, addrY, scale, cardHPt) {
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(0, 0, w, h);
@@ -349,6 +446,9 @@ function mailMergeUpload() {
       ctx.fillText('Artwork page ' + this.mergePage, w / 2, h / 2 - 8 * scale);
       ctx.font = Math.max(8, 11 * scale) + 'px sans-serif';
       ctx.fillText('(upload a PDF to see preview)', w / 2, h / 2 + 8 * scale);
+      this._cacheBg({ width: w, height: h, getContext: function() { return ctx; } });
+      // Don't cache placeholder as valid bg since it doesn't have PDF content
+      this._bgValid = false;
       this._drawAddressBlock(ctx, addrX, addrY, scale, cardHPt);
     },
 
@@ -364,13 +464,28 @@ function mailMergeUpload() {
       ctx.strokeStyle = 'rgba(59,130,246,0.7)';
       ctx.lineWidth = 1.5;
       ctx.strokeRect(cx, cy, cw, ch);
-      ctx.fillStyle = 'rgba(59,130,246,0.85)';
-      ctx.font = 'bold ' + Math.max(8, 9 * scale) + 'px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('Address Block', cx + 3 * scale, cy + 12 * scale);
-      ctx.fillStyle = 'rgba(59,130,246,0.6)';
-      ctx.font = Math.max(7, 8 * scale) + 'px sans-serif';
-      ctx.fillText('drag to reposition', cx + 3 * scale, cy + 22 * scale);
+
+      // Draw sample address text if we have a record
+      var rec = this.currentRecord;
+      if (rec) {
+        ctx.fillStyle = 'rgba(30,58,138,0.85)';
+        var fontSize = Math.max(6, 9 * scale);
+        ctx.font = fontSize + 'px monospace';
+        ctx.textAlign = 'left';
+        var lineH = LINE_HEIGHT * scale;
+        var lines = _buildAddressLines(rec);
+        for (var i = 0; i < lines.length; i++) {
+          ctx.fillText(lines[i], cx + 3 * scale, cy + ch - (lines.length - i) * lineH + (lineH - fontSize));
+        }
+      } else {
+        ctx.fillStyle = 'rgba(59,130,246,0.85)';
+        ctx.font = 'bold ' + Math.max(8, 9 * scale) + 'px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Address Block', cx + 3 * scale, cy + 12 * scale);
+        ctx.fillStyle = 'rgba(59,130,246,0.6)';
+        ctx.font = Math.max(7, 8 * scale) + 'px sans-serif';
+        ctx.fillText('drag to reposition', cx + 3 * scale, cy + 22 * scale);
+      }
       ctx.restore();
     },
 
@@ -429,9 +544,15 @@ function mailMergeUpload() {
       var clampedX = Math.max(0, Math.min(newLeftPt, cardWPt - ADDR_BLOCK_W_PT));
       var clampedY = Math.max(0, Math.min(newAddrY, cardHPt - ADDR_BLOCK_H_PT));
 
+      // Snap to 1/16" grid
+      var snapPt = GRID_SNAP_IN * PT_PER_IN;
+      clampedX = Math.round(clampedX / snapPt) * snapPt;
+      clampedY = Math.round(clampedY / snapPt) * snapPt;
+
       this.addrXIn = (clampedX / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
       this.addrYIn = (clampedY / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
-      this.renderPreview();
+      // Fast overlay redraw — no PDF re-render
+      this._drawOverlay();
     },
 
     onCanvasMouseUp(event) {
@@ -444,7 +565,63 @@ function mailMergeUpload() {
 
     onTouchStart(event) { this.onCanvasMouseDown(event); },
     onTouchMove(event)  { this.onCanvasMouseMove(event); },
+
+    init() {
+      var self = this;
+      document.addEventListener('keydown', function(e) {
+        if (self.csvRecords.length < 2) return;
+        if (e.key === 'ArrowLeft') self.prevRecord();
+        if (e.key === 'ArrowRight') self.nextRecord();
+      });
+    },
   };
+}
+
+// Build address lines (bottom to top order) from a USPS CSV record
+function _buildAddressLines(rec) {
+  var lines = [];
+  if (rec['city-state-zip']) lines.push(rec['city-state-zip']);
+  if (rec['primary street']) lines.push(rec['primary street']);
+  if (rec['sec-primary street']) lines.push(rec['sec-primary street']);
+  if (rec.urbanization) lines.push(rec.urbanization);
+  if (rec.company) lines.push(rec.company);
+  if (rec.name) lines.push(rec.name);
+  if (rec.imbno) lines.push(rec.imbno);
+  lines.reverse();
+  return lines;
+}
+
+// Minimal CSV parser (handles quoted fields with commas)
+function _parseSimpleCsv(text) {
+  var lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  if (lines.length < 2) return [];
+  var headers = _csvSplitLine(lines[0]).map(function(h) { return h.trim().toLowerCase(); });
+  var records = [];
+  for (var i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    var vals = _csvSplitLine(lines[i]);
+    var rec = {};
+    headers.forEach(function(h, idx) { rec[h] = (vals[idx] || '').trim(); });
+    records.push(rec);
+  }
+  return records;
+}
+
+function _csvSplitLine(line) {
+  var result = [], current = '', inQuote = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') {
+      if (inQuote && line[i+1] === '"') { current += '"'; i++; }
+      else inQuote = !inQuote;
+    } else if (c === ',' && !inQuote) {
+      result.push(current); current = '';
+    } else {
+      current += c;
+    }
+  }
+  result.push(current);
+  return result;
 }
 </script>
 {% endblock %}
