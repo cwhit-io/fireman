@@ -17,6 +17,25 @@ from .tasks import process_mail_merge_task
 
 logger = logging.getLogger(__name__)
 
+import io
+import logging
+import os
+import shutil
+import tempfile
+
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import Http404, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views import View
+from django.views.generic import DeleteView, DetailView, ListView
+
+from .models import MailMergeJob
+from .services import inspect_artwork_pdf
+from .tasks import process_mail_merge_task
+
+logger = logging.getLogger(__name__)
+
 # Default address block anchor values (inches)
 _ADDR_X_DEFAULT_IN = None  # card_width - 4.5 in
 _ADDR_Y_DEFAULT_IN = 2.5
@@ -66,9 +85,10 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
 
     def _get_context(self):
         from apps.impose.models import ImpositionTemplate
-        templates = ImpositionTemplate.objects.filter(
-            allow_mailmerge=True
-        ).order_by("name")
+
+        templates = ImpositionTemplate.objects.filter(allow_mailmerge=True).order_by(
+            "name"
+        )
         return {"impose_templates": templates}
 
     def get(self, request):
@@ -134,6 +154,7 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
         impose_template_id = request.POST.get("impose_template_id", "").strip()
         if impose_template_id:
             from apps.impose.models import ImpositionTemplate
+
             try:
                 impose_template = ImpositionTemplate.objects.get(
                     pk=int(impose_template_id), allow_mailmerge=True
@@ -159,6 +180,35 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
         return redirect("mailmerge:detail", pk=job.pk)
 
 
+class MailMergeJobDeleteView(LoginRequiredMixin, DeleteView):
+    model = MailMergeJob
+    template_name = "mailmerge/job_confirm_delete.html"
+    success_url = "/mailmerge/"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(owner=self.request.user)
+        return qs
+
+    def form_valid(self, form):
+        job = self.get_object()
+        for field_name in (
+            "artwork_file",
+            "csv_file",
+            "output_file",
+            "gangup_file",
+            "address_pdf_file",
+        ):
+            try:
+                f = getattr(job, field_name, None)
+                if f and getattr(f, "name", None):
+                    f.delete(save=False)
+            except Exception:
+                pass
+        return super().form_valid(form)
+
+
 class MailMergeJobEditView(View):
     """Allow editing address block position and re-triggering the merge."""
 
@@ -166,9 +216,10 @@ class MailMergeJobEditView(View):
 
     def _get_context(self, job):
         from apps.impose.models import ImpositionTemplate
-        templates = ImpositionTemplate.objects.filter(
-            allow_mailmerge=True
-        ).order_by("name")
+
+        templates = ImpositionTemplate.objects.filter(allow_mailmerge=True).order_by(
+            "name"
+        )
         return {"job": job, "impose_templates": templates}
 
     def get(self, request, pk):
@@ -204,6 +255,7 @@ class MailMergeJobEditView(View):
         impose_template_id = request.POST.get("impose_template_id", "").strip()
         if impose_template_id:
             from apps.impose.models import ImpositionTemplate
+
             try:
                 job.impose_template = ImpositionTemplate.objects.get(
                     pk=int(impose_template_id), allow_mailmerge=True
@@ -220,31 +272,6 @@ class MailMergeJobEditView(View):
         process_mail_merge_task.delay(str(job.pk))
         messages.success(request, "Job updated — re-processing started.")
         return redirect("mailmerge:detail", pk=job.pk)
-
-
-class MailMergeJobDeleteView(LoginRequiredMixin, DeleteView):
-    model = MailMergeJob
-    template_name = "mailmerge/job_confirm_delete.html"
-    success_url = "/mailmerge/"
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        if not self.request.user.is_staff:
-            qs = qs.filter(owner=self.request.user)
-        return qs
-
-    def form_valid(self, form):
-        job = self.get_object()
-        # Delete associated files before removing the DB record.
-        for field_name in ("artwork_file", "csv_file", "output_file",
-                           "gangup_file", "address_pdf_file"):
-            try:
-                f = getattr(job, field_name, None)
-                if f and getattr(f, "name", None):
-                    f.delete(save=False)
-            except Exception:
-                pass
-        return super().form_valid(form)
 
 
 class MailMergeJobArtworkServeView(View):
@@ -324,26 +351,11 @@ class MailMergeGenerateMergedView(LoginRequiredMixin, View):
             return redirect("mailmerge:detail", pk=pk)
 
         from .tasks import generate_merged_pdf_task
+
         generate_merged_pdf_task.delay(str(job.pk))
-        messages.success(request, "Generating full merged PDF — check back shortly.")
+        messages.success(request, "Merged PDF generation started.")
         return redirect("mailmerge:detail", pk=pk)
 
-
-class MailMergeJobSendGangupToFieryView(LoginRequiredMixin, View):
-    """Send the gang-up artwork PDF to the Fiery printer."""
-
-    def post(self, request, pk):
-        if request.user.is_staff:
-            job = get_object_or_404(MailMergeJob, pk=pk)
-        else:
-            job = get_object_or_404(MailMergeJob, pk=pk, owner=request.user)
-
-        if not job.gangup_file:
-            messages.error(request, "Gang-up PDF not yet available.")
-            return redirect("mailmerge:detail", pk=pk)
-
-        # Use the impose template's routing preset if available
-        preset = None
         if job.impose_template and job.impose_template.routing_preset:
             preset = job.impose_template.routing_preset
         if not preset:
