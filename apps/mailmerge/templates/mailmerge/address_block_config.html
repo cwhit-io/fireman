@@ -5,12 +5,17 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto px-4 py-10"
-     x-data="addrBlockConfig(
-       {{ config.preview_card_width_in }},
-       {{ config.preview_card_height_in }},
-       '{{ config.addr_x_in|default:'' }}',
-       '{{ config.addr_y_in|default:'' }}'
-     )">
+     x-data="addrBlockConfig({
+       cardWIn:          {{ config.preview_card_width_in }},
+       cardHIn:          {{ config.preview_card_height_in }},
+       addrXIn:          '{{ config.addr_x_in|default:'' }}',
+       addrYIn:          '{{ config.addr_y_in|default:'' }}',
+       fontName:         '{{ config.font_name }}',
+       fontSize:         {{ config.font_size }},
+       lineHeight:       {{ config.line_height }},
+       addrBlockWidthIn: {{ config.addr_block_width_in }},
+       csvFields:        {{ csv_fields_json }}
+     })">
 
   <div class="mb-6">
     <div class="breadcrumbs text-sm mb-3">
@@ -21,7 +26,7 @@
     </div>
     <h1 class="text-3xl font-extrabold text-base-content tracking-tight">Address Block Defaults</h1>
     <p class="text-base-content/60 mt-1 text-sm">
-      Set the default address block position used when creating new mail merge jobs.
+      Set defaults used when creating new mail merge jobs.
       Drag the blue block on the preview to reposition, or enter exact values.
     </p>
   </div>
@@ -38,12 +43,14 @@
 
   <form method="post" class="space-y-6">
     {% csrf_token %}
+    <!-- Hidden field carrying the serialised csv_fields list -->
+    <input type="hidden" name="csv_fields" :value="JSON.stringify(csvFields)">
 
     <!-- Card size for preview -->
     <div class="card bg-base-100 border border-base-300 shadow-sm">
       <div class="card-body gap-4">
         <h2 class="card-title text-base">Preview Card Size</h2>
-        <p class="text-xs text-base-content/50">Used only to render the preview canvas below — does not affect actual job processing.</p>
+        <p class="text-xs text-base-content/50">Used only to render the preview canvas — does not affect actual job processing.</p>
         <div class="grid grid-cols-2 gap-4">
           <div class="form-control">
             <label class="label" for="preview_card_width_in">
@@ -66,7 +73,6 @@
                    @input="onCardSizeChange()">
           </div>
         </div>
-        <!-- Common size presets -->
         <div class="flex flex-wrap gap-2">
           <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(6, 9)">6×9"</button>
           <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(6, 11)">6×11"</button>
@@ -121,6 +127,100 @@
       </div>
     </div>
 
+    <!-- Typography -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Typography</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="form-control sm:col-span-1">
+            <label class="label" for="font_name">
+              <span class="label-text">Font</span>
+            </label>
+            <select name="font_name" id="font_name"
+                    class="select select-bordered w-full"
+                    x-model="fontName"
+                    @change="redraw()">
+              {% for val, label in font_choices %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control">
+            <label class="label" for="font_size">
+              <span class="label-text">Font size (pt)</span>
+            </label>
+            <input type="number" name="font_size" id="font_size"
+                   step="0.5" min="4" max="72"
+                   class="input input-bordered w-full"
+                   x-model="fontSize"
+                   @input="redraw()">
+          </div>
+          <div class="form-control">
+            <label class="label" for="line_height">
+              <span class="label-text">Line height (pt)</span>
+            </label>
+            <input type="number" name="line_height" id="line_height"
+                   step="0.5" min="4" max="144"
+                   class="input input-bordered w-full"
+                   x-model="lineHeight"
+                   @input="redraw()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address box size -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Address Box Size</h2>
+        <p class="text-xs text-base-content/50">Width of the address block drawn on the preview canvas. Height is computed from the number of enabled fields × line height.</p>
+        <div class="form-control max-w-xs">
+          <label class="label" for="addr_block_width_in">
+            <span class="label-text">Box width (inches)</span>
+          </label>
+          <input type="number" name="addr_block_width_in" id="addr_block_width_in"
+                 step="0.0625" min="0.5" max="20"
+                 class="input input-bordered w-full"
+                 x-model="addrBlockWidthIn"
+                 @input="redraw()">
+        </div>
+      </div>
+    </div>
+
+    <!-- CSV field ordering -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Address Fields</h2>
+        <p class="text-xs text-base-content/50">
+          Select which fields to include and arrange their order.
+          The list is shown bottom-to-top — the first row prints at the <strong>bottom</strong> of the address block (closest to the card edge), the last row at the top.
+        </p>
+        <div class="space-y-1">
+          <template x-for="(field, idx) in allFields" :key="field">
+            <div class="flex items-center gap-2 bg-base-200 rounded px-3 py-2 text-sm">
+              <input type="checkbox"
+                     class="checkbox checkbox-sm"
+                     :checked="csvFields.includes(field)"
+                     @change="toggleField(field)">
+              <span class="flex-1 font-mono text-xs" x-text="field"></span>
+              <button type="button" class="btn btn-ghost btn-xs px-1"
+                      :disabled="csvFields.indexOf(field) <= 0 || !csvFields.includes(field)"
+                      @click="moveField(field, -1)"
+                      title="Move down (closer to card bottom)">&darr;</button>
+              <button type="button" class="btn btn-ghost btn-xs px-1"
+                      :disabled="csvFields.indexOf(field) >= csvFields.length - 1 || !csvFields.includes(field)"
+                      @click="moveField(field, 1)"
+                      title="Move up (away from card bottom)">&uarr;</button>
+            </div>
+          </template>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm w-fit"
+                @click="resetFields()">
+          Reset to default fields
+        </button>
+      </div>
+    </div>
+
     <!-- Canvas preview -->
     <div class="card bg-base-100 border border-base-300 shadow-sm">
       <div class="card-body gap-3">
@@ -152,26 +252,41 @@
 </div>
 
 <script>
-var PT_PER_IN      = 72;
-var LINE_HEIGHT    = 13;
-var NUM_LINES      = 7;
-var ADDR_BLOCK_W_PT = 4.25 * PT_PER_IN;
-var ADDR_BLOCK_H_PT = NUM_LINES * LINE_HEIGHT;
-var GRID_SNAP_IN   = 0.0625;
+var PT_PER_IN     = 72;
+var GRID_SNAP_IN  = 0.0625;
 
-function addrBlockConfig(initCardWIn, initCardHIn, initAddrX, initAddrY) {
+var ALL_FIELDS = [
+  "city-state-zip",
+  "primary street",
+  "sec-primary street",
+  "urbanization",
+  "company",
+  "name",
+  "imbno"
+];
+
+function addrBlockConfig(cfg) {
   return {
-    cardWIn: initCardWIn || 6,
-    cardHIn: initCardHIn || 9,
-    addrXIn: initAddrX !== undefined ? String(initAddrX) : '',
-    addrYIn: initAddrY !== undefined ? String(initAddrY) : '',
-    isDragging: false,
-    _dragOffsetX: 0,
-    _dragOffsetY: 0,
-    _scale: 1,
+    cardWIn:          cfg.cardWIn  || 6,
+    cardHIn:          cfg.cardHIn  || 9,
+    addrXIn:          cfg.addrXIn  !== undefined ? String(cfg.addrXIn) : '',
+    addrYIn:          cfg.addrYIn  !== undefined ? String(cfg.addrYIn) : '',
+    fontName:         cfg.fontName  || 'Helvetica',
+    fontSize:         cfg.fontSize  || 9,
+    lineHeight:       cfg.lineHeight || 13,
+    addrBlockWidthIn: cfg.addrBlockWidthIn || 4.25,
+    csvFields:        (cfg.csvFields && cfg.csvFields.length) ? cfg.csvFields : ALL_FIELDS.slice(),
+    allFields:        ALL_FIELDS,
+    isDragging:       false,
+    _dragOffsetX:     0,
+    _dragOffsetY:     0,
+    _scale:           1,
 
     get cardWPt() { return parseFloat(this.cardWIn) * PT_PER_IN || 432; },
     get cardHPt() { return parseFloat(this.cardHIn) * PT_PER_IN || 648; },
+
+    get addrBlockWPt() { return parseFloat(this.addrBlockWidthIn) * PT_PER_IN || 306; },
+    get addrBlockHPt() { return this.csvFields.length * parseFloat(this.lineHeight || 13); },
 
     get addrXDefault() {
       return Math.max(0, this.cardWPt / PT_PER_IN - 4.5);
@@ -192,15 +307,47 @@ function addrBlockConfig(initCardWIn, initCardHIn, initAddrX, initAddrY) {
       return 'Left: ' + x + '\u2033  \u00b7  Bottom: ' + y + '\u2033';
     },
 
+    // ── Field management ─────────────────────────────────────────────────
+    toggleField(field) {
+      var idx = this.csvFields.indexOf(field);
+      if (idx === -1) {
+        // re-insert at its natural position
+        var natural = ALL_FIELDS.indexOf(field);
+        var insertAt = 0;
+        for (var i = 0; i < this.csvFields.length; i++) {
+          if (ALL_FIELDS.indexOf(this.csvFields[i]) < natural) insertAt = i + 1;
+        }
+        this.csvFields.splice(insertAt, 0, field);
+      } else {
+        this.csvFields.splice(idx, 1);
+      }
+      this.redraw();
+    },
+
+    moveField(field, direction) {
+      // direction: -1 = move toward index 0 (bottom), +1 = move toward end (top)
+      var idx = this.csvFields.indexOf(field);
+      if (idx === -1) return;
+      var newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= this.csvFields.length) return;
+      this.csvFields.splice(idx, 1);
+      this.csvFields.splice(newIdx, 0, field);
+      this.redraw();
+    },
+
+    resetFields() {
+      this.csvFields = ALL_FIELDS.slice();
+      this.redraw();
+    },
+
+    // ── Canvas ────────────────────────────────────────────────────────────
     applyPreset(w, h) {
       this.cardWIn = w;
       this.cardHIn = h;
       this.redraw();
     },
 
-    onCardSizeChange() {
-      this.redraw();
-    },
+    onCardSizeChange() { this.redraw(); },
 
     redraw() {
       var canvas = document.getElementById('previewCanvas');
@@ -221,14 +368,12 @@ function addrBlockConfig(initCardWIn, initCardHIn, initAddrX, initAddrY) {
       var p = this._resolveAddrPt();
       var scale = this._scale || 1;
 
-      // Card background
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(0, 0, w, h);
       ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1;
       ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
 
-      // Faint grid lines at 1" intervals
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 0.5;
       for (var gx = PT_PER_IN; gx < this.cardWPt; gx += PT_PER_IN) {
@@ -240,7 +385,6 @@ function addrBlockConfig(initCardWIn, initCardHIn, initAddrX, initAddrY) {
         ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
       }
 
-      //  Card size label
       ctx.fillStyle = '#94a3b8';
       ctx.font = Math.max(9, 11 * scale) + 'px sans-serif';
       ctx.textAlign = 'center';
@@ -250,15 +394,16 @@ function addrBlockConfig(initCardWIn, initCardHIn, initAddrX, initAddrY) {
         w / 2, h / 2
       );
 
-      // Address block
       this._drawAddressBlock(ctx, p.addrX, p.addrY, scale);
     },
 
     _drawAddressBlock(ctx, addrX, addrY, scale) {
+      var addrBlockWPt = this.addrBlockWPt;
+      var addrBlockHPt = this.addrBlockHPt;
       var cx = addrX * scale;
-      var cy = (this.cardHPt - addrY - ADDR_BLOCK_H_PT) * scale;
-      var cw = ADDR_BLOCK_W_PT * scale;
-      var ch = ADDR_BLOCK_H_PT * scale;
+      var cy = (this.cardHPt - addrY - addrBlockHPt) * scale;
+      var cw = addrBlockWPt * scale;
+      var ch = addrBlockHPt * scale;
 
       ctx.save();
       ctx.fillStyle = 'rgba(59,130,246,0.12)';
@@ -292,9 +437,10 @@ function addrBlockConfig(initCardWIn, initCardHIn, initAddrX, initAddrY) {
       var p = this._resolveAddrPt();
       var scale = this._scale || 1;
       var bx = p.addrX * scale;
-      var by = (this.cardHPt - p.addrY - ADDR_BLOCK_H_PT) * scale;
-      return cx >= bx && cx <= bx + ADDR_BLOCK_W_PT * scale &&
-             cy >= by && cy <= by + ADDR_BLOCK_H_PT * scale;
+      var bh = this.addrBlockHPt;
+      var by = (this.cardHPt - p.addrY - bh) * scale;
+      return cx >= bx && cx <= bx + this.addrBlockWPt * scale &&
+             cy >= by && cy <= by + bh * scale;
     },
 
     onCanvasMouseDown(event) {
@@ -303,8 +449,9 @@ function addrBlockConfig(initCardWIn, initCardHIn, initAddrX, initAddrY) {
       var p = this._resolveAddrPt();
       var scale = this._scale || 1;
       this.isDragging = true;
+      var bh = this.addrBlockHPt;
       this._dragOffsetX = coords.cx - p.addrX * scale;
-      this._dragOffsetY = coords.cy - (this.cardHPt - p.addrY - ADDR_BLOCK_H_PT) * scale;
+      this._dragOffsetY = coords.cy - (this.cardHPt - p.addrY - bh) * scale;
       event.target.style.cursor = 'grabbing';
     },
 
@@ -314,12 +461,14 @@ function addrBlockConfig(initCardWIn, initCardHIn, initAddrX, initAddrY) {
       var scale = this._scale || 1;
       var cardWPt = this.cardWPt;
       var cardHPt = this.cardHPt;
+      var bw = this.addrBlockWPt;
+      var bh = this.addrBlockHPt;
       var newLeftPt  = (coords.cx - this._dragOffsetX) / scale;
       var newTopCvPt = (coords.cy - this._dragOffsetY) / scale;
-      var newAddrY = cardHPt - newTopCvPt - ADDR_BLOCK_H_PT;
+      var newAddrY = cardHPt - newTopCvPt - bh;
       var snapPt = GRID_SNAP_IN * PT_PER_IN;
-      var clampedX = Math.round(Math.max(0, Math.min(newLeftPt, cardWPt - ADDR_BLOCK_W_PT)) / snapPt) * snapPt;
-      var clampedY = Math.round(Math.max(0, Math.min(newAddrY,  cardHPt - ADDR_BLOCK_H_PT)) / snapPt) * snapPt;
+      var clampedX = Math.round(Math.max(0, Math.min(newLeftPt, cardWPt - bw)) / snapPt) * snapPt;
+      var clampedY = Math.round(Math.max(0, Math.min(newAddrY,  cardHPt - bh)) / snapPt) * snapPt;
       this.addrXIn = (clampedX / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
       this.addrYIn = (clampedY / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
       this.redraw();

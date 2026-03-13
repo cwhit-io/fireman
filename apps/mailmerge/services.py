@@ -53,6 +53,17 @@ _FONT_NAME: bytes = b"/Helvetica"
 _FONT_SIZE: float = 9.0
 _LINE_HEIGHT: float = 13.0  # points between baselines
 
+# Default address field ordering (bottom → top)
+_DEFAULT_FIELDS: list[str] = [
+    "city-state-zip",
+    "primary street",
+    "sec-primary street",
+    "urbanization",
+    "company",
+    "name",
+    "imbno",
+]
+
 
 def parse_usps_csv(csv_file: IO[bytes]) -> list[dict[str, str]]:
     """Parse a USPS Intelligent Mail CSV file and return a list of row dicts.
@@ -143,12 +154,16 @@ def _address_text_stream(
     card_h: float,
     addr_x: float | None = None,
     addr_y: float | None = None,
+    font_name: str | None = None,
+    font_size: float | None = None,
+    line_height: float | None = None,
+    fields: list[str] | None = None,
 ) -> bytes:
     """Return a PDF content-stream fragment that draws the address block.
 
-    The stream uses only the built-in Helvetica Type1 font (/F1), which
-    requires no font embedding.  The font resource must be declared on the
-    page that receives this stream (see ``_make_address_overlay_page``).
+    The stream uses only a built-in Type1 font (/F1), which requires no font
+    embedding.  The font resource must be declared on the page that receives
+    this stream (see ``_make_address_overlay_page``).
 
     Parameters
     ----------
@@ -158,37 +173,25 @@ def _address_text_stream(
     addr_y:
         Y coordinate (points from bottom) of the address block baseline.
         Defaults to ``2.5 * 72``.
+    font_name:
+        PDF Base font name (e.g. ``"Helvetica-Bold"``). Defaults to Helvetica.
+    font_size:
+        Font size in points. Defaults to ``_FONT_SIZE``.
+    line_height:
+        Baseline-to-baseline spacing in points. Defaults to ``_LINE_HEIGHT``.
+    fields:
+        Ordered list of CSV keys to render (bottom → top). Defaults to
+        ``_DEFAULT_FIELDS``.
     """
+    effective_font_name = f"/{font_name}".encode() if font_name else _FONT_NAME
+    effective_font_size = font_size if font_size is not None else _FONT_SIZE
+    effective_line_height = line_height if line_height is not None else _LINE_HEIGHT
+    effective_fields = fields if fields else _DEFAULT_FIELDS
+
     # ── Build address lines (bottom → top) ──────────────────────────────
-    lines: list[str] = []
-
-    city_state_zip = record.get("city-state-zip", "").strip()
-    if city_state_zip:
-        lines.append(city_state_zip)
-
-    primary_street = record.get("primary street", "").strip()
-    if primary_street:
-        lines.append(primary_street)
-
-    sec_primary = record.get("sec-primary street", "").strip()
-    if sec_primary:
-        lines.append(sec_primary)
-
-    urbanization = record.get("urbanization", "").strip()
-    if urbanization:
-        lines.append(urbanization)
-
-    company = record.get("company", "").strip()
-    if company:
-        lines.append(company)
-
-    name = record.get("name", "").strip()
-    if name:
-        lines.append(name)
-
-    imbno = record.get("imbno", "").strip()
-    if imbno:
-        lines.append(imbno)
+    lines: list[str] = [
+        record.get(f, "").strip() for f in effective_fields if record.get(f, "").strip()
+    ]
 
     if not lines:
         return b""
@@ -203,10 +206,13 @@ def _address_text_stream(
     y_base = addr_y  # baseline of the lowest line
 
     # ── Build the PDF text content stream ───────────────────────────────
-    parts: list[bytes] = [b"BT", f"/F1 {_FONT_SIZE:.1f} Tf".encode()]
+    parts: list[bytes] = [
+        b"BT",
+        effective_font_name + f" {effective_font_size:.1f} Tf".encode(),
+    ]
 
     for i, line in enumerate(lines):
-        y = y_base + i * _LINE_HEIGHT
+        y = y_base + i * effective_line_height
         escaped = _escape_pdf_string(line)
         parts.append(f"{x:.3f} {y:.3f} Td".encode())
         parts.append(b"(" + escaped + b") Tj")
@@ -218,11 +224,16 @@ def _address_text_stream(
     return b"\n".join(parts)
 
 
-def _make_address_overlay_page(card_w: float, card_h: float, stream_bytes: bytes):
+def _make_address_overlay_page(
+    card_w: float,
+    card_h: float,
+    stream_bytes: bytes,
+    font_name: str | None = None,
+):
     """Create a transparent PDF page carrying the address text stream.
 
-    The page declares /Helvetica as /F1 in its resource dictionary so
-    the text stream can reference it without embedding any font data.
+    The page declares the chosen built-in Type1 font as /F1 in its resource
+    dictionary so the text stream can reference it without embedding any data.
     """
     from pypdf import PageObject, PdfWriter
     from pypdf.generic import (
@@ -231,11 +242,12 @@ def _make_address_overlay_page(card_w: float, card_h: float, stream_bytes: bytes
         NameObject,
     )
 
+    base_font = f"/{font_name}" if font_name else "/Helvetica"
     font_dict = DictionaryObject(
         {
             NameObject("/Type"): NameObject("/Font"),
             NameObject("/Subtype"): NameObject("/Type1"),
-            NameObject("/BaseFont"): NameObject("/Helvetica"),
+            NameObject("/BaseFont"): NameObject(base_font),
         }
     )
     resources = DictionaryObject(
@@ -329,9 +341,12 @@ def build_artwork_gangup(
 
         sheet_buf = io.BytesIO()
         _impose_nup_simple(
-            tmp_buf, sheet_buf,
-            cols, rows,
-            sheet_w_pt, sheet_h_pt,
+            tmp_buf,
+            sheet_buf,
+            cols,
+            rows,
+            sheet_w_pt,
+            sheet_h_pt,
         )
         sheet_buf.seek(0)
         for page in PdfReader(sheet_buf).pages:
@@ -432,6 +447,10 @@ def build_address_steprepeat(
     addr_x: float | None,
     addr_y: float | None,
     output_pdf: IO[bytes],
+    font_name: str | None = None,
+    font_size: float | None = None,
+    line_height: float | None = None,
+    fields: list[str] | None = None,
 ) -> int:
     """Produce a step-and-repeat PDF containing only address blocks (no artwork).
 
@@ -447,6 +466,10 @@ def build_address_steprepeat(
     Returns the number of records written.
     """
     from pypdf import PageObject, PdfWriter
+
+    effective_font_size = font_size if font_size is not None else _FONT_SIZE
+    effective_line_height = line_height if line_height is not None else _LINE_HEIGHT
+    effective_fields = fields if fields else _DEFAULT_FIELDS
 
     if addr_x is None:
         addr_x = card_w - _ADDR_FROM_RIGHT_IN_DEFAULT * _PT_PER_IN
@@ -475,8 +498,12 @@ def build_address_steprepeat(
             row = idx // cols
 
             # Determine scale so card fits cell (same logic as _impose_nup_simple).
-            scale_n = min(cell_w / card_w, cell_h / card_h) if card_w and card_h else 1.0
-            scale_r = min(cell_w / card_h, cell_h / card_w) if card_w and card_h else 1.0
+            scale_n = (
+                min(cell_w / card_w, cell_h / card_h) if card_w and card_h else 1.0
+            )
+            scale_r = (
+                min(cell_w / card_h, cell_h / card_w) if card_w and card_h else 1.0
+            )
             rotated = scale_r > scale_n
             scale = scale_r if rotated else scale_n
 
@@ -491,13 +518,15 @@ def build_address_steprepeat(
                 # addr_x (from card left) → vertical offset from card bottom after rotation
                 # addr_y (from card bottom) → horizontal offset from card left after rotation
                 # The rotated coordinate: sheet_x = target_left + addr_y * scale,
-                #                         sheet_y = target_bottom + (card_w - addr_x) * scale - LINE_HEIGHT
+                #                         sheet_y = target_bottom + (card_w - addr_x) * scale - font_size
                 # This places the address block correctly in the rotated card orientation.
                 placed_w = card_h * scale
                 center_x = (cell_w - placed_w) / 2
                 target_left = cell_left + center_x
                 sheet_addr_x = target_left + addr_y * scale
-                sheet_addr_y = target_bottom + (card_w - addr_x - _FONT_SIZE) * scale
+                sheet_addr_y = (
+                    target_bottom + (card_w - addr_x - effective_font_size) * scale
+                )
             else:
                 placed_w = card_w * scale
                 placed_h = card_h * scale
@@ -509,23 +538,21 @@ def build_address_steprepeat(
                 sheet_addr_y = target_bottom + addr_y * scale
 
             # Build address lines (same logic as _address_text_stream).
-            lines: list[str] = []
-            for field in (
-                "city-state-zip", "primary street", "sec-primary street",
-                "urbanization", "company", "name", "imbno",
-            ):
-                val = record.get(field, "").strip()
-                if val:
-                    lines.append(val)
+            lines: list[str] = [
+                record.get(f, "").strip()
+                for f in effective_fields
+                if record.get(f, "").strip()
+            ]
             if not lines:
                 continue
 
+            eff_fn = f"/{font_name}".encode() if font_name else _FONT_NAME
             parts: list[bytes] = [
                 b"BT",
-                f"/F1 {_FONT_SIZE:.1f} Tf".encode(),
+                eff_fn + f" {effective_font_size:.1f} Tf".encode(),
             ]
             for i, line in enumerate(lines):
-                y = sheet_addr_y + i * _LINE_HEIGHT
+                y = sheet_addr_y + i * effective_line_height
                 escaped = _escape_pdf_string(line)
                 parts.append(f"{sheet_addr_x:.3f} {y:.3f} Td".encode())
                 parts.append(b"(" + escaped + b") Tj")
@@ -534,7 +561,9 @@ def build_address_steprepeat(
             combined_parts.extend(parts)
 
         if combined_parts:
-            _apply_text_stream_to_page(sheet, b"\n".join(combined_parts))
+            _apply_text_stream_to_page(
+                sheet, b"\n".join(combined_parts), font_name=font_name
+            )
 
         writer.add_page(sheet)
 
@@ -542,24 +571,33 @@ def build_address_steprepeat(
     return len(records)
 
 
-def _apply_text_stream_to_page(page, stream_bytes: bytes) -> None:
-    """Attach a PDF text content stream to *page* in-place, declaring /F1=Helvetica."""
+def _apply_text_stream_to_page(
+    page, stream_bytes: bytes, font_name: str | None = None
+) -> None:
+    """Attach a PDF text content stream to *page* in-place, declaring /F1 font."""
     from pypdf.generic import (
         DecodedStreamObject,
         DictionaryObject,
         NameObject,
     )
 
-    font_dict = DictionaryObject({
-        NameObject("/Type"): NameObject("/Font"),
-        NameObject("/Subtype"): NameObject("/Type1"),
-        NameObject("/BaseFont"): NameObject("/Helvetica"),
-    })
-    resources = DictionaryObject({
-        NameObject("/Font"): DictionaryObject({
-            NameObject("/F1"): font_dict,
-        })
-    })
+    base_font = f"/{font_name}" if font_name else "/Helvetica"
+    font_dict = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject(base_font),
+        }
+    )
+    resources = DictionaryObject(
+        {
+            NameObject("/Font"): DictionaryObject(
+                {
+                    NameObject("/F1"): font_dict,
+                }
+            )
+        }
+    )
     page[NameObject("/Resources")] = resources
 
     stream_obj = DecodedStreamObject()
@@ -574,6 +612,10 @@ def merge_postcards(
     merge_page: int = 1,
     addr_x_in: float | None = None,
     addr_y_in: float | None = None,
+    font_name: str | None = None,
+    font_size: float | None = None,
+    line_height: float | None = None,
+    fields: list[str] | None = None,
 ) -> int:
     """Produce a mail-merged PDF with one (or two) pages per address record.
 
@@ -643,10 +685,20 @@ def merge_postcards(
 
             if page_idx == merge_page_idx:
                 stream = _address_text_stream(
-                    record, card_w, card_h, addr_x=addr_x_pt, addr_y=addr_y_pt
+                    record,
+                    card_w,
+                    card_h,
+                    addr_x=addr_x_pt,
+                    addr_y=addr_y_pt,
+                    font_name=font_name,
+                    font_size=font_size,
+                    line_height=line_height,
+                    fields=fields,
                 )
                 if stream:
-                    overlay = _make_address_overlay_page(card_w, card_h, stream)
+                    overlay = _make_address_overlay_page(
+                        card_w, card_h, stream, font_name=font_name
+                    )
                     page.merge_page(overlay)
 
             writer.add_page(page)
