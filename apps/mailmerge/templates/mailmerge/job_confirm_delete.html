@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Mail Merge Job — Ember{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-10">
+
+  <div class="card bg-base-100 border border-error/30 shadow-sm">
+    <div class="card-body gap-4">
+      <h1 class="card-title text-xl text-error">Delete Mail Merge Job</h1>
+      <p class="text-base-content/70">
+        Are you sure you want to delete
+        <strong>{{ object.name|default:object.pk }}</strong>?
+        This will permanently remove the job and all associated files.
+      </p>
+      <form method="post" class="flex gap-3 justify-end mt-2">
+        {% csrf_token %}
+        <a href="{% url 'mailmerge:detail' object.pk %}" class="btn btn-ghost btn-sm">Cancel</a>
+        <button type="submit" class="btn btn-error btn-sm">Delete</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
