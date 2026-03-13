@@ -278,13 +278,14 @@ function mmDetail() {
       if (this.recordIdx < this.records.length - 1) this.recordIdx++;
     },
     init() {
-      {% if job.status == "done" and job.record_count %}
-      var self = this;
-      fetch('{% url "mailmerge:records" job.pk %}')
-        .then(function(r) { return r.json(); })
-        .then(function(data) { self.records = data.records || []; })
-        .catch(function() {});
-      {% endif %}
+      // Records view not yet implemented
+      // {% if job.status == "done" and job.record_count %}
+      // var self = this;
+      // fetch('{% url "mailmerge:records" job.pk %}')
+      //   .then(function(r) { return r.json(); })
+      //   .then(function(data) { self.records = data.records || []; })
+      //   .catch(function() {});
+      // {% endif %}
     },
     onKeyNav(e) {
       if (this.records.length < 2) return;
