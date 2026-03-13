@@ -211,6 +211,12 @@ class ImpositionTemplateAdmin(admin.ModelAdmin):
             },
         ),
         (
+            "Options",
+            {
+                "fields": ["allow_mailmerge"],
+            },
+        ),
+        (
             "Timestamps",
             {
                 "fields": [("created_at", "updated_at")],
