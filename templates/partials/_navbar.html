@@ -24,7 +24,7 @@
       </a>
 
       {# Mail Merge — only visible to users with permission or staff #}
-      {% if user.is_authenticated and user.can_use_mail_merge or user.is_staff %}
+      {% if user.is_authenticated and user.can_use_mail_merge or user.is_authenticated and user.is_staff %}
       <a href="{% url 'mailmerge:list' %}"
          class="btn btn-ghost btn-sm gap-1.5 font-medium text-sm"
          title="Mail Merge">
@@ -144,7 +144,7 @@
         @click.outside="open = false"
       >
         <a href="{% url 'jobs:upload' %}" class="btn btn-ghost btn-sm justify-start gap-2">Upload</a>
-        {% if user.is_authenticated and user.can_use_mail_merge or user.is_staff %}
+        {% if user.is_authenticated and user.can_use_mail_merge or user.is_authenticated and user.is_staff %}
         <a href="{% url 'mailmerge:list' %}" class="btn btn-ghost btn-sm justify-start gap-2">Mail Merge</a>
         {% endif %}
         <a href="{% url 'jobs:list' %}"   class="btn btn-primary btn-sm justify-start gap-2">Print Jobs</a>
