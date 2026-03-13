@@ -4,7 +4,7 @@
 {% block title %}New Mail Merge Job — Ember{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-10" x-data="mailMergeUpload()" @keydown.window="onKeyNav($event)">
+<div class="max-w-3xl mx-auto px-4 py-10" x-data="mailMergeUpload('{{ addr_config.addr_x_in|default:'' }}', '{{ addr_config.addr_y_in|default:'' }}')" @keydown.window="onKeyNav($event)">
 
   <div class="mb-6">
     <h1 class="text-3xl font-extrabold text-base-content tracking-tight">New Mail Merge Job</h1>
@@ -122,7 +122,8 @@
                        class="input input-bordered w-full"
                        x-model="addrXIn"
                        @input="onAddrInputChange()"
-                       :placeholder="addrXPlaceholder">
+                       :placeholder="addrXPlaceholder"
+                       value="{{ addr_config.addr_x_in|default:'' }}">
                 <label class="label">
                   <span class="label-text-alt text-base-content/40">
                     Default: <span x-text="addrXPlaceholder"></span>&Prime;
@@ -137,7 +138,8 @@
                        class="input input-bordered w-full"
                        x-model="addrYIn"
                        @input="onAddrInputChange()"
-                       placeholder="2.5">
+                       placeholder="2.5"
+                       value="{{ addr_config.addr_y_in|default:'' }}">
                 <label class="label">
                   <span class="label-text-alt text-base-content/40">Default: 2.5&Prime;</span>
                 </label>
@@ -237,12 +239,12 @@ var ADDR_BLOCK_H_PT = NUM_LINES * LINE_HEIGHT;
 var EM_DASH = '\u2014';
 var GRID_SNAP_IN = 0.0625; // snap to 1/16"
 
-function mailMergeUpload() {
+function mailMergeUpload(defaultAddrX, defaultAddrY) {
   return {
     pdfInfo: null,
     mergePage: 1,
-    addrXIn: '',
-    addrYIn: '',
+    addrXIn: defaultAddrX || '',
+    addrYIn: defaultAddrY || '',
     isDragging: false,
     _dragOffsetX: 0,
     _dragOffsetY: 0,

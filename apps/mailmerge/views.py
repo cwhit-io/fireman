@@ -67,10 +67,13 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
     def _get_context(self):
         from apps.impose.models import ImpositionTemplate
 
+        from .models import AddressBlockConfig
+
         templates = ImpositionTemplate.objects.filter(allow_mailmerge=True).order_by(
             "name"
         )
-        return {"impose_templates": templates}
+        config = AddressBlockConfig.get_solo()
+        return {"impose_templates": templates, "addr_config": config}
 
     def get(self, request):
         return render(request, self.template_name, self._get_context())
@@ -462,6 +465,44 @@ class MailMergeJobSendAddressesToFieryView(LoginRequiredMixin, View):
                     pass
 
         return redirect("mailmerge:detail", pk=pk)
+
+
+class AddressBlockConfigView(LoginRequiredMixin, View):
+    """View and edit the site-wide address block default position."""
+
+    template_name = "mailmerge/address_block_config.html"
+
+    def get(self, request):
+        from .models import AddressBlockConfig
+
+        config = AddressBlockConfig.get_solo()
+        return render(request, self.template_name, {"config": config})
+
+    def post(self, request):
+        from .models import AddressBlockConfig
+
+        config = AddressBlockConfig.get_solo()
+
+        def _parse_float(key):
+            val = request.POST.get(key, "").strip()
+            try:
+                return float(val) if val else None
+            except ValueError:
+                return None
+
+        config.addr_x_in = _parse_float("addr_x_in")
+        config.addr_y_in = _parse_float("addr_y_in")
+
+        card_w = _parse_float("preview_card_width_in")
+        card_h = _parse_float("preview_card_height_in")
+        if card_w and card_w > 0:
+            config.preview_card_width_in = card_w
+        if card_h and card_h > 0:
+            config.preview_card_height_in = card_h
+
+        config.save()
+        messages.success(request, "Address block defaults saved.")
+        return redirect("mailmerge:address_block_config")
 
 
 class MailMergeJobRecordsView(LoginRequiredMixin, View):

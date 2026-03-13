@@ -131,3 +131,63 @@ class MailMergeJob(models.Model):
 
     def __str__(self):
         return self.name or str(self.id)
+
+
+class AddressBlockConfig(models.Model):
+    """Singleton model storing the site-wide default address block position.
+
+    Always access via ``AddressBlockConfig.get_solo()``.
+    The x position can be expressed as an absolute left-edge value OR as a
+    distance from the right edge of the card (``from_right_in``).  The latter
+    generally produces more predictable results as it directly matches the USPS
+    address-placement requirement (≥1" from right edge).
+    """
+
+    # Preview / default card dimensions used on the config page itself
+    preview_card_width_in = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        default=6.0,
+        help_text="Card width used in the preview on the defaults page (inches).",
+    )
+    preview_card_height_in = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        default=9.0,
+        help_text="Card height used in the preview on the defaults page (inches).",
+    )
+
+    # Default address position – mirrors MailMergeJob.addr_x_in / addr_y_in
+    addr_x_in = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=(
+            "Default left edge of address block in inches from card left. "
+            'Leave blank to use card_width − 4.5".'
+        ),
+    )
+    addr_y_in = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=(
+            "Default bottom edge of address block in inches from card bottom. "
+            'Leave blank to use 2.5".'
+        ),
+    )
+
+    class Meta:
+        verbose_name = "Address Block Config"
+        verbose_name_plural = "Address Block Config"
+
+    def __str__(self):
+        return "Address Block Defaults"
+
+    @classmethod
+    def get_solo(cls):
+        """Return the single config row, creating it with defaults if absent."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
