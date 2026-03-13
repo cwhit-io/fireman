@@ -121,6 +121,66 @@ class MailMergeJobUploadView(View):
         return redirect("mailmerge:detail", pk=job.pk)
 
 
+class MailMergeJobEditView(View):
+    """Allow editing address block position and re-triggering the merge."""
+
+    template_name = "mailmerge/job_edit.html"
+
+    def get(self, request, pk):
+        job = get_object_or_404(MailMergeJob, pk=pk)
+        return render(request, self.template_name, {"job": job})
+
+    def post(self, request, pk):
+        job = get_object_or_404(MailMergeJob, pk=pk)
+
+        name = request.POST.get("name", "").strip()
+        if name:
+            job.name = name
+
+        try:
+            merge_page = int(request.POST.get("merge_page", job.merge_page))
+        except (TypeError, ValueError):
+            merge_page = job.merge_page
+        job.merge_page = max(1, min(merge_page, max(job.artwork_page_count or 1, 1)))
+
+        def _parse_float(key):
+            val = request.POST.get(key, "").strip()
+            try:
+                return float(val) if val else None
+            except ValueError:
+                return None
+
+        addr_x_in = _parse_float("addr_x_in")
+        addr_y_in = _parse_float("addr_y_in")
+        job.addr_x_in = addr_x_in
+        job.addr_y_in = addr_y_in
+
+        job.status = MailMergeJob.Status.PENDING
+        job.error_message = ""
+        job.save()
+
+        process_mail_merge_task.delay(str(job.pk))
+        messages.success(request, "Job updated — re-processing started.")
+        return redirect("mailmerge:detail", pk=job.pk)
+
+
+class MailMergeJobArtworkServeView(View):
+    """Serve the artwork PDF for a job (used by the edit-page preview canvas)."""
+
+    def get(self, request, pk):
+        job = get_object_or_404(MailMergeJob, pk=pk)
+        if not job.artwork_file:
+            raise Http404("No artwork file.")
+        try:
+            with job.artwork_file.open("rb") as fh:
+                content = fh.read()
+        except Exception as exc:
+            raise Http404("Artwork file could not be read.") from exc
+        response = HttpResponse(content, content_type="application/pdf")
+        response["Content-Disposition"] = "inline"
+        return response
+
+
 class MailMergeJobDeleteView(DeleteView):
     model = MailMergeJob
     template_name = "mailmerge/job_confirm_delete.html"
@@ -129,7 +189,8 @@ class MailMergeJobDeleteView(DeleteView):
     def form_valid(self, form):
         job = self.get_object()
         # Delete associated files before removing the DB record.
-        for field_name in ("artwork_file", "csv_file", "output_file"):
+        for field_name in ("artwork_file", "csv_file", "output_file",
+                           "gangup_file", "address_pdf_file"):
             try:
                 f = getattr(job, field_name, None)
                 if f and getattr(f, "name", None):
@@ -139,17 +200,34 @@ class MailMergeJobDeleteView(DeleteView):
         return super().form_valid(form)
 
 
+def _serve_job_file(job_file_field, fallback_name: str) -> HttpResponse:
+    """Read a FileField and return an HttpResponse, raising Http404 on failure."""
+    if not job_file_field:
+        raise Http404("File not yet available.")
+    try:
+        with job_file_field.open("rb") as fh:
+            content = fh.read()
+    except Exception as exc:
+        raise Http404("File could not be read.") from exc
+    fname = job_file_field.name.split("/")[-1] or fallback_name
+    response = HttpResponse(content, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{fname}"'
+    return response
+
+
 class MailMergeJobDownloadView(View):
     def get(self, request, pk):
         job = get_object_or_404(MailMergeJob, pk=pk)
-        if not job.output_file:
-            raise Http404("Output file not yet available.")
-        try:
-            with job.output_file.open("rb") as fh:
-                content = fh.read()
-        except Exception as exc:
-            raise Http404("Output file could not be read.") from exc
-        fname = job.output_file.name.split("/")[-1]
-        response = HttpResponse(content, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="{fname}"'
-        return response
+        return _serve_job_file(job.output_file, "merged.pdf")
+
+
+class MailMergeJobDownloadGangupView(View):
+    def get(self, request, pk):
+        job = get_object_or_404(MailMergeJob, pk=pk)
+        return _serve_job_file(job.gangup_file, "gangup.pdf")
+
+
+class MailMergeJobDownloadAddressPdfView(View):
+    def get(self, request, pk):
+        job = get_object_or_404(MailMergeJob, pk=pk)
+        return _serve_job_file(job.address_pdf_file, "addresses.pdf")

@@ -18,9 +18,26 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v8m0 0l-4-4m4 4l4-4"/>
         </svg>
-        Download PDF
+        Merged PDF
       </a>
       {% endif %}
+      {% if job.status == "done" and job.gangup_file %}
+      <a href="{% url 'mailmerge:download_gangup' job.pk %}" class="btn btn-secondary btn-sm gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v8m0 0l-4-4m4 4l4-4"/>
+        </svg>
+        Gang-up
+      </a>
+      {% endif %}
+      {% if job.status == "done" and job.address_pdf_file %}
+      <a href="{% url 'mailmerge:download_addresses' job.pk %}" class="btn btn-secondary btn-sm gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v8m0 0l-4-4m4 4l4-4"/>
+        </svg>
+        Addresses
+      </a>
+      {% endif %}
+      <a href="{% url 'mailmerge:edit' job.pk %}" class="btn btn-ghost btn-sm">Edit</a>
       <a href="{% url 'mailmerge:delete' job.pk %}" class="btn btn-ghost btn-sm text-error">Delete</a>
     </div>
   </div>
@@ -133,9 +150,25 @@
         </div>
         {% if job.output_file %}
         <div class="py-2 flex justify-between text-sm">
-          <span class="text-base-content/60">Output PDF</span>
+          <span class="text-base-content/60">Merged PDF</span>
           <a href="{% url 'mailmerge:download' job.pk %}" class="link link-primary font-medium truncate max-w-xs text-right">
             {{ job.output_file.name|cut:"mailmerge/output/" }}
+          </a>
+        </div>
+        {% endif %}
+        {% if job.gangup_file %}
+        <div class="py-2 flex justify-between text-sm">
+          <span class="text-base-content/60">Artwork Gang-up <span class="badge badge-sm badge-outline">{{ job.gangup_cols|default:"?" }}×{{ job.gangup_rows|default:"?" }}-up</span></span>
+          <a href="{% url 'mailmerge:download_gangup' job.pk %}" class="link link-primary font-medium truncate max-w-xs text-right">
+            {{ job.gangup_file.name|cut:"mailmerge/output/" }}
+          </a>
+        </div>
+        {% endif %}
+        {% if job.address_pdf_file %}
+        <div class="py-2 flex justify-between text-sm">
+          <span class="text-base-content/60">Address Step-and-Repeat</span>
+          <a href="{% url 'mailmerge:download_addresses' job.pk %}" class="link link-primary font-medium truncate max-w-xs text-right">
+            {{ job.address_pdf_file.name|cut:"mailmerge/output/" }}
           </a>
         </div>
         {% endif %}

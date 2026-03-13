@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit {{ job.name|default:"Mail Merge Job" }} — Ember{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10"
+     x-data="mailMergeEdit({% if job.card_width %}{{ job.card_width }},{{ job.card_height }}{% else %}0,0{% endif %}, {{ job.artwork_page_count|default:1 }}, {{ job.merge_page|default:1 }}, '{% url "mailmerge:serve_artwork" job.pk %}')">
+
+  <div class="mb-6">
+    <h1 class="text-3xl font-extrabold text-base-content tracking-tight">
+      Edit: {{ job.name|default:"Mail Merge Job" }}
+    </h1>
+    <p class="text-base-content/60 mt-1 text-sm">Adjust the address block position and re-process the job.</p>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2 mb-6">
+    {% for message in messages %}
+    <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} shadow-sm">
+      <span>{{ message }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card bg-base-100 border border-base-300 shadow-sm">
+    <div class="card-body gap-5">
+
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Job Name -->
+        <div class="form-control">
+          <label class="label" for="name">
+            <span class="label-text font-medium">Job name</span>
+          </label>
+          <input type="text" name="name" id="name"
+                 value="{{ job.name }}"
+                 class="input input-bordered w-full" maxlength="255">
+        </div>
+
+        <!-- Page selector (only for 2-page PDFs) -->
+        {% if job.artwork_page_count == 2 %}
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">Which page receives the address block?</span>
+          </label>
+          <div class="flex gap-3 flex-wrap">
+            <label class="cursor-pointer">
+              <input type="radio" name="merge_page" value="1"
+                     class="radio radio-primary sr-only"
+                     {% if job.merge_page == 1 %}checked{% endif %}
+                     @change="onMergePageChange(1)">
+              <div class="border-2 rounded-lg p-3 text-sm transition-colors"
+                   :class="mergePage === 1 ? 'border-primary bg-primary/10' : 'border-base-300 hover:border-primary/50'">
+                <div class="font-semibold">Page 1</div>
+                <div class="text-primary text-xs mt-1" x-show="mergePage === 1">✓ Address page</div>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="merge_page" value="2"
+                     class="radio radio-primary sr-only"
+                     {% if job.merge_page == 2 %}checked{% endif %}
+                     @change="onMergePageChange(2)">
+              <div class="border-2 rounded-lg p-3 text-sm transition-colors"
+                   :class="mergePage === 2 ? 'border-primary bg-primary/10' : 'border-base-300 hover:border-primary/50'">
+                <div class="font-semibold">Page 2</div>
+                <div class="text-primary text-xs mt-1" x-show="mergePage === 2">✓ Address page</div>
+              </div>
+            </label>
+          </div>
+        </div>
+        {% else %}
+        <input type="hidden" name="merge_page" value="{{ job.merge_page|default:1 }}">
+        {% endif %}
+
+        <!-- Address block position -->
+        <div>
+          <p class="text-sm font-medium text-base-content mb-3">Address Block Position</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label" for="addr_x_in">
+                <span class="label-text">Left edge (inches from card left)</span>
+              </label>
+              <input type="number" name="addr_x_in" id="addr_x_in" step="0.0625" min="0"
+                     class="input input-bordered w-full"
+                     x-model="addrXIn"
+                     @input="renderPreview()"
+                     :placeholder="addrXDefault.toFixed(4).replace(/\.?0+$/, '')">
+              <label class="label">
+                <span class="label-text-alt text-base-content/40">
+                  Default: <span x-text="addrXDefault.toFixed(4).replace(/\.?0+$/, '')"></span>&Prime;
+                </span>
+              </label>
+            </div>
+            <div class="form-control">
+              <label class="label" for="addr_y_in">
+                <span class="label-text">Bottom edge (inches from card bottom)</span>
+              </label>
+              <input type="number" name="addr_y_in" id="addr_y_in" step="0.0625" min="0"
+                     class="input input-bordered w-full"
+                     x-model="addrYIn"
+                     @input="renderPreview()"
+                     placeholder="2.5">
+              <label class="label">
+                <span class="label-text-alt text-base-content/40">Default: 2.5&Prime;</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas preview -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-sm font-medium text-base-content">Preview</p>
+            <span class="text-xs text-base-content/40">Drag the blue address block to reposition</span>
+          </div>
+          <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3">
+            <canvas id="previewCanvas"
+                    class="max-w-full rounded shadow-sm"
+                    style="max-height:320px; cursor:grab;"
+                    @mousedown="onCanvasMouseDown($event)"
+                    @mousemove="onCanvasMouseMove($event)"
+                    @mouseup="onCanvasMouseUp($event)"
+                    @mouseleave="onCanvasMouseUp($event)"
+                    @touchstart.prevent="onTouchStart($event)"
+                    @touchmove.prevent="onTouchMove($event)"
+                    @touchend.prevent="onCanvasMouseUp($event)"></canvas>
+          </div>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn btn-primary flex-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Save &amp; Re-process
+          </button>
+          <a href="{% url 'mailmerge:detail' job.pk %}" class="btn btn-ghost flex-1">Cancel</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <div class="mt-5 text-center">
+    <a href="{% url 'mailmerge:list' %}" class="link link-primary text-sm">← Back to job list</a>
+  </div>
+
+</div>
+
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+(function () {
+  if (typeof pdfjsLib !== 'undefined') {
+    var _w = new URL('{% static "vendor/pdfjs/pdf.worker.min.js" %}', window.location.origin).href;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = _w;
+  }
+})();
+
+var PT_PER_IN = 72;
+var LINE_HEIGHT = 13;
+var NUM_LINES = 7;
+var ADDR_BLOCK_W_PT = 4.25 * PT_PER_IN;
+var ADDR_BLOCK_H_PT = NUM_LINES * LINE_HEIGHT;
+
+function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl) {
+  return {
+    cardWPt: cardWPt || 432,
+    cardHPt: cardHPt || 288,
+    pageCount: pageCount || 1,
+    mergePage: initialMergePage || 1,
+    addrXIn: '{{ job.addr_x_in|default:"" }}',
+    addrYIn: '{{ job.addr_y_in|default:"" }}',
+    isDragging: false,
+    _dragOffsetX: 0,
+    _dragOffsetY: 0,
+    _pdfDoc: null,
+    _scale: 1,
+    artworkUrl: artworkUrl,
+
+    get addrXDefault() {
+      return Math.max(0, this.cardWPt / PT_PER_IN - 4.5);
+    },
+
+    _resolveAddrPt() {
+      var addrX = this.addrXIn !== '' ? parseFloat(this.addrXIn) * PT_PER_IN
+                                      : Math.max(0, this.cardWPt - 4.5 * PT_PER_IN);
+      var addrY = this.addrYIn !== '' ? parseFloat(this.addrYIn) * PT_PER_IN
+                                      : 2.5 * PT_PER_IN;
+      return { addrX: addrX, addrY: addrY };
+    },
+
+    init() {
+      this.$nextTick(function() { this.renderPreview(); }.bind(this));
+    },
+
+    onMergePageChange(page) {
+      this.mergePage = page;
+      this._pdfDoc = null;
+      this.renderPreview();
+    },
+
+    renderPreview() {
+      var canvas = document.getElementById('previewCanvas');
+      if (!canvas) return;
+
+      var cardWPt = this.cardWPt;
+      var cardHPt = this.cardHPt;
+      var p = this._resolveAddrPt();
+      var addrX = p.addrX, addrY = p.addrY;
+
+      var maxW = canvas.parentElement.clientWidth - 24;
+      var maxH = 300;
+      var scale = Math.min(maxW / cardWPt, maxH / cardHPt, 1);
+      canvas.width  = Math.round(cardWPt * scale);
+      canvas.height = Math.round(cardHPt * scale);
+      this._scale = scale;
+
+      var ctx = canvas.getContext('2d');
+      var self = this;
+      var pageIdx = Math.max(0, this.mergePage - 1);
+
+      if (this.artworkUrl && typeof pdfjsLib !== 'undefined') {
+        var renderPage = function(doc) {
+          doc.getPage(pageIdx + 1).then(function(page) {
+            var viewport = page.getViewport({ scale: scale });
+            canvas.width  = viewport.width;
+            canvas.height = viewport.height;
+            page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
+              self._drawAddressBlock(ctx, addrX, addrY, scale, cardHPt);
+            });
+          }).catch(function() {
+            self._drawPlaceholder(ctx, canvas.width, canvas.height, addrX, addrY, scale, cardHPt);
+          });
+        };
+
+        if (this._pdfDoc) {
+          renderPage(this._pdfDoc);
+        } else {
+          pdfjsLib.getDocument(this.artworkUrl).promise.then(function(doc) {
+            self._pdfDoc = doc;
+            renderPage(doc);
+          }).catch(function() {
+            self._drawPlaceholder(ctx, canvas.width, canvas.height, addrX, addrY, scale, cardHPt);
+          });
+        }
+      } else {
+        this._drawPlaceholder(ctx, canvas.width, canvas.height, addrX, addrY, scale, cardHPt);
+      }
+    },
+
+    _drawPlaceholder(ctx, w, h, addrX, addrY, scale, cardHPt) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = Math.max(10, 14 * scale) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Page ' + this.mergePage, w / 2, h / 2);
+      this._drawAddressBlock(ctx, addrX, addrY, scale, cardHPt);
+    },
+
+    _drawAddressBlock(ctx, addrX, addrY, scale, cardHPt) {
+      var cx = addrX * scale;
+      var cy = (cardHPt - addrY - ADDR_BLOCK_H_PT) * scale;
+      var cw = ADDR_BLOCK_W_PT * scale;
+      var ch = ADDR_BLOCK_H_PT * scale;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(59,130,246,0.12)';
+      ctx.fillRect(cx, cy, cw, ch);
+      ctx.strokeStyle = 'rgba(59,130,246,0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(cx, cy, cw, ch);
+      ctx.fillStyle = 'rgba(59,130,246,0.85)';
+      ctx.font = 'bold ' + Math.max(8, 9 * scale) + 'px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Address Block', cx + 3 * scale, cy + 12 * scale);
+      ctx.fillStyle = 'rgba(59,130,246,0.6)';
+      ctx.font = Math.max(7, 8 * scale) + 'px sans-serif';
+      ctx.fillText('drag to reposition', cx + 3 * scale, cy + 22 * scale);
+      ctx.restore();
+    },
+
+    _canvasEventCoords(event) {
+      var canvas = document.getElementById('previewCanvas');
+      var rect = canvas.getBoundingClientRect();
+      var scaleX = canvas.width / rect.width;
+      var scaleY = canvas.height / rect.height;
+      var src = event.touches ? event.touches[0] : event;
+      return {
+        cx: (src.clientX - rect.left) * scaleX,
+        cy: (src.clientY - rect.top) * scaleY,
+      };
+    },
+
+    _isInsideBlock(cx, cy) {
+      var p = this._resolveAddrPt();
+      var scale = this._scale || 1;
+      var bx = p.addrX * scale;
+      var by = (this.cardHPt - p.addrY - ADDR_BLOCK_H_PT) * scale;
+      var bw = ADDR_BLOCK_W_PT * scale;
+      var bh = ADDR_BLOCK_H_PT * scale;
+      return cx >= bx && cx <= bx + bw && cy >= by && cy <= by + bh;
+    },
+
+    onCanvasMouseDown(event) {
+      var coords = this._canvasEventCoords(event);
+      if (!this._isInsideBlock(coords.cx, coords.cy)) return;
+      var p = this._resolveAddrPt();
+      var scale = this._scale || 1;
+      var bx = p.addrX * scale;
+      var by = (this.cardHPt - p.addrY - ADDR_BLOCK_H_PT) * scale;
+      this.isDragging = true;
+      this._dragOffsetX = coords.cx - bx;
+      this._dragOffsetY = coords.cy - by;
+      event.target.style.cursor = 'grabbing';
+    },
+
+    onCanvasMouseMove(event) {
+      if (!this.isDragging) return;
+      var coords = this._canvasEventCoords(event);
+      var scale = this._scale || 1;
+      var cardWPt = this.cardWPt;
+      var cardHPt = this.cardHPt;
+
+      var newLeftPt  = (coords.cx - this._dragOffsetX) / scale;
+      var newTopCvPt = (coords.cy - this._dragOffsetY) / scale;
+      var newAddrY = cardHPt - newTopCvPt - ADDR_BLOCK_H_PT;
+
+      var clampedX = Math.max(0, Math.min(newLeftPt, cardWPt - ADDR_BLOCK_W_PT));
+      var clampedY = Math.max(0, Math.min(newAddrY, cardHPt - ADDR_BLOCK_H_PT));
+
+      this.addrXIn = (clampedX / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
+      this.addrYIn = (clampedY / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
+      this.renderPreview();
+    },
+
+    onCanvasMouseUp(event) {
+      if (this.isDragging) {
+        this.isDragging = false;
+        var canvas = document.getElementById('previewCanvas');
+        if (canvas) canvas.style.cursor = 'grab';
+      }
+    },
+
+    onTouchStart(event) { this.onCanvasMouseDown(event); },
+    onTouchMove(event)  { this.onCanvasMouseMove(event); },
+  };
+}
+</script>
+{% endblock %}
