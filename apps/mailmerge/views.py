@@ -17,25 +17,6 @@ from .tasks import process_mail_merge_task
 
 logger = logging.getLogger(__name__)
 
-import io
-import logging
-import os
-import shutil
-import tempfile
-
-from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import Http404, HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from django.views import View
-from django.views.generic import DeleteView, DetailView, ListView
-
-from .models import MailMergeJob
-from .services import inspect_artwork_pdf
-from .tasks import process_mail_merge_task
-
-logger = logging.getLogger(__name__)
-
 # Default address block anchor values (inches)
 _ADDR_X_DEFAULT_IN = None  # card_width - 4.5 in
 _ADDR_Y_DEFAULT_IN = 2.5
@@ -356,6 +337,21 @@ class MailMergeGenerateMergedView(LoginRequiredMixin, View):
         messages.success(request, "Merged PDF generation started.")
         return redirect("mailmerge:detail", pk=pk)
 
+
+class MailMergeJobSendGangupToFieryView(LoginRequiredMixin, View):
+    """Send the artwork gang-up PDF to the Fiery."""
+
+    def post(self, request, pk):
+        if request.user.is_staff:
+            job = get_object_or_404(MailMergeJob, pk=pk)
+        else:
+            job = get_object_or_404(MailMergeJob, pk=pk, owner=request.user)
+
+        if not job.gangup_file:
+            messages.error(request, "Gang-up PDF not yet available.")
+            return redirect("mailmerge:detail", pk=pk)
+
+        preset = None
         if job.impose_template and job.impose_template.routing_preset:
             preset = job.impose_template.routing_preset
         if not preset:
