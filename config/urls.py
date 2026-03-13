@@ -28,6 +28,7 @@ urlpatterns = [
     path("api/", api.urls),
     path("ping/", lambda r: HttpResponse("pong"), name="ping"),
     path("demo/", include("core.urls", namespace="core")),
+    path("accounts/", include("django.contrib.auth.urls")),
     path("", homepage, name="homepage"),
     path("jobs/", include("apps.jobs.urls", namespace="jobs")),
     path("templates/", include("apps.impose.urls", namespace="impose")),

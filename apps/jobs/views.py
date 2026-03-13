@@ -4,8 +4,10 @@ import math
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
+from django.db import models
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
@@ -21,14 +23,14 @@ from .tasks import process_job_task
 logger = logging.getLogger(__name__)
 
 
-class JobListView(ListView):
+class JobListView(LoginRequiredMixin, ListView):
     model = PrintJob
     template_name = "jobs/job_list.html"
     context_object_name = "jobs"
     paginate_by = 25
 
     def get_queryset(self):
-        return (
+        qs = (
             super()
             .get_queryset()
             .filter(is_saved=False)
@@ -37,19 +39,38 @@ class JobListView(ListView):
                 "cutter_program",
             )
         )
+        if not self.request.user.is_staff:
+            qs = qs.filter(owner=self.request.user)
+        return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["saved_jobs"] = PrintJob.objects.filter(is_saved=True).select_related(
+        if self.request.user.is_staff:
+            saved_qs = PrintJob.objects.filter(is_saved=True)
+        else:
+            saved_qs = PrintJob.objects.filter(
+                is_saved=True
+            ).filter(
+                models.Q(owner=self.request.user) | models.Q(is_global=True)
+            )
+        ctx["saved_jobs"] = saved_qs.select_related(
             "imposition_template__sheet_size", "cutter_program", "routing_preset"
         )
         return ctx
 
 
-class JobDetailView(DetailView):
+class JobDetailView(LoginRequiredMixin, DetailView):
     model = PrintJob
     template_name = "jobs/job_detail.html"
     context_object_name = "job"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(
+                models.Q(owner=self.request.user) | models.Q(is_global=True, is_saved=True)
+            )
+        return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -69,7 +90,7 @@ class JobDetailView(DetailView):
         return ctx
 
 
-class JobUploadView(View):
+class JobUploadView(LoginRequiredMixin, View):
     template_name = "jobs/job_upload.html"
 
     @staticmethod
@@ -127,6 +148,7 @@ class JobUploadView(View):
             name=file.name,
             is_double_sided=is_double_sided,
             pages_are_unique=pages_are_unique,
+            owner=request.user if request.user.is_authenticated else None,
         )
         # Save the (possibly repaired) PDF
         job.file.save(file.name, ContentFile(repaired_bytes), save=True)
@@ -167,7 +189,7 @@ class JobUploadView(View):
         return redirect("jobs:detail", pk=job.pk)
 
 
-class JobUploadTemplatesView(View):
+class JobUploadTemplatesView(LoginRequiredMixin, View):
     """HTMX endpoint: return filtered template options for the upload form."""
 
     def get(self, request):
@@ -195,11 +217,14 @@ class JobUploadTemplatesView(View):
         return HttpResponse(html)
 
 
-class JobApplyTemplateView(View):
+class JobApplyTemplateView(LoginRequiredMixin, View):
     """Manually apply a template to a job and immediately re-process it."""
 
     def post(self, request, pk):
-        job = get_object_or_404(PrintJob, pk=pk)
+        if request.user.is_staff:
+            job = get_object_or_404(PrintJob, pk=pk)
+        else:
+            job = get_object_or_404(PrintJob, pk=pk, owner=request.user)
         template_id = request.POST.get("template_id", "").strip()
 
         if not template_id:
@@ -236,25 +261,27 @@ class JobApplyTemplateView(View):
         return redirect("jobs:detail", pk=pk)
 
 
-class JobToggleSaveView(View):
+class JobToggleSaveView(LoginRequiredMixin, View):
     """Toggle the is_saved flag on a print job."""
 
     def post(self, request, pk):
-        job = get_object_or_404(PrintJob, pk=pk)
+        if request.user.is_staff:
+            job = get_object_or_404(PrintJob, pk=pk)
+        else:
+            job = get_object_or_404(PrintJob, pk=pk, owner=request.user)
         job.is_saved = not job.is_saved
         job.save(update_fields=["is_saved"])
         return redirect(request.POST.get("next", "jobs:list"))
 
 
-class JobRenameView(View):
+class JobRenameView(LoginRequiredMixin, View):
     """Update the display name of a print job."""
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
-
     def post(self, request, pk):
-        job = get_object_or_404(PrintJob, pk=pk)
+        if request.user.is_staff:
+            job = get_object_or_404(PrintJob, pk=pk)
+        else:
+            job = get_object_or_404(PrintJob, pk=pk, owner=request.user)
         new_name = request.POST.get("name", "").strip()
         if new_name:
             job.name = new_name
@@ -265,23 +292,35 @@ class JobRenameView(View):
         return redirect("jobs:detail", pk=pk)
 
 
-class JobDeleteView(DeleteView):
+class JobDeleteView(LoginRequiredMixin, DeleteView):
     model = PrintJob
     template_name = "jobs/job_confirm_delete.html"
     success_url = reverse_lazy("jobs:list")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(owner=self.request.user)
+        return qs
 
     def form_valid(self, form):
         messages.success(self.request, "Job deleted.")
         return super().form_valid(form)
 
 
-class JobPreviewView(View):
+class JobPreviewView(LoginRequiredMixin, View):
     """Serve the imposed PDF inline for browser preview before sending to printer."""
 
     def get(self, request, pk):
         from django.http import FileResponse, Http404
 
-        job = get_object_or_404(PrintJob, pk=pk)
+        if request.user.is_staff:
+            job = get_object_or_404(PrintJob, pk=pk)
+        else:
+            job = get_object_or_404(
+                PrintJob,
+                models.Q(pk=pk) & (models.Q(owner=request.user) | models.Q(is_global=True, is_saved=True)),
+            )
         if not job.imposed_file:
             raise Http404("No imposed file available for this job.")
         response = FileResponse(
@@ -293,13 +332,19 @@ class JobPreviewView(View):
         return response
 
 
-class JobSourcePreviewView(View):
+class JobSourcePreviewView(LoginRequiredMixin, View):
     """Serve the original (pre-imposition) PDF inline for preview."""
 
     def get(self, request, pk):
         from django.http import FileResponse, Http404
 
-        job = get_object_or_404(PrintJob, pk=pk)
+        if request.user.is_staff:
+            job = get_object_or_404(PrintJob, pk=pk)
+        else:
+            job = get_object_or_404(
+                PrintJob,
+                models.Q(pk=pk) & (models.Q(owner=request.user) | models.Q(is_global=True, is_saved=True)),
+            )
         if not job.file:
             raise Http404("No source file available for this job.")
         response = FileResponse(
@@ -311,13 +356,19 @@ class JobSourcePreviewView(View):
         return response
 
 
-class JobDownloadView(View):
+class JobDownloadView(LoginRequiredMixin, View):
     """Serve the imposed PDF for download."""
 
     def get(self, request, pk):
         from django.http import FileResponse, Http404
 
-        job = get_object_or_404(PrintJob, pk=pk)
+        if request.user.is_staff:
+            job = get_object_or_404(PrintJob, pk=pk)
+        else:
+            job = get_object_or_404(
+                PrintJob,
+                models.Q(pk=pk) & (models.Q(owner=request.user) | models.Q(is_global=True, is_saved=True)),
+            )
         if not job.imposed_file:
             raise Http404("No imposed file available for this job.")
         response = FileResponse(
@@ -328,7 +379,7 @@ class JobDownloadView(View):
         return response
 
 
-class JobResendView(View):
+class JobResendView(LoginRequiredMixin, View):
     """Re-send an already-processed job to the printer."""
 
     def post(self, request, pk):
@@ -337,7 +388,10 @@ class JobResendView(View):
 
         from apps.routing.services import send_to_fiery_lpr
 
-        job = get_object_or_404(PrintJob, pk=pk)
+        if request.user.is_staff:
+            job = get_object_or_404(PrintJob, pk=pk)
+        else:
+            job = get_object_or_404(PrintJob, pk=pk, owner=request.user)
         if not job.imposed_file:
             messages.error(request, "No imposed file available to send.")
             return redirect("jobs:detail", pk=pk)
@@ -378,19 +432,26 @@ class JobResendView(View):
         return redirect("jobs:detail", pk=pk)
 
 
-class JobPreflightAcknowledgeView(View):
+class JobPreflightAcknowledgeView(LoginRequiredMixin, View):
     """Mark preflight results as acknowledged (dismisses the modal)."""
 
     def post(self, request, pk):
-        job = get_object_or_404(PrintJob, pk=pk)
+        if request.user.is_staff:
+            job = get_object_or_404(PrintJob, pk=pk)
+        else:
+            job = get_object_or_404(PrintJob, pk=pk, owner=request.user)
         job.preflight_acknowledged = True
         job.save(update_fields=["preflight_acknowledged"])
         return redirect("jobs:detail", pk=pk)
 
 
+@login_required
 def calc_sheets(request, pk):
     """Calculate sheets needed for gangup (step-and-repeat) jobs based on a user-supplied finished quantity."""
-    job = get_object_or_404(PrintJob, pk=pk)
+    if request.user.is_staff:
+        job = get_object_or_404(PrintJob, pk=pk)
+    else:
+        job = get_object_or_404(PrintJob, pk=pk, owner=request.user)
 
     if request.method != "POST":
         return redirect("jobs:detail", pk=pk)

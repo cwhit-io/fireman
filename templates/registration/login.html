@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Sign In — Ember{% endblock %}
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center px-4 py-12">
+  <div class="card bg-base-100 shadow-xl border border-base-300 w-full max-w-md">
+    <div class="card-body gap-6">
+      <div class="flex flex-col items-center gap-2 text-center">
+        <img src="{% static 'logo.png' %}" alt="Ember" class="h-20">
+        <h1 class="text-2xl font-bold">Sign in to Ember</h1>
+        <p class="text-base-content/60 text-sm">Your friendly print helper</p>
+      </div>
+
+      {% if form.errors %}
+      <div class="alert alert-error text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>Invalid username or password. Please try again.</span>
+      </div>
+      {% endif %}
+
+      <form method="post" class="flex flex-col gap-4">
+        {% csrf_token %}
+        <div class="form-control">
+          <label class="label" for="id_username">
+            <span class="label-text font-medium">Username</span>
+          </label>
+          <input type="text" name="username" id="id_username" autocomplete="username" autofocus required
+            class="input input-bordered w-full" placeholder="Enter your username">
+        </div>
+        <div class="form-control">
+          <label class="label" for="id_password">
+            <span class="label-text font-medium">Password</span>
+          </label>
+          <input type="password" name="password" id="id_password" autocomplete="current-password" required
+            class="input input-bordered w-full" placeholder="Enter your password">
+        </div>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button type="submit" class="btn btn-primary w-full mt-2">Sign In</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

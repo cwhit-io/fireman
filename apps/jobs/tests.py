@@ -41,20 +41,24 @@ class TestPrintJobModel:
 
 
 class TestJobUploadView:
-    def test_get_upload_page(self, client):
+    def test_get_upload_page(self, client, user):
+        client.force_login(user)
         response = client.get(reverse("jobs:upload"))
         assert response.status_code == 200
 
-    def test_upload_no_file(self, client):
+    def test_upload_no_file(self, client, user):
+        client.force_login(user)
         response = client.post(reverse("jobs:upload"), {})
         assert response.status_code == 400
 
-    def test_upload_non_pdf(self, client):
+    def test_upload_non_pdf(self, client, user):
+        client.force_login(user)
         f = SimpleUploadedFile("test.txt", b"hello", content_type="text/plain")
         response = client.post(reverse("jobs:upload"), {"file": f})
         assert response.status_code == 400
 
-    def test_upload_pdf(self, client, monkeypatch):
+    def test_upload_pdf(self, client, user, monkeypatch):
+        client.force_login(user)
         monkeypatch.setattr(
             "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
         )
@@ -76,8 +80,9 @@ class TestJobUploadView:
         # redirects to detail page
         assert response.status_code == 302
 
-    def test_upload_pdf_with_options(self, client, monkeypatch):
+    def test_upload_pdf_with_options(self, client, user, monkeypatch):
         """Uploading a PDF with duplex/unique flags saves them on the job."""
+        client.force_login(user)
         monkeypatch.setattr(
             "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
         )
@@ -104,12 +109,13 @@ class TestJobUploadView:
             },
         )
         assert response.status_code == 302
-        job = PrintJob.objects.latest("created_at")
+        job = PrintJob.objects.filter(owner=user).latest("created_at")
         assert job.is_double_sided is True
         assert job.pages_are_unique is True
 
-    def test_upload_corrupt_pdf_rejected(self, client):
+    def test_upload_corrupt_pdf_rejected(self, client, user):
         """Completely unreadable bytes are rejected with an error message."""
+        client.force_login(user)
         f = SimpleUploadedFile(
             "bad.pdf", b"NOT_A_PDF_AT_ALL", content_type="application/pdf"
         )
@@ -514,10 +520,11 @@ class TestProcessJobTaskBehavior:
 class TestUploadFileSizeLimit:
     """The upload view must reject files that exceed MAX_PDF_UPLOAD_BYTES."""
 
-    def test_oversized_pdf_rejected(self, client, settings):
+    def test_oversized_pdf_rejected(self, client, user, settings):
         """Files larger than MAX_PDF_UPLOAD_BYTES should return HTTP 400."""
         from django.core.files.uploadedfile import SimpleUploadedFile
 
+        client.force_login(user)
         settings.MAX_PDF_UPLOAD_BYTES = 10  # very small limit for the test
 
         f = SimpleUploadedFile(

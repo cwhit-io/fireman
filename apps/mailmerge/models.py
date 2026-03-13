@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 
 
@@ -81,6 +82,14 @@ class MailMergeJob(models.Model):
         "Defaults to 2.5 in when blank.",
     )
     error_message = models.TextField(blank=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="mail_merge_jobs",
+        help_text="User who created this mail merge job.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
