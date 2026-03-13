@@ -8,6 +8,9 @@ from apps.mailmerge.models import MailMergeJob
 from apps.mailmerge.services import (
     _address_text_stream,
     _escape_pdf_string,
+    build_address_steprepeat,
+    build_artwork_gangup,
+    compute_gangup_grid,
     inspect_artwork_pdf,
     merge_postcards,
     parse_usps_csv,
@@ -399,3 +402,196 @@ class TestMailMergeDeleteView:
         pk = job.pk
         client.post(reverse("mailmerge:delete", kwargs={"pk": pk}))
         assert not MailMergeJob.objects.filter(pk=pk).exists()
+
+
+# ── Unit tests: compute_gangup_grid ──────────────────────────────────────
+
+
+class TestComputeGangupGrid:
+    def test_postcard_6x4_on_12x18(self):
+        # 6×4" card (432×288 pt) on 12×18" sheet (864×1296 pt)
+        cols, rows = compute_gangup_grid(432, 288, 864, 1296)
+        assert cols >= 2
+        assert rows >= 2
+        assert cols * rows >= 6
+
+    def test_returns_at_least_one_cell(self):
+        # Even a very large card should return 1×1
+        cols, rows = compute_gangup_grid(900, 900, 864, 1296)
+        assert cols >= 1
+        assert rows >= 1
+
+    def test_rotation_used_when_better(self):
+        # 4×6 portrait card: 4"×6" (288×432 pt)
+        # Normal: 864/288=3 cols, 1296/432=3 rows = 9
+        # Rotated (card 432×288): 864/432=2 cols, 1296/288=4 rows = 8
+        # So normal wins here
+        cols, rows = compute_gangup_grid(288, 432, 864, 1296)
+        assert cols * rows >= 6
+
+
+# ── Unit tests: build_artwork_gangup ────────────────────────────────────
+
+
+class TestBuildArtworkGangup:
+    def test_single_page_produces_one_sheet(self):
+        from pypdf import PdfReader
+
+        out = io.BytesIO()
+        build_artwork_gangup(
+            io.BytesIO(_make_minimal_pdf()),
+            cols=2, rows=2,
+            sheet_w_pt=864, sheet_h_pt=1296,
+            output_pdf=out,
+        )
+        out.seek(0)
+        reader = PdfReader(out)
+        assert len(reader.pages) == 1  # one press sheet for single-page artwork
+
+    def test_two_page_produces_two_sheets(self):
+        from pypdf import PdfReader
+
+        out = io.BytesIO()
+        build_artwork_gangup(
+            io.BytesIO(_make_two_page_pdf()),
+            cols=2, rows=2,
+            sheet_w_pt=864, sheet_h_pt=1296,
+            output_pdf=out,
+        )
+        out.seek(0)
+        reader = PdfReader(out)
+        assert len(reader.pages) == 2  # one sheet per artwork page
+
+
+# ── Unit tests: build_address_steprepeat ────────────────────────────────
+
+
+class TestBuildAddressSteprepeat:
+    def test_basic(self):
+        from pypdf import PdfReader
+
+        records = parse_usps_csv(io.BytesIO(_sample_csv_bytes()))
+        out = io.BytesIO()
+        count = build_address_steprepeat(
+            records,
+            card_w=432, card_h=288,
+            cols=2, rows=2,
+            sheet_w=864, sheet_h=1296,
+            addr_x=108, addr_y=180,
+            output_pdf=out,
+        )
+        assert count == 1
+        out.seek(0)
+        assert out.read(4) == b"%PDF"
+
+    def test_multiple_records_produce_multiple_sheets(self):
+        from pypdf import PdfReader
+
+        csv_bytes = (
+            b"no,name,primary street,city-state-zip,imbno\n"
+            b"1,ALICE,123 MAIN ST,CITY ST 12345,IMB001\n"
+            b"2,BOB,456 OAK AVE,TOWN CA 90210,IMB002\n"
+            b"3,CAROL,789 ELM RD,METRO TX 75001,IMB003\n"
+            b"4,DAVE,321 PINE ST,SUBURB FL 33101,IMB004\n"
+            b"5,EVE,654 CEDAR AV,LAKE WI 53201,IMB005\n"
+        )
+        records = parse_usps_csv(io.BytesIO(csv_bytes))
+        out = io.BytesIO()
+        count = build_address_steprepeat(
+            records,
+            card_w=432, card_h=288,
+            cols=2, rows=2,
+            sheet_w=864, sheet_h=1296,
+            addr_x=None, addr_y=None,
+            output_pdf=out,
+        )
+        assert count == 5
+        out.seek(0)
+        reader = PdfReader(out)
+        # 5 records, 4 per sheet → 2 sheets
+        assert len(reader.pages) == 2
+
+
+# ── Integration tests: new views ─────────────────────────────────────────
+
+
+class TestMailMergeEditView:
+    def test_get_returns_200(self, client):
+        job = MailMergeJob.objects.create(
+            name="Edit Me",
+            artwork_page_count=1,
+            merge_page=1,
+        )
+        response = client.get(reverse("mailmerge:edit", kwargs={"pk": job.pk}))
+        assert response.status_code == 200
+
+    def test_post_updates_position_and_redirects(self, client, monkeypatch):
+        monkeypatch.setattr(
+            "apps.mailmerge.views.process_mail_merge_task.delay",
+            lambda *a, **kw: None,
+        )
+        job = MailMergeJob.objects.create(
+            name="Edit Me",
+            artwork_page_count=1,
+            merge_page=1,
+            addr_x_in=None,
+            addr_y_in=None,
+        )
+        response = client.post(
+            reverse("mailmerge:edit", kwargs={"pk": job.pk}),
+            {"name": "Edit Me Updated", "merge_page": "1",
+             "addr_x_in": "1.5", "addr_y_in": "2.0"},
+        )
+        assert response.status_code == 302
+        job.refresh_from_db()
+        assert float(job.addr_x_in) == pytest.approx(1.5)
+        assert float(job.addr_y_in) == pytest.approx(2.0)
+        assert job.status == MailMergeJob.Status.PENDING
+
+
+class TestMailMergeArtworkServeView:
+    def test_get_returns_artwork_pdf(self, client):
+        artwork = SimpleUploadedFile(
+            "card.pdf", _make_minimal_pdf(), content_type="application/pdf"
+        )
+        job = MailMergeJob.objects.create(name="Serve Test", artwork_file=artwork)
+        response = client.get(reverse("mailmerge:serve_artwork", kwargs={"pk": job.pk}))
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/pdf"
+
+    def test_get_no_artwork_returns_404(self, client):
+        job = MailMergeJob.objects.create(name="No Art")
+        response = client.get(reverse("mailmerge:serve_artwork", kwargs={"pk": job.pk}))
+        assert response.status_code == 404
+
+
+class TestMailMergeDownloadGangupView:
+    def test_download_gangup_file(self, client, tmp_path):
+        from django.core.files.base import ContentFile
+
+        job = MailMergeJob.objects.create(name="Gangup Test")
+        job.gangup_file.save("gangup.pdf", ContentFile(_make_minimal_pdf()), save=True)
+        response = client.get(reverse("mailmerge:download_gangup", kwargs={"pk": job.pk}))
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/pdf"
+
+    def test_download_gangup_missing_returns_404(self, client):
+        job = MailMergeJob.objects.create(name="No Gangup")
+        response = client.get(reverse("mailmerge:download_gangup", kwargs={"pk": job.pk}))
+        assert response.status_code == 404
+
+
+class TestMailMergeDownloadAddressPdfView:
+    def test_download_address_pdf(self, client):
+        from django.core.files.base import ContentFile
+
+        job = MailMergeJob.objects.create(name="Addr Test")
+        job.address_pdf_file.save("addresses.pdf", ContentFile(_make_minimal_pdf()), save=True)
+        response = client.get(reverse("mailmerge:download_addresses", kwargs={"pk": job.pk}))
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/pdf"
+
+    def test_download_address_pdf_missing_returns_404(self, client):
+        job = MailMergeJob.objects.create(name="No Addr")
+        response = client.get(reverse("mailmerge:download_addresses", kwargs={"pk": job.pk}))
+        assert response.status_code == 404
