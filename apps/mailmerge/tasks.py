@@ -38,6 +38,16 @@ def process_mail_merge_task(job_id: str) -> None:
     job.save(update_fields=["status", "error_message"])
 
     try:
+        # Load site-wide address block config
+        from .models import AddressBlockConfig
+
+        addr_config = AddressBlockConfig.get_solo()
+        cfg_font_name = addr_config.font_name or None
+        cfg_font_size = float(addr_config.font_size) if addr_config.font_size else None
+        cfg_line_height = (
+            float(addr_config.line_height) if addr_config.line_height else None
+        )
+        cfg_fields = addr_config.csv_fields or None
         with job.csv_file.open("rb") as csv_fh:
             records = parse_usps_csv(csv_fh)
 
@@ -80,8 +90,10 @@ def process_mail_merge_task(job_id: str) -> None:
         gangup_buf = io.BytesIO()
         build_artwork_gangup(
             io.BytesIO(artwork_bytes),
-            cols, rows,
-            sheet_w, sheet_h,
+            cols,
+            rows,
+            sheet_w,
+            sheet_h,
             gangup_buf,
         )
         gangup_buf.seek(0)
@@ -104,11 +116,17 @@ def process_mail_merge_task(job_id: str) -> None:
             records,
             card_w or 432.0,
             card_h or 288.0,
-            cols, rows,
-            sheet_w, sheet_h,
+            cols,
+            rows,
+            sheet_w,
+            sheet_h,
             addr_x_pt,
             addr_y_pt,
             addr_buf,
+            font_name=cfg_font_name,
+            font_size=cfg_font_size,
+            line_height=cfg_line_height,
+            fields=cfg_fields,
         )
         addr_buf.seek(0)
 
@@ -122,10 +140,15 @@ def process_mail_merge_task(job_id: str) -> None:
         )
 
         job.status = MailMergeJob.Status.DONE
-        job.save(update_fields=[
-            "gangup_file", "address_pdf_file",
-            "gangup_cols", "gangup_rows", "status",
-        ])
+        job.save(
+            update_fields=[
+                "gangup_file",
+                "address_pdf_file",
+                "gangup_cols",
+                "gangup_rows",
+                "status",
+            ]
+        )
     except Exception as exc:
         logger.exception("Mail-merge failed for job %s", job_id)
         job.status = MailMergeJob.Status.ERROR
@@ -163,6 +186,17 @@ def generate_merged_pdf_task(job_id: str) -> None:
         addr_x_in = float(job.addr_x_in) if job.addr_x_in is not None else None
         addr_y_in = float(job.addr_y_in) if job.addr_y_in is not None else None
 
+        # Load site-wide address block config
+        from .models import AddressBlockConfig
+
+        addr_config = AddressBlockConfig.get_solo()
+        cfg_font_name = addr_config.font_name or None
+        cfg_font_size = float(addr_config.font_size) if addr_config.font_size else None
+        cfg_line_height = (
+            float(addr_config.line_height) if addr_config.line_height else None
+        )
+        cfg_fields = addr_config.csv_fields or None
+
         output_buf = io.BytesIO()
         merge_postcards(
             io.BytesIO(artwork_bytes),
@@ -171,6 +205,10 @@ def generate_merged_pdf_task(job_id: str) -> None:
             merge_page=job.merge_page or 1,
             addr_x_in=addr_x_in,
             addr_y_in=addr_y_in,
+            font_name=cfg_font_name,
+            font_size=cfg_font_size,
+            line_height=cfg_line_height,
+            fields=cfg_fields,
         )
         output_buf.seek(0)
         safe_name = job.name or f"mailmerge_{job.pk}"
@@ -184,5 +222,5 @@ def generate_merged_pdf_task(job_id: str) -> None:
             f"{safe_name}_merged.pdf", ContentFile(output_buf.read()), save=False
         )
         job.save(update_fields=["output_file"])
-    except Exception as exc:
+    except Exception:
         logger.exception("Merged PDF generation failed for job %s", job_id)

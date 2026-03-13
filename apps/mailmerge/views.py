@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import os
 import shutil
@@ -473,13 +474,23 @@ class AddressBlockConfigView(LoginRequiredMixin, View):
     template_name = "mailmerge/address_block_config.html"
 
     def get(self, request):
-        from .models import AddressBlockConfig
+        from .models import DEFAULT_CSV_FIELDS, FONT_CHOICES, AddressBlockConfig
 
         config = AddressBlockConfig.get_solo()
-        return render(request, self.template_name, {"config": config})
+        csv_fields = config.csv_fields or []
+        return render(
+            request,
+            self.template_name,
+            {
+                "config": config,
+                "csv_fields_json": json.dumps(csv_fields),
+                "all_fields": DEFAULT_CSV_FIELDS,
+                "font_choices": FONT_CHOICES,
+            },
+        )
 
     def post(self, request):
-        from .models import AddressBlockConfig
+        from .models import DEFAULT_CSV_FIELDS, FONT_CHOICES, AddressBlockConfig
 
         config = AddressBlockConfig.get_solo()
 
@@ -499,6 +510,37 @@ class AddressBlockConfigView(LoginRequiredMixin, View):
             config.preview_card_width_in = card_w
         if card_h and card_h > 0:
             config.preview_card_height_in = card_h
+
+        # Typography
+        valid_fonts = {f[0] for f in FONT_CHOICES}
+        font_name = request.POST.get("font_name", "Helvetica").strip()
+        if font_name in valid_fonts:
+            config.font_name = font_name
+
+        font_size = _parse_float("font_size")
+        if font_size and 1 <= font_size <= 72:
+            config.font_size = font_size
+
+        line_height_val = _parse_float("line_height")
+        if line_height_val and 1 <= line_height_val <= 144:
+            config.line_height = line_height_val
+
+        addr_block_width_in = _parse_float("addr_block_width_in")
+        if addr_block_width_in and 0.1 <= addr_block_width_in <= 20:
+            config.addr_block_width_in = addr_block_width_in
+
+        # CSV field ordering
+        csv_fields_raw = request.POST.get("csv_fields", "").strip()
+        if csv_fields_raw:
+            try:
+                fields_list = json.loads(csv_fields_raw)
+                if isinstance(fields_list, list):
+                    allowed = set(DEFAULT_CSV_FIELDS)
+                    config.csv_fields = [f for f in fields_list if f in allowed]
+            except (json.JSONDecodeError, ValueError):
+                pass
+        else:
+            config.csv_fields = []
 
         config.save()
         messages.success(request, "Address block defaults saved.")

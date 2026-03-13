@@ -133,6 +133,28 @@ class MailMergeJob(models.Model):
         return self.name or str(self.id)
 
 
+FONT_CHOICES = [
+    ("Helvetica", "Helvetica"),
+    ("Helvetica-Bold", "Helvetica Bold"),
+    ("Helvetica-Oblique", "Helvetica Italic"),
+    ("Helvetica-BoldOblique", "Helvetica Bold Italic"),
+    ("Times-Roman", "Times Roman"),
+    ("Times-Bold", "Times Bold"),
+    ("Courier", "Courier"),
+    ("Courier-Bold", "Courier Bold"),
+]
+
+DEFAULT_CSV_FIELDS = [
+    "city-state-zip",
+    "primary street",
+    "sec-primary street",
+    "urbanization",
+    "company",
+    "name",
+    "imbno",
+]
+
+
 class AddressBlockConfig(models.Model):
     """Singleton model storing the site-wide default address block position.
 
@@ -176,6 +198,44 @@ class AddressBlockConfig(models.Model):
         help_text=(
             "Default bottom edge of address block in inches from card bottom. "
             'Leave blank to use 2.5".'
+        ),
+    )
+
+    # ── Typography ────────────────────────────────────────────────────────
+    font_name = models.CharField(
+        max_length=60,
+        choices=FONT_CHOICES,
+        default="Helvetica",
+        help_text="PDF Type1 built-in font for address text.",
+    )
+    font_size = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=9.0,
+        help_text="Address text font size in points.",
+    )
+    line_height = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=13.0,
+        help_text="Vertical spacing between address lines in points.",
+    )
+
+    # ── Address box size ──────────────────────────────────────────────────
+    addr_block_width_in = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        default=4.25,
+        help_text="Width of the address block in inches (for preview only).",
+    )
+
+    # ── CSV field selection / ordering ────────────────────────────────────
+    csv_fields = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Ordered list of CSV column keys to include in the address block "
+            "(bottom-to-top). Leave empty to use all default USPS fields."
         ),
     )
 
