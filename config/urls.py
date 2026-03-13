@@ -33,6 +33,7 @@ urlpatterns = [
     path("templates/", include("apps.impose.urls", namespace="impose")),
     path("presets/", include("apps.routing.urls", namespace="routing")),
     path("cutters/", include("apps.cutter.urls", namespace="cutter")),
+    path("mailmerge/", include("apps.mailmerge.urls", namespace="mailmerge")),
 ]
 
 if settings.DEBUG:

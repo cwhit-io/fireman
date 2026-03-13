@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}{{ job.name|default:"Mail Merge Job" }} — Ember{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10">
+
+  <div class="flex items-start justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-3xl font-extrabold text-base-content tracking-tight">
+        {{ job.name|default:"Mail Merge Job" }}
+      </h1>
+      <p class="text-base-content/60 mt-1 text-sm">Created {{ job.created_at|date:"M j, Y g:i A" }}</p>
+    </div>
+    <div class="flex gap-2 shrink-0">
+      {% if job.status == "done" and job.output_file %}
+      <a href="{% url 'mailmerge:download' job.pk %}" class="btn btn-primary btn-sm gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v8m0 0l-4-4m4 4l4-4"/>
+        </svg>
+        Download PDF
+      </a>
+      {% endif %}
+      <a href="{% url 'mailmerge:delete' job.pk %}" class="btn btn-ghost btn-sm text-error">Delete</a>
+    </div>
+  </div>
+
+  <div class="stats stats-vertical sm:stats-horizontal shadow w-full border border-base-300 mb-6">
+    <div class="stat">
+      <div class="stat-title">Status</div>
+      <div class="stat-value text-xl">
+        {% if job.status == "done" %}
+          <span class="text-success">Done</span>
+        {% elif job.status == "processing" %}
+          <span class="text-warning">Processing</span>
+        {% elif job.status == "error" %}
+          <span class="text-error">Error</span>
+        {% else %}
+          <span class="text-base-content/60">Pending</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Records</div>
+      <div class="stat-value text-xl">{{ job.record_count|default:"—" }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Updated</div>
+      <div class="stat-desc">{{ job.updated_at|date:"M j, Y g:i A" }}</div>
+    </div>
+  </div>
+
+  {% if job.status == "error" and job.error_message %}
+  <div class="alert alert-error mb-6">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <div>
+      <p class="font-semibold">Processing failed</p>
+      <p class="text-sm">{{ job.error_message }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if job.status == "processing" %}
+  <div class="alert alert-info mb-6">
+    <span class="loading loading-spinner loading-sm"></span>
+    <span>Your mail-merge job is being processed. Refresh this page to check progress.</span>
+  </div>
+  {% endif %}
+
+  <div class="card bg-base-100 border border-base-300 shadow-sm">
+    <div class="card-body gap-3">
+      <h2 class="card-title text-base">Job Files</h2>
+      <div class="divide-y divide-base-200">
+        <div class="py-2 flex justify-between text-sm">
+          <span class="text-base-content/60">Artwork PDF</span>
+          <span class="font-medium truncate max-w-xs text-right">{{ job.artwork_file.name|cut:"mailmerge/artwork/" }}</span>
+        </div>
+        <div class="py-2 flex justify-between text-sm">
+          <span class="text-base-content/60">Address CSV</span>
+          <span class="font-medium truncate max-w-xs text-right">{{ job.csv_file.name|cut:"mailmerge/csv/" }}</span>
+        </div>
+        {% if job.output_file %}
+        <div class="py-2 flex justify-between text-sm">
+          <span class="text-base-content/60">Output PDF</span>
+          <a href="{% url 'mailmerge:download' job.pk %}" class="link link-primary font-medium truncate max-w-xs text-right">
+            {{ job.output_file.name|cut:"mailmerge/output/" }}
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-5 text-center">
+    <a href="{% url 'mailmerge:list' %}" class="link link-primary text-sm">← Back to job list</a>
+  </div>
+
+</div>
+{% endblock %}
