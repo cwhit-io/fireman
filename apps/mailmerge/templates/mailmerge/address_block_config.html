@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Address Block Defaults — Ember{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10"
+     x-data="addrBlockConfig(
+       {{ config.preview_card_width_in }},
+       {{ config.preview_card_height_in }},
+       '{{ config.addr_x_in|default:'' }}',
+       '{{ config.addr_y_in|default:'' }}'
+     )">
+
+  <div class="mb-6">
+    <div class="breadcrumbs text-sm mb-3">
+      <ul>
+        <li><a href="{% url 'mailmerge:list' %}">Mail Merge</a></li>
+        <li>Address Block Defaults</li>
+      </ul>
+    </div>
+    <h1 class="text-3xl font-extrabold text-base-content tracking-tight">Address Block Defaults</h1>
+    <p class="text-base-content/60 mt-1 text-sm">
+      Set the default address block position used when creating new mail merge jobs.
+      Drag the blue block on the preview to reposition, or enter exact values.
+    </p>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2 mb-6">
+    {% for message in messages %}
+    <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} shadow-sm">
+      <span>{{ message }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    <!-- Card size for preview -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Preview Card Size</h2>
+        <p class="text-xs text-base-content/50">Used only to render the preview canvas below — does not affect actual job processing.</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label" for="preview_card_width_in">
+              <span class="label-text">Width (inches)</span>
+            </label>
+            <input type="number" name="preview_card_width_in" id="preview_card_width_in"
+                   step="0.25" min="1" max="30"
+                   class="input input-bordered w-full"
+                   x-model="cardWIn"
+                   @input="onCardSizeChange()">
+          </div>
+          <div class="form-control">
+            <label class="label" for="preview_card_height_in">
+              <span class="label-text">Height (inches)</span>
+            </label>
+            <input type="number" name="preview_card_height_in" id="preview_card_height_in"
+                   step="0.25" min="1" max="30"
+                   class="input input-bordered w-full"
+                   x-model="cardHIn"
+                   @input="onCardSizeChange()">
+          </div>
+        </div>
+        <!-- Common size presets -->
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(6, 9)">6×9"</button>
+          <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(6, 11)">6×11"</button>
+          <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(4, 6)">4×6"</button>
+          <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(5, 7)">5×7"</button>
+          <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(5.5, 8.5)">5.5×8.5"</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address block position -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Default Position</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label" for="addr_x_in">
+              <span class="label-text">Left edge (inches from card left)</span>
+            </label>
+            <input type="number" name="addr_x_in" id="addr_x_in"
+                   step="0.0625" min="0"
+                   class="input input-bordered w-full"
+                   x-model="addrXIn"
+                   @input="redraw()"
+                   :placeholder="addrXDefault.toFixed(4).replace(/\.?0+$/, '')">
+            <label class="label">
+              <span class="label-text-alt text-base-content/40">
+                Default: <span x-text="addrXDefault.toFixed(4).replace(/\.?0+$/, '')"></span>&Prime;
+                (card width − 4.5&Prime;)
+              </span>
+            </label>
+          </div>
+          <div class="form-control">
+            <label class="label" for="addr_y_in">
+              <span class="label-text">Bottom edge (inches from card bottom)</span>
+            </label>
+            <input type="number" name="addr_y_in" id="addr_y_in"
+                   step="0.0625" min="0"
+                   class="input input-bordered w-full"
+                   x-model="addrYIn"
+                   @input="redraw()"
+                   placeholder="2.5">
+            <label class="label">
+              <span class="label-text-alt text-base-content/40">Default: 2.5&Prime;</span>
+            </label>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm w-fit"
+                @click="addrXIn = ''; addrYIn = ''; redraw()">
+          Reset to defaults
+        </button>
+      </div>
+    </div>
+
+    <!-- Canvas preview -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-3">
+        <div class="flex items-center justify-between">
+          <h2 class="card-title text-base">Preview</h2>
+          <span class="text-xs text-base-content/40">Drag the blue block to reposition</span>
+        </div>
+        <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3">
+          <canvas id="previewCanvas"
+                  class="max-w-full rounded shadow-sm"
+                  style="max-height:360px; cursor:grab;"
+                  @mousedown="onCanvasMouseDown($event)"
+                  @mousemove="onCanvasMouseMove($event)"
+                  @mouseup="onCanvasMouseUp($event)"
+                  @mouseleave="onCanvasMouseUp($event)"
+                  @touchstart.prevent="onTouchStart($event)"
+                  @touchmove.prevent="onTouchMove($event)"
+                  @touchend.prevent="onCanvasMouseUp($event)"></canvas>
+        </div>
+        <p class="text-xs text-base-content/40 text-center" x-text="positionLabel()"></p>
+      </div>
+    </div>
+
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="btn btn-primary flex-1">Save Defaults</button>
+      <a href="{% url 'mailmerge:list' %}" class="btn btn-ghost flex-1">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+var PT_PER_IN      = 72;
+var LINE_HEIGHT    = 13;
+var NUM_LINES      = 7;
+var ADDR_BLOCK_W_PT = 4.25 * PT_PER_IN;
+var ADDR_BLOCK_H_PT = NUM_LINES * LINE_HEIGHT;
+var GRID_SNAP_IN   = 0.0625;
+
+function addrBlockConfig(initCardWIn, initCardHIn, initAddrX, initAddrY) {
+  return {
+    cardWIn: initCardWIn || 6,
+    cardHIn: initCardHIn || 9,
+    addrXIn: initAddrX !== undefined ? String(initAddrX) : '',
+    addrYIn: initAddrY !== undefined ? String(initAddrY) : '',
+    isDragging: false,
+    _dragOffsetX: 0,
+    _dragOffsetY: 0,
+    _scale: 1,
+
+    get cardWPt() { return parseFloat(this.cardWIn) * PT_PER_IN || 432; },
+    get cardHPt() { return parseFloat(this.cardHIn) * PT_PER_IN || 648; },
+
+    get addrXDefault() {
+      return Math.max(0, this.cardWPt / PT_PER_IN - 4.5);
+    },
+
+    _resolveAddrPt() {
+      var addrX = this.addrXIn !== '' ? parseFloat(this.addrXIn) * PT_PER_IN
+                                      : Math.max(0, this.cardWPt - 4.5 * PT_PER_IN);
+      var addrY = this.addrYIn !== '' ? parseFloat(this.addrYIn) * PT_PER_IN
+                                      : 2.5 * PT_PER_IN;
+      return { addrX: addrX, addrY: addrY };
+    },
+
+    positionLabel() {
+      var p = this._resolveAddrPt();
+      var x = (p.addrX / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
+      var y = (p.addrY / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
+      return 'Left: ' + x + '\u2033  \u00b7  Bottom: ' + y + '\u2033';
+    },
+
+    applyPreset(w, h) {
+      this.cardWIn = w;
+      this.cardHIn = h;
+      this.redraw();
+    },
+
+    onCardSizeChange() {
+      this.redraw();
+    },
+
+    redraw() {
+      var canvas = document.getElementById('previewCanvas');
+      if (!canvas) return;
+      var cardWPt = this.cardWPt;
+      var cardHPt = this.cardHPt;
+      var maxW = canvas.parentElement.clientWidth - 24;
+      var maxH = 340;
+      var scale = Math.min(maxW / cardWPt, maxH / cardHPt, 1);
+      canvas.width  = Math.round(cardWPt * scale);
+      canvas.height = Math.round(cardHPt * scale);
+      this._scale = scale;
+      var ctx = canvas.getContext('2d');
+      this._drawPlaceholder(ctx, canvas.width, canvas.height);
+    },
+
+    _drawPlaceholder(ctx, w, h) {
+      var p = this._resolveAddrPt();
+      var scale = this._scale || 1;
+
+      // Card background
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+
+      // Faint grid lines at 1" intervals
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 0.5;
+      for (var gx = PT_PER_IN; gx < this.cardWPt; gx += PT_PER_IN) {
+        var cx = gx * scale;
+        ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+      }
+      for (var gy = PT_PER_IN; gy < this.cardHPt; gy += PT_PER_IN) {
+        var cy = gy * scale;
+        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
+      }
+
+      //  Card size label
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = Math.max(9, 11 * scale) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        parseFloat(this.cardWIn).toFixed(2).replace(/\.?0+$/,'') + '\u2033 \u00d7 ' +
+        parseFloat(this.cardHIn).toFixed(2).replace(/\.?0+$/,'') + '\u2033',
+        w / 2, h / 2
+      );
+
+      // Address block
+      this._drawAddressBlock(ctx, p.addrX, p.addrY, scale);
+    },
+
+    _drawAddressBlock(ctx, addrX, addrY, scale) {
+      var cx = addrX * scale;
+      var cy = (this.cardHPt - addrY - ADDR_BLOCK_H_PT) * scale;
+      var cw = ADDR_BLOCK_W_PT * scale;
+      var ch = ADDR_BLOCK_H_PT * scale;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(59,130,246,0.12)';
+      ctx.fillRect(cx, cy, cw, ch);
+      ctx.strokeStyle = 'rgba(59,130,246,0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(cx, cy, cw, ch);
+      ctx.fillStyle = 'rgba(59,130,246,0.85)';
+      ctx.font = 'bold ' + Math.max(8, 9 * scale) + 'px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Address Block', cx + 3 * scale, cy + 12 * scale);
+      ctx.fillStyle = 'rgba(59,130,246,0.6)';
+      ctx.font = Math.max(7, 8 * scale) + 'px sans-serif';
+      ctx.fillText('drag to reposition', cx + 3 * scale, cy + 22 * scale);
+      ctx.restore();
+    },
+
+    _canvasEventCoords(event) {
+      var canvas = document.getElementById('previewCanvas');
+      var rect = canvas.getBoundingClientRect();
+      var scaleX = canvas.width / rect.width;
+      var scaleY = canvas.height / rect.height;
+      var src = event.touches ? event.touches[0] : event;
+      return {
+        cx: (src.clientX - rect.left) * scaleX,
+        cy: (src.clientY - rect.top) * scaleY,
+      };
+    },
+
+    _isInsideBlock(cx, cy) {
+      var p = this._resolveAddrPt();
+      var scale = this._scale || 1;
+      var bx = p.addrX * scale;
+      var by = (this.cardHPt - p.addrY - ADDR_BLOCK_H_PT) * scale;
+      return cx >= bx && cx <= bx + ADDR_BLOCK_W_PT * scale &&
+             cy >= by && cy <= by + ADDR_BLOCK_H_PT * scale;
+    },
+
+    onCanvasMouseDown(event) {
+      var coords = this._canvasEventCoords(event);
+      if (!this._isInsideBlock(coords.cx, coords.cy)) return;
+      var p = this._resolveAddrPt();
+      var scale = this._scale || 1;
+      this.isDragging = true;
+      this._dragOffsetX = coords.cx - p.addrX * scale;
+      this._dragOffsetY = coords.cy - (this.cardHPt - p.addrY - ADDR_BLOCK_H_PT) * scale;
+      event.target.style.cursor = 'grabbing';
+    },
+
+    onCanvasMouseMove(event) {
+      if (!this.isDragging) return;
+      var coords = this._canvasEventCoords(event);
+      var scale = this._scale || 1;
+      var cardWPt = this.cardWPt;
+      var cardHPt = this.cardHPt;
+      var newLeftPt  = (coords.cx - this._dragOffsetX) / scale;
+      var newTopCvPt = (coords.cy - this._dragOffsetY) / scale;
+      var newAddrY = cardHPt - newTopCvPt - ADDR_BLOCK_H_PT;
+      var snapPt = GRID_SNAP_IN * PT_PER_IN;
+      var clampedX = Math.round(Math.max(0, Math.min(newLeftPt, cardWPt - ADDR_BLOCK_W_PT)) / snapPt) * snapPt;
+      var clampedY = Math.round(Math.max(0, Math.min(newAddrY,  cardHPt - ADDR_BLOCK_H_PT)) / snapPt) * snapPt;
+      this.addrXIn = (clampedX / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
+      this.addrYIn = (clampedY / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
+      this.redraw();
+    },
+
+    onCanvasMouseUp(event) {
+      if (this.isDragging) {
+        this.isDragging = false;
+        var canvas = document.getElementById('previewCanvas');
+        if (canvas) canvas.style.cursor = 'grab';
+      }
+    },
+
+    onTouchStart(event) { this.onCanvasMouseDown(event); },
+    onTouchMove(event)  { this.onCanvasMouseMove(event); },
+
+    init() {
+      var self = this;
+      this.$nextTick(function() { self.redraw(); });
+    },
+  };
+}
+</script>
+{% endblock %}
