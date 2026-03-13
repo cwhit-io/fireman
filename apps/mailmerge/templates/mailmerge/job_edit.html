@@ -5,7 +5,8 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto px-4 py-10"
-     x-data="mailMergeEdit({% if job.card_width %}{{ job.card_width }},{{ job.card_height }}{% else %}0,0{% endif %}, {{ job.artwork_page_count|default:1 }}, {{ job.merge_page|default:1 }}, '{% url "mailmerge:serve_artwork" job.pk %}', '{% url "mailmerge:records" job.pk %}')">
+     x-data="mailMergeEdit({% if job.card_width %}{{ job.card_width }},{{ job.card_height }}{% else %}0,0{% endif %}, {{ job.artwork_page_count|default:1 }}, {{ job.merge_page|default:1 }}, '{% url "mailmerge:serve_artwork" job.pk %}', '{% url "mailmerge:records" job.pk %}')"
+     @keydown.window="onKeyNav($event)">
 
   <div class="mb-6">
     <h1 class="text-3xl font-extrabold text-base-content tracking-tight">
@@ -245,12 +246,12 @@ function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl
           .then(function(data) { self.records = data.records || []; })
           .catch(function() {});
       }
-      // Arrow key navigation
-      document.addEventListener('keydown', function(e) {
-        if (self.records.length < 2) return;
-        if (e.key === 'ArrowLeft') self.prevRecord();
-        if (e.key === 'ArrowRight') self.nextRecord();
-      });
+    },
+
+    onKeyNav(e) {
+      if (this.records.length < 2) return;
+      if (e.key === 'ArrowLeft') this.prevRecord();
+      if (e.key === 'ArrowRight') this.nextRecord();
     },
 
     onMergePageChange(page) {

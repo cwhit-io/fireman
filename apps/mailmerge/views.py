@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+import shutil
 import tempfile
 
 from django.contrib import messages
@@ -354,7 +355,7 @@ class MailMergeJobSendGangupToFieryView(LoginRequiredMixin, View):
             from apps.routing.services import send_to_fiery_lpr
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
                 with job.gangup_file.open("rb") as f:
-                    tmp.write(f.read())
+                    shutil.copyfileobj(f, tmp)
                 tmp_path = tmp.name
 
             title = f"{job.name or str(job.pk)}_gangup"
@@ -398,7 +399,7 @@ class MailMergeJobSendAddressesToFieryView(LoginRequiredMixin, View):
             from apps.routing.services import send_to_fiery_lpr
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
                 with job.address_pdf_file.open("rb") as f:
-                    tmp.write(f.read())
+                    shutil.copyfileobj(f, tmp)
                 tmp_path = tmp.name
 
             title = f"{job.name or str(job.pk)}_addresses"
