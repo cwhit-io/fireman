@@ -104,6 +104,14 @@ class MailMergeJob(models.Model):
         blank=True,
         help_text="Number of rows in the artwork gang-up grid.",
     )
+    impose_template = models.ForeignKey(
+        "impose.ImpositionTemplate",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="mail_merge_jobs",
+        help_text="Imposition template used for gang-up sheet generation.",
+    )
     error_message = models.TextField(blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -21,7 +21,9 @@ urlpatterns = [
     ),
     path("<uuid:pk>/delete/", views.MailMergeJobDeleteView.as_view(), name="delete"),
     path(
-        "<uuid:pk>/download/", views.MailMergeJobDownloadView.as_view(), name="download"
+        "<uuid:pk>/download/",
+        views.MailMergeJobDownloadView.as_view(),
+        name="download",
     ),
     path(
         "<uuid:pk>/download/gangup/",
@@ -32,5 +34,25 @@ urlpatterns = [
         "<uuid:pk>/download/addresses/",
         views.MailMergeJobDownloadAddressPdfView.as_view(),
         name="download_addresses",
+    ),
+    path(
+        "<uuid:pk>/generate-merged/",
+        views.MailMergeGenerateMergedView.as_view(),
+        name="generate_merged",
+    ),
+    path(
+        "<uuid:pk>/send-gangup-to-fiery/",
+        views.MailMergeJobSendGangupToFieryView.as_view(),
+        name="send_gangup_to_fiery",
+    ),
+    path(
+        "<uuid:pk>/send-addresses-to-fiery/",
+        views.MailMergeJobSendAddressesToFieryView.as_view(),
+        name="send_addresses_to_fiery",
+    ),
+    path(
+        "<uuid:pk>/records/",
+        views.MailMergeJobRecordsView.as_view(),
+        name="records",
     ),
 ]

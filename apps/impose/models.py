@@ -160,6 +160,10 @@ class ImpositionTemplate(models.Model):
         default=True,
         help_text="Print the barcode overlay on this layout. Uncheck if the barcode position overlaps artwork (the barcode number will still appear in the filename sent to the Fiery).",
     )
+    allow_mailmerge = models.BooleanField(
+        default=False,
+        help_text="Allow this template to be selected when creating a mail merge job.",
+    )
     cutter_program = models.ForeignKey(
         "cutter.CutterProgram",
         null=True,
