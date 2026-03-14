@@ -113,6 +113,15 @@
     var skipTray = options && options.skipTray;
     var ast = _parseTemplate(template);
 
+    // Build a lowercased-key version of the record once to avoid repeated
+    // toLowerCase() calls during token substitution in mixed lines.
+    var lcRecord = {};
+    for (var k in record) {
+      if (Object.prototype.hasOwnProperty.call(record, k)) {
+        lcRecord[k.toLowerCase()] = record[k];
+      }
+    }
+
     if (ast.length === 0) {
       // Legacy fallback: deterministic field ordering.
       var lines = [];
@@ -120,7 +129,7 @@
         var f = LEGACY_FIELDS_TOP_TO_BOTTOM[fi];
         if (ALWAYS_SKIP[f]) continue;
         if (skipTray && f === 'presorttrayid') continue;
-        var v = ((record[f] || '') + '').trim();
+        var v = ((lcRecord[f] || '') + '').trim();
         if (v) lines.push(v);
       }
       return lines;
@@ -144,7 +153,7 @@
         var fld = line.field; // already lowercased
         if (ALWAYS_SKIP[fld]) continue;
         if (skipTray && fld === 'presorttrayid') continue;
-        var val = ((record[fld] || '') + '').trim();
+        var val = ((lcRecord[fld] || '') + '').trim();
         if (!val) continue;
         rendered.push(val);
         continue;
@@ -153,7 +162,7 @@
       if (line.kind === 'mixed') {
         TOKEN_RE.lastIndex = 0;
         var substituted = line.raw.replace(TOKEN_RE, function (_, t) {
-          return (record[t] || record[t.toLowerCase()] || '');
+          return (lcRecord[t.toLowerCase()] || '');
         }).trim();
         if (substituted) rendered.push(substituted);
       }

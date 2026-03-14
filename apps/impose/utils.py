@@ -9,7 +9,7 @@ Token semantics must remain in sync with static/js/impose/template.js.
 
 from __future__ import annotations
 
-import re as _re
+import re
 from dataclasses import dataclass
 from dataclasses import field as _field
 from typing import Literal
@@ -20,7 +20,7 @@ __all__ = [
     "render_imposition_lines",
 ]
 
-_TOKEN_RE = _re.compile(r"\{([^}]+)\}")
+_TOKEN_RE = re.compile(r"\{([^}]+)\}")
 
 # Non-address special tokens always filtered from rendered text output.
 # encodedimbno is rendered via TrueType barcode overlay at its own position,
