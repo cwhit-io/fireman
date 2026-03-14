@@ -2,10 +2,12 @@
  * mailmerge/preview.js
  * Single source of truth for all mailmerge canvas preview rendering.
  * Requires: pdfjsLib on window (load pdf.min.js before this script)
+ * Requires: window.imposeTemplate from impose/template.js (load before this script)
  * Requires: Alpine.js loaded after this script
  * Exports: window.mailMergeUpload, window.mailMergeEdit
  *
  * DO NOT duplicate preview logic in templates — all changes go here.
+ * DO NOT duplicate template parsing — use imposeTemplate.buildLinesFromTemplate().
  */
 
 if (typeof pdfjsLib === 'undefined') {
@@ -54,122 +56,6 @@ function _csvSplitLine(line) {
   }
   result.push(current);
   return result;
-}
-
-/* ── Address line builders ───────────────────────────────────────────────── */
-
-// Used by mailMergeUpload._drawAddressText.
-// Returns lines in bottom-to-top order (lines[0] = bottom of address block).
-function buildAddressLinesFromTemplate(rec, template, hasSeparateTray, fields) {
-  if (template && template.trim && template.trim() !== '') {
-    var tpl = template || '';
-    var rawLines = tpl.split('\n');
-    var tokenRe = /\{([^}]+)\}/g;
-    var rendered = [];
-    for (var li = 0; li < rawLines.length; li++) {
-      var raw = rawLines[li];
-      var tokens = [];
-      var m;
-      tokenRe.lastIndex = 0;
-      while ((m = tokenRe.exec(raw)) !== null) tokens.push(m[1]);
-
-      if (tokens.length === 0) {
-        if (raw.trim()) rendered.push(raw);
-        continue;
-      }
-
-      if (tokens.length === 1 && raw.trim() === '{' + tokens[0] + '}') {
-        var fld = tokens[0];
-        if (fld.toLowerCase() === 'br' || fld.toLowerCase() === 'blank') {
-          rendered.push('');
-          continue;
-        }
-        var v = (rec[fld] || rec[fld.toLowerCase()] || '').trim();
-        if (!v) continue;
-        if (fld.toLowerCase() === 'encodedimbno') continue;
-        if (fld.toLowerCase() === 'presorttrayid' && hasSeparateTray) continue;
-        rendered.push(v);
-        continue;
-      }
-
-      // Mixed line: substitute tokens
-      var substituted = raw.replace(tokenRe, function(_, t) { return (rec[t] || rec[t.toLowerCase()] || ''); }).trim();
-      if (substituted) rendered.push(substituted);
-    }
-    // Server-side rendering uses top->bottom template; preview draws bottom->top
-    rendered.reverse();
-    return rendered;
-  }
-
-  // Legacy field ordering (bottom -> top)
-  var lines = [];
-  var fieldList = (fields && fields.length)
-    ? fields
-    : ['encodedimbno', 'city-state-zip', 'primary street', 'sec-primary street', 'urbanization', 'company', 'name', 'presorttrayid'];
-  for (var i = 0; i < fieldList.length; i++) {
-    var f = fieldList[i];
-    var val = (rec[f] || '').trim();
-    if (!val) continue;
-    if (f === 'encodedimbno') continue;
-    if (f === 'presorttrayid' && hasSeparateTray) continue;
-    lines.push(val);
-  }
-  return lines;
-}
-
-// Used by mailMergeEdit._drawAddressBlock.
-// Returns lines in bottom-to-top order (lines[0] = bottom of address block).
-function _buildAddressLines(rec, template) {
-  // If a template is provided, use it (top->bottom in template, return bottom->top)
-  if (template && template.trim && template.trim() !== '') {
-    var rawLines = template.split('\n');
-    var tokenRe = /\{([^}]+)\}/g;
-    var rendered = [];
-    for (var li = 0; li < rawLines.length; li++) {
-      var raw = rawLines[li];
-      var tokens = [];
-      var m;
-      tokenRe.lastIndex = 0;
-      while ((m = tokenRe.exec(raw)) !== null) tokens.push(m[1]);
-
-      if (tokens.length === 0) {
-        if (raw.trim()) rendered.push(raw);
-        continue;
-      }
-
-      if (tokens.length === 1 && raw.trim() === '{' + tokens[0] + '}') {
-        var fld = tokens[0];
-        if (fld.toLowerCase() === 'br' || fld.toLowerCase() === 'blank') {
-          rendered.push('');
-          continue;
-        }
-        var v = (rec[fld] || rec[fld.toLowerCase()] || '').trim();
-        if (!v) continue;
-        if (fld.toLowerCase() === 'encodedimbno') continue;
-        if (fld.toLowerCase() === 'presorttrayid') continue;
-        rendered.push(v);
-        continue;
-      }
-
-      var substituted = raw.replace(tokenRe, function(_, t) { return (rec[t] || rec[t.toLowerCase()] || ''); }).trim();
-      if (substituted) rendered.push(substituted);
-    }
-    rendered.reverse();
-    return rendered;
-  }
-
-  // Legacy field ordering (bottom -> top).
-  // Note: includes rec.imbno — matches the original job_edit.html behavior.
-  // The upload page (buildAddressLinesFromTemplate) uses cfg.csvFields instead.
-  var lines = [];
-  if (rec['primary street']) lines.push(rec['primary street']);
-  if (rec['sec-primary street']) lines.push(rec['sec-primary street']);
-  if (rec.urbanization) lines.push(rec.urbanization);
-  if (rec.company) lines.push(rec.company);
-  if (rec.name) lines.push(rec.name);
-  if (rec.imbno) lines.push(rec.imbno);
-  lines.reverse();
-  return lines;
 }
 
 /* ── Admin: AddressBlockConfig canvas drawing ────────────────────────────── */
@@ -765,17 +651,17 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
       var rec = this.currentRecord;
       if (!rec) return;
 
-      var fields = (cfg.csvFields && cfg.csvFields.length)
-        ? cfg.csvFields
-        : ['encodedimbno', 'city-state-zip', 'primary street', 'sec-primary street', 'urbanization', 'company', 'name', 'presorttrayid'];
       var fontSizePt   = cfg.fontPt        != null ? cfg.fontPt        : 9;
       var lineHeightPt = cfg.lineHeightPt  != null ? cfg.lineHeightPt  : 13;
       var barcodeFontPt = cfg.barcodeFontPt != null ? cfg.barcodeFontPt : 14;
       var trayFontPt   = cfg.trayFontPt    != null ? cfg.trayFontPt    : fontSizePt;
       var hasSeparateTray = pos.trayY != null;
 
-      // Build regular address lines (bottom → top order).
-      var lines = buildAddressLinesFromTemplate(rec, cfg.addressTemplate, hasSeparateTray, fields);
+      // Build address lines using the canonical template builder (top → bottom).
+      // Reverse to bottom → top for y-offset drawing (lines[0] drawn at baseY).
+      var lines = imposeTemplate.buildLinesFromTemplate(
+        rec, cfg.addressTemplate || '', { skipTray: hasSeparateTray }
+      ).slice().reverse();
 
       // Draw regular address text
       if (lines.length) {
@@ -1018,7 +904,8 @@ window.mailMergeEdit = function mailMergeEdit(cardWPt, cardHPt, pageCount, initi
         ctx.font = fontSize + 'px monospace';
         ctx.textAlign = 'left';
         var lineH = LINE_HEIGHT * scale;
-        var lines = _buildAddressLines(rec, this.addrTemplate);
+        // buildLinesFromTemplate returns top→bottom; reverse to bottom→top for drawing.
+        var lines = imposeTemplate.buildLinesFromTemplate(rec, this.addrTemplate || '', { skipTray: true }).slice().reverse();
         for (var i = 0; i < lines.length; i++) {
           ctx.fillText(lines[i], cx + 3 * scale, cy + ch - (lines.length - i) * lineH + (lineH - fontSize));
         }
