@@ -152,15 +152,14 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
         # Optional per-job address position override from form POST
         addr_x_in = None
         addr_y_in = None
-        for field, attr in (("addr_x_in", "addr_x_in"), ("addr_y_in", "addr_y_in")):
+        for field in ("addr_x_in", "addr_y_in"):
             val = request.POST.get(field, "").strip()
             if val:
                 try:
-                    setattr_val = float(val)
-                    if attr == "addr_x_in":
-                        addr_x_in = setattr_val
+                    if field == "addr_x_in":
+                        addr_x_in = float(val)
                     else:
-                        addr_y_in = setattr_val
+                        addr_y_in = float(val)
                 except (ValueError, TypeError):
                     pass
 
