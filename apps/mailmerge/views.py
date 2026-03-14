@@ -149,6 +149,21 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
             except (ImpositionTemplate.DoesNotExist, ValueError, TypeError):
                 impose_template = None
 
+        # Optional per-job address position override from form POST
+        addr_x_in = None
+        addr_y_in = None
+        for field, attr in (("addr_x_in", "addr_x_in"), ("addr_y_in", "addr_y_in")):
+            val = request.POST.get(field, "").strip()
+            if val:
+                try:
+                    setattr_val = float(val)
+                    if attr == "addr_x_in":
+                        addr_x_in = setattr_val
+                    else:
+                        addr_y_in = setattr_val
+                except (ValueError, TypeError):
+                    pass
+
         job = MailMergeJob.objects.create(
             name=name or artwork.name,
             artwork_file=artwork,
@@ -157,6 +172,8 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
             merge_page=merge_page,
             card_width=card_width,
             card_height=card_height,
+            addr_x_in=addr_x_in,
+            addr_y_in=addr_y_in,
             impose_template=impose_template,
             owner=request.user if request.user.is_authenticated else None,
         )
@@ -192,6 +209,78 @@ class MailMergeJobDeleteView(LoginRequiredMixin, DeleteView):
             except Exception:
                 pass
         return super().form_valid(form)
+
+
+class MailMergeJobEditView(View):
+    """Edit an existing mail-merge job and re-trigger processing."""
+
+    template_name = "mailmerge/job_edit.html"
+
+    def _get_job(self, pk):
+        return get_object_or_404(MailMergeJob, pk=pk)
+
+    def _get_context(self, job):
+        from apps.impose.models import ImpositionTemplate
+
+        from .models import DEFAULT_CSV_FIELDS, AddressBlockConfig
+
+        templates = ImpositionTemplate.objects.filter(allow_mailmerge=True).order_by(
+            "name"
+        )
+        config = AddressBlockConfig.get_solo()
+        return {
+            "job": job,
+            "impose_templates": templates,
+            "addr_config": config,
+            "csv_fields_json": json.dumps(config.csv_fields or DEFAULT_CSV_FIELDS),
+        }
+
+    def get(self, request, pk):
+        job = self._get_job(pk)
+        return render(request, self.template_name, self._get_context(job))
+
+    def post(self, request, pk):
+        job = self._get_job(pk)
+
+        name = request.POST.get("name", "").strip()
+        if name:
+            job.name = name
+
+        # merge_page
+        try:
+            merge_page = int(request.POST.get("merge_page", job.merge_page))
+        except (TypeError, ValueError):
+            merge_page = job.merge_page
+        job.merge_page = max(1, min(merge_page, max(job.artwork_page_count or 1, 1)))
+
+        # Imposition template
+        impose_template_id = request.POST.get("impose_template_id", "").strip()
+        if impose_template_id:
+            from apps.impose.models import ImpositionTemplate
+
+            try:
+                job.impose_template = ImpositionTemplate.objects.get(
+                    pk=int(impose_template_id), allow_mailmerge=True
+                )
+            except (ImpositionTemplate.DoesNotExist, ValueError, TypeError):
+                pass
+        elif "impose_template_id" in request.POST:
+            job.impose_template = None
+
+        # Optional per-job address position override
+        for field in ("addr_x_in", "addr_y_in"):
+            val = request.POST.get(field, "").strip()
+            if val:
+                try:
+                    setattr(job, field, float(val))
+                except (ValueError, TypeError):
+                    pass
+
+        job.status = MailMergeJob.Status.PENDING
+        job.save()
+        process_mail_merge_task.delay(str(job.pk))
+        messages.success(request, "Job updated and re-processing started.")
+        return redirect("mailmerge:detail", pk=pk)
 
 
 class MailMergeJobArtworkServeView(View):

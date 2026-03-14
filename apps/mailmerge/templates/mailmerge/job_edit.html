@@ -5,7 +5,26 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto px-4 py-10"
-    x-data="mailMergeEdit({% if job.card_width %}{{ job.card_width }},{{ job.card_height }}{% else %}0,0{% endif %}, {{ job.artwork_page_count|default:1 }}, {{ job.merge_page|default:1 }}, '{% url "mailmerge:serve_artwork" job.pk %}', '', {{ addr_config.addr_x_in|default:'null' }}, {{ addr_config.addr_y_in|default:'null' }}, {{ addr_config.addr_block_width_in|default:'4.25' }}, {{ addr_config.csv_fields|length|default:7 }}, '{{ addr_config.address_template|escapejs }}')"
+    x-data="mailMergeEdit({
+      artworkUrl: '{% url "mailmerge:serve_artwork" job.pk %}',
+      recordsUrl: '{% url "mailmerge:records" job.pk %}',
+      cardWPt:      {% if job.card_width %}{{ job.card_width }}{% else %}null{% endif %},
+      cardHPt:      {% if job.card_height %}{{ job.card_height }}{% else %}null{% endif %},
+      mergePageIdx: {{ job.merge_page|default:1 }} - 1,
+      pageCount:    {{ job.artwork_page_count|default:1 }},
+      addrXIn:      {{ addr_config.addr_x_in|default:'null' }},
+      addrYIn:      {{ addr_config.addr_y_in|default:'null' }},
+      fontPt:       {{ addr_config.font_size|default:'null' }},
+      lineHeightPt: {{ addr_config.line_height|default:'null' }},
+      barcodeFontPt:{{ addr_config.barcode_font_size|default:'null' }},
+      barcodeXIn:   {{ addr_config.barcode_x_in|default:'null' }},
+      barcodeYIn:   {{ addr_config.barcode_y_in|default:'null' }},
+      trayXIn:      {{ addr_config.tray_x_in|default:'null' }},
+      trayYIn:      {{ addr_config.tray_y_in|default:'null' }},
+      trayFontPt:   {{ addr_config.tray_font_size|default:'null' }},
+      addressTemplate: '{{ addr_config.address_template|escapejs }}',
+      csvFields:    {{ csv_fields_json|safe }}
+    })"
      @keydown.window="onKeyNav($event)">
 
   <div class="mb-6">
