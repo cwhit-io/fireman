@@ -14,41 +14,7 @@
       <p class="text-base-content/60 mt-1 text-sm">Created {{ job.created_at|date:"M j, Y g:i A" }}</p>
     </div>
     <div class="flex flex-wrap gap-2 shrink-0">
-      {% if job.status == "done" and job.gangup_file %}
-      <a href="{% url 'mailmerge:download_gangup' job.pk %}" class="btn btn-secondary btn-sm gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v8m0 0l-4-4m4 4l4-4"/>
-        </svg>
-        Gang-up
-      </a>
-      {% endif %}
-      {% if job.status == "done" and job.address_pdf_file %}
-      <a href="{% url 'mailmerge:download_addresses' job.pk %}" class="btn btn-secondary btn-sm gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v8m0 0l-4-4m4 4l4-4"/>
-        </svg>
-        Addresses
-      </a>
-      {% endif %}
-      {% if job.status == "done" and job.output_file %}
-      <a href="{% url 'mailmerge:download' job.pk %}" class="btn btn-primary btn-sm gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v8m0 0l-4-4m4 4l4-4"/>
-        </svg>
-        Merged PDF
-      </a>
-      {% elif job.status == "done" %}
-      <form method="post" action="{% url 'mailmerge:generate_merged' job.pk %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-primary btn-sm gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          Generate Merged PDF
-        </button>
-      </form>
-      {% endif %}
-      <a href="{% url 'mailmerge:delete' job.pk %}" class="btn btn-ghost btn-sm text-error">Delete</a>
+      {# Downloads and delete moved to bottom action bar #}
     </div>
   </div>
 
@@ -100,56 +66,6 @@
   </div>
   {% endif %}
 
-  <!-- Job configuration -->
-  <div class="card bg-base-100 border border-base-300 shadow-sm mb-4">
-    <div class="card-body gap-3">
-      <h2 class="card-title text-base">Configuration</h2>
-      <div class="divide-y divide-base-200">
-
-        {% if job.card_width and job.card_height %}
-        <div class="py-2 flex justify-between text-sm">
-          <span class="text-base-content/60">Card size</span>
-          <span class="font-medium">
-            {{ job.card_width|floatformat:1 }} × {{ job.card_height|floatformat:1 }} pt
-          </span>
-        </div>
-        {% endif %}
-
-        <div class="py-2 flex justify-between text-sm">
-          <span class="text-base-content/60">Artwork pages</span>
-          <span class="font-medium">{{ job.artwork_page_count|default:"1" }}</span>
-        </div>
-
-        <div class="py-2 flex justify-between text-sm">
-          <span class="text-base-content/60">Address block on page</span>
-          <span class="font-medium">{{ job.merge_page|default:"1" }}</span>
-        </div>
-
-        <div class="py-2 flex justify-between text-sm">
-          <span class="text-base-content/60">Address block — left edge</span>
-          <span class="font-medium">
-            {% if job.addr_x_in %}{{ job.addr_x_in }}&Prime;{% else %}<span class="text-base-content/40">default (card width − 4.5&Prime;)</span>{% endif %}
-          </span>
-        </div>
-
-        <div class="py-2 flex justify-between text-sm">
-          <span class="text-base-content/60">Address block — bottom edge</span>
-          <span class="font-medium">
-            {% if job.addr_y_in %}{{ job.addr_y_in }}&Prime;{% else %}<span class="text-base-content/40">default (2.5&Prime;)</span>{% endif %}
-          </span>
-        </div>
-
-        {% if job.impose_template %}
-        <div class="py-2 flex justify-between text-sm">
-          <span class="text-base-content/60">Imposition template</span>
-          <span class="font-medium">{{ job.impose_template.name }}</span>
-        </div>
-        {% endif %}
-
-      </div>
-    </div>
-  </div>
-
   <!-- Job files -->
   <div class="card bg-base-100 border border-base-300 shadow-sm">
     <div class="card-body gap-3">
@@ -188,6 +104,21 @@
         </div>
         {% endif %}
       </div>
+            <div class="divide-y divide-base-200"></div>
+
+          {# Action buttons moved here so they're just above the back link #}
+    <div class="mb-3 flex justify-between gap-2">
+      {% if job.output_file %}
+        <a href="{% url 'mailmerge:download' job.pk %}" class="btn btn-primary btn-sm">Merged PDF</a>
+      {% else %}
+        <form method="post" action="{% url 'mailmerge:generate_merged' job.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary btn-sm">Generate Merged PDF</button>
+        </form>
+      {% endif %}
+
+      <a href="{% url 'mailmerge:delete' job.pk %}" class="btn btn-ghost btn-sm text-error">Delete</a>
+    </div>
     </div>
   </div>
 
@@ -230,6 +161,7 @@
   {% endif %}
 
   <div class="mt-5 text-center">
+
     <a href="{% url 'mailmerge:list' %}" class="link link-primary text-sm">← Back to job list</a>
   </div>
 
@@ -255,7 +187,7 @@ var _DETAIL_CFG = {
   trayXIn:      {{ addr_config.tray_x_in|default:'null' }},
   trayYIn:      {{ addr_config.tray_y_in|default:'null' }},
   trayFontPt:   {{ addr_config.tray_font_size|default:'null' }},
-  csvFields:    {{ csv_fields_json }},
+  csvFields:    {{ csv_fields_json|safe }},
   mergePageIdx: {{ job.merge_page|default:1 }} - 1,
   cardWPt:      {{ job.card_width|default:'null' }},
   cardHPt:      {{ job.card_height|default:'null' }},
@@ -414,10 +346,19 @@ function mmDetail(artworkUrl, recordsUrl) {
       if (this._pdfDoc) {
         renderPage(this._pdfDoc);
       } else if (typeof pdfjsLib !== 'undefined') {
-        pdfjsLib.getDocument({ url: artworkUrl }).promise.then(function(doc) {
-          self._pdfDoc = doc;
-          renderPage(doc);
-        }).catch(function() { self.canvasReady = false; });
+        // Fetch artwork with credentials so authenticated sessions work,
+        // then pass ArrayBuffer to PDF.js to avoid cross-origin/cookie issues.
+        fetch(artworkUrl, { credentials: 'same-origin' })
+          .then(function(r) { if (!r.ok) throw new Error('Fetch failed'); return r.arrayBuffer(); })
+          .then(function(buf) {
+            var typedarray = new Uint8Array(buf);
+            return pdfjsLib.getDocument({ data: typedarray }).promise;
+          })
+          .then(function(doc) {
+            self._pdfDoc = doc;
+            renderPage(doc);
+          })
+          .catch(function() { self.canvasReady = false; });
       }
     },
 
@@ -455,34 +396,48 @@ function mmDetail(artworkUrl, recordsUrl) {
         }).catch(function() {});
       }
 
-      // Fetch records from server
+      // Fetch records from server. Accept either {records: [...]} or a raw array.
       fetch(recordsUrl, { credentials: 'same-origin' })
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+          if (!r.ok) throw new Error('records fetch failed');
+          return r.json();
+        })
         .then(function(data) {
-          self.records = data.records || [];
+          // Support both { records: [...] } and direct array responses
+          var list = [];
+          if (Array.isArray(data)) list = data;
+          else if (Array.isArray(data.records)) list = data.records;
+          self.records = list || [];
           if (self.records.length) {
-            self.$nextTick(function() { self._renderCanvas(); });
+            if (typeof self.$nextTick === 'function') {
+              self.$nextTick(function() { self._renderCanvas(); });
+            } else {
+              setTimeout(function() { self._renderCanvas(); }, 0);
+            }
           }
         })
-        .catch(function() {});
+        .catch(function(err) { console.debug('mailmerge: records fetch error', err); });
     },
   };
 }
 </script>
 
 {# ── Sticky Bottom Action Bar ── #}
-{% if job.status == "done" and job.impose_template and job.impose_template.routing_preset %}
+{% if job.status == "done" %}
 <div class="fixed bottom-0 left-0 right-0 z-40 bg-neutral text-neutral-content border-t border-base-300 shadow-lg"
      role="region" aria-label="Print action toolbar">
   <div class="max-w-3xl mx-auto px-4 py-3 flex gap-3 items-center justify-end flex-wrap">
     <span class="text-sm opacity-60 mr-auto">
-      Printer: <strong>{{ job.impose_template.routing_preset.name }}</strong>
-      {% if job.artwork_page_count and job.artwork_page_count > 1 %}
-        &nbsp;&middot;&nbsp;
-        {% if job.merge_page == 1 %}Addresses on front{% else %}Addresses on back{% endif %}
+      {% if job.impose_template and job.impose_template.routing_preset %}
+        Printer: <strong>{{ job.impose_template.routing_preset.name }}</strong>
+        {% if job.artwork_page_count and job.artwork_page_count > 1 %}
+          &nbsp;&middot;&nbsp;
+          {% if job.merge_page == 1 %}Addresses on front{% else %}Addresses on back{% endif %}
+        {% endif %}
       {% endif %}
     </span>
-    {% if job.gangup_file %}
+
+    {% if job.gangup_file and job.impose_template and job.impose_template.routing_preset %}
     <form method="post" action="{% url 'mailmerge:send_gangup_to_fiery' job.pk %}">
       {% csrf_token %}
       <button type="submit" class="btn btn-outline btn-sm gap-2">
@@ -493,15 +448,10 @@ function mmDetail(artworkUrl, recordsUrl) {
       </button>
     </form>
     {% endif %}
-    {% if job.address_pdf_file %}
+    {% if job.address_pdf_file and job.impose_template and job.impose_template.routing_preset %}
     <form method="post" action="{% url 'mailmerge:send_addresses_to_fiery' job.pk %}">
       {% csrf_token %}
-      <button type="submit" class="btn btn-primary btn-sm gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-        </svg>
-        Send Addresses to Printer
-      </button>
+      <button type="submit" class="btn btn-primary btn-sm gap-2">Send Addresses to Printer</button>
     </form>
     {% endif %}
   </div>

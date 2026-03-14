@@ -4,6 +4,7 @@
 {% block title %}Address Block Defaults — Ember{% endblock %}
 
 {% block content %}
+{{ address_template|json_script:"_addr_tmpl" }}
 <div class="max-w-3xl mx-auto px-4 py-10"
      x-data="addrBlockConfig({
        cardWIn:          {{ config.preview_card_width_in }},
@@ -19,8 +20,7 @@
        trayXIn:          '{{ config.tray_x_in|default:'' }}',
        trayYIn:          '{{ config.tray_y_in|default:'' }}',
        trayFontSize:     {{ config.tray_font_size|default:9 }},
-       addrBlockWidthIn: {{ config.addr_block_width_in }},
-       csvFields:        {{ csv_fields_json }}
+       addrBlockWidthIn: {{ config.addr_block_width_in }}
      })">
 
   <div class="mb-6">
@@ -49,8 +49,8 @@
 
   <form method="post" class="space-y-6">
     {% csrf_token %}
-    <!-- Hidden field carrying the serialised csv_fields list -->
-    <input type="hidden" name="csv_fields" :value="JSON.stringify(csvFields)">
+    <!-- Hidden field carrying the serialised csv_fields list (kept for backward compat) -->
+    <input type="hidden" name="csv_fields" :value="JSON.stringify([])">
 
     <!-- Card size for preview -->
     <div class="card bg-base-100 border border-base-300 shadow-sm">
@@ -264,37 +264,49 @@
       </div>
     </div>
 
-    <!-- CSV field ordering -->
+    <!-- Address block template editor -->
     <div class="card bg-base-100 border border-base-300 shadow-sm">
       <div class="card-body gap-4">
-        <h2 class="card-title text-base">Address Fields</h2>
+        <h2 class="card-title text-base">Address Block Template</h2>
         <p class="text-xs text-base-content/50">
-          Select which fields to include and arrange their order.
-          The list is shown bottom-to-top — the first row prints at the <strong>bottom</strong> of the address block (closest to the card edge), the last row at the top.
+          Each line prints as one line of text, top‑to‑bottom.
+          Click a field chip to insert it at the cursor.
+          Use plain text for static lines like <strong>Address Service Requested</strong>.
+          Lines where every <code>{field}</code> is blank in the record are automatically skipped.
         </p>
-        <div class="space-y-1">
-          <template x-for="(field, idx) in allFields" :key="field">
-            <div class="flex items-center gap-2 bg-base-200 rounded px-3 py-2 text-sm">
-              <input type="checkbox"
-                     class="checkbox checkbox-sm"
-                     :checked="csvFields.includes(field)"
-                     @change="toggleField(field)">
-              <span class="flex-1 font-mono text-xs" x-text="field"></span>
-              <button type="button" class="btn btn-ghost btn-xs px-1"
-                      :disabled="csvFields.indexOf(field) <= 0 || !csvFields.includes(field)"
-                      @click="moveField(field, -1)"
-                      title="Move down (closer to card bottom)">&darr;</button>
-              <button type="button" class="btn btn-ghost btn-xs px-1"
-                      :disabled="csvFields.indexOf(field) >= csvFields.length - 1 || !csvFields.includes(field)"
-                      @click="moveField(field, 1)"
-                      title="Move up (away from card bottom)">&uarr;</button>
-            </div>
+
+        <!-- Field chips -->
+        <div class="flex flex-wrap gap-1.5">
+          <template x-for="field in allFields" :key="field">
+            <button type="button"
+                    class="badge badge-outline badge-sm font-mono cursor-pointer hover:badge-primary transition-colors"
+                    @click="insertField(field)"
+                    x-text="'{' + field + '}'"></button>
           </template>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm w-fit"
-                @click="resetFields()">
-          Reset to default fields
-        </button>
+
+        <!-- Textarea -->
+        <textarea
+          id="addressTemplateArea"
+          name="address_template"
+          rows="10"
+          class="textarea textarea-bordered font-mono text-sm w-full leading-relaxed"
+          x-model="addressTemplate"
+          @input="redraw()"
+          placeholder="{presorttrayid}&#10;{name}&#10;{company}&#10;{urbanization}&#10;{sec-primary street}&#10;{primary street}&#10;{city-state-zip}&#10;{encodedimbno}"
+          spellcheck="false"></textarea>
+
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-ghost btn-sm w-fit"
+                  @click="resetTemplate()">
+            Reset to defaults
+          </button>
+        </div>
+
+        <div class="text-xs text-base-content/40 space-y-0.5">
+          <p><code class="bg-base-200 px-1 rounded">{encodedimbno}</code> — USPS IMb barcode (rendered as visual barcode at the configured barcode position)</p>
+          <p><code class="bg-base-200 px-1 rounded">{presorttrayid}</code> — presort tray ID (rendered at its own position if configured, otherwise inline)</p>
+        </div>
       </div>
     </div>
 
@@ -344,6 +356,17 @@ var ALL_FIELDS = [
   "imbno"
 ];
 
+var DEFAULT_TEMPLATE = [
+  "{presorttrayid}",
+  "{name}",
+  "{company}",
+  "{urbanization}",
+  "{sec-primary street}",
+  "{primary street}",
+  "{city-state-zip}",
+  "{encodedimbno}"
+].join("\n");
+
 function addrBlockConfig(cfg) {
   return {
     cardWIn:          cfg.cardWIn  || 6,
@@ -360,9 +383,9 @@ function addrBlockConfig(cfg) {
     trayYIn:          cfg.trayYIn !== undefined ? String(cfg.trayYIn) : '',
     trayFontSize:     cfg.trayFontSize || 9,
     addrBlockWidthIn: cfg.addrBlockWidthIn || 4.25,
-    csvFields:        (cfg.csvFields && cfg.csvFields.length) ? cfg.csvFields : ALL_FIELDS.slice(),
+    addressTemplate:  '',   // loaded in init() from json_script tag
     allFields:        ALL_FIELDS,
-    _draggingBlock:   null,   // 'addr' | 'barcode' | 'tray' | null
+    _draggingBlock:   null,
     _dragOffsetX:     0,
     _dragOffsetY:     0,
     _scale:           1,
@@ -371,14 +394,20 @@ function addrBlockConfig(cfg) {
     get cardHPt() { return parseFloat(this.cardHIn) * PT_PER_IN || 648; },
 
     get addrBlockWPt() { return parseFloat(this.addrBlockWidthIn) * PT_PER_IN || 306; },
-    get addrBlockHPt() { return this.csvFields.length * parseFloat(this.lineHeight || 13); },
-
-    get addrXDefault() {
-      return 4.5;
+    get addrBlockHPt() {
+      // Count visible text lines in the template (excluding blank lines and
+      // bare {encodedimbno} which renders as a separate barcode overlay).
+      var tmpl = this.addressTemplate || DEFAULT_TEMPLATE;
+      var count = tmpl.split('\n').filter(function(l) {
+        var t = l.trim();
+        if (!t) return false;
+        if (t === '{encodedimbno}') return false;
+        return true;
+      }).length;
+      return Math.max(1, count) * parseFloat(this.lineHeight || 13);
     },
 
     _resolveAddrPt() {
-      // addrXIn is inches from the RIGHT edge; convert to PDF left-edge points
       var addrX = this.cardWPt - (this.addrXIn !== '' ? parseFloat(this.addrXIn) : 4.5) * PT_PER_IN;
       var addrY = this.addrYIn !== '' ? parseFloat(this.addrYIn) * PT_PER_IN
                                       : 2.5 * PT_PER_IN;
@@ -402,7 +431,6 @@ function addrBlockConfig(cfg) {
     },
 
     positionLabel() {
-      // X stored as from-right inches — display directly; Y is from-bottom
       var fmt = function(v) { return parseFloat(v).toFixed(4).replace(/\.?0+$/, ''); };
       var addrXR = this.addrXIn  !== '' ? this.addrXIn  : '4.5';
       var addrY  = this.addrYIn  !== '' ? this.addrYIn  : '2.5';
@@ -418,34 +446,23 @@ function addrBlockConfig(cfg) {
       return parts.join('   \u00b7   ');
     },
 
-    // ── Field management ─────────────────────────────────────────────────
-    toggleField(field) {
-      var idx = this.csvFields.indexOf(field);
-      if (idx === -1) {
-        var natural = ALL_FIELDS.indexOf(field);
-        var insertAt = 0;
-        for (var i = 0; i < this.csvFields.length; i++) {
-          if (ALL_FIELDS.indexOf(this.csvFields[i]) < natural) insertAt = i + 1;
-        }
-        this.csvFields.splice(insertAt, 0, field);
-      } else {
-        this.csvFields.splice(idx, 1);
-      }
+    // ── Template management ───────────────────────────────────────────────
+    insertField(field) {
+      var ta = document.getElementById('addressTemplateArea');
+      if (!ta) { this.addressTemplate += '\n{' + field + '}'; this.redraw(); return; }
+      var start = ta.selectionStart;
+      var end   = ta.selectionEnd;
+      var token = '{' + field + '}';
+      this.addressTemplate = ta.value.slice(0, start) + token + ta.value.slice(end);
+      this.$nextTick(function() {
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = start + token.length;
+      });
       this.redraw();
     },
 
-    moveField(field, direction) {
-      var idx = this.csvFields.indexOf(field);
-      if (idx === -1) return;
-      var newIdx = idx + direction;
-      if (newIdx < 0 || newIdx >= this.csvFields.length) return;
-      this.csvFields.splice(idx, 1);
-      this.csvFields.splice(newIdx, 0, field);
-      this.redraw();
-    },
-
-    resetFields() {
-      this.csvFields = ALL_FIELDS.slice();
+    resetTemplate() {
+      this.addressTemplate = DEFAULT_TEMPLATE;
       this.redraw();
     },
 
@@ -479,14 +496,12 @@ function addrBlockConfig(cfg) {
       var tp = this._resolveTrayPt();
       var scale = this._scale || 1;
 
-      // Background + border
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(0, 0, w, h);
       ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1;
       ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
 
-      // Grid lines
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 0.5;
       for (var gx = PT_PER_IN; gx < this.cardWPt; gx += PT_PER_IN) {
@@ -498,7 +513,6 @@ function addrBlockConfig(cfg) {
         ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
       }
 
-      // Card dimension label
       ctx.fillStyle = '#94a3b8';
       ctx.font = Math.max(9, 11 * scale) + 'px sans-serif';
       ctx.textAlign = 'center';
@@ -508,7 +522,6 @@ function addrBlockConfig(cfg) {
         w / 2, h / 2
       );
 
-      // Draw order: addr block first (bottom), then barcode, then tray on top
       this._drawAddressBlock(ctx, p.addrX, p.addrY, scale);
       this._drawBarcodeIndicator(ctx, bp.bx, bp.by, scale);
       if (tp) this._drawTrayIndicator(ctx, tp.tx, tp.ty, scale);
@@ -528,18 +541,28 @@ function addrBlockConfig(cfg) {
       ctx.strokeStyle = 'rgba(59,130,246,0.7)';
       ctx.lineWidth = 1.5;
       ctx.strokeRect(cx, cy, cw, ch);
-      ctx.fillStyle = 'rgba(59,130,246,0.85)';
-      ctx.font = 'bold ' + Math.max(8, 9 * scale) + 'px sans-serif';
+
+      // Draw preview lines from template
+      var tmpl = this.addressTemplate || DEFAULT_TEMPLATE;
+      var lines = tmpl.split('\n').filter(function(l) {
+        return l.trim() && l.trim() !== '{encodedimbno}';
+      });
+      var lh = parseFloat(this.lineHeight || 13);
+      var fs = Math.max(6, Math.min(parseFloat(this.fontSize || 9), 11) * scale);
+      ctx.font = fs + 'px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText('Address Block', cx + 3 * scale, cy + 12 * scale);
-      ctx.fillStyle = 'rgba(59,130,246,0.6)';
-      ctx.font = Math.max(7, 8 * scale) + 'px sans-serif';
-      ctx.fillText('drag to reposition', cx + 3 * scale, cy + 22 * scale);
+      for (var i = 0; i < lines.length; i++) {
+        // y slot: top line has highest slot (n-1), renders highest Y in PDF
+        // In canvas coords (Y flipped): top line of template → top of block
+        var lineY = cy + (i + 0.8) * lh * scale;
+        var label = lines[i].replace(/\{([^}]+)\}/g, '$1');
+        ctx.fillStyle = i === 0 ? 'rgba(59,130,246,0.85)' : 'rgba(59,130,246,0.6)';
+        ctx.fillText(label, cx + 3 * scale, lineY);
+      }
       ctx.restore();
     },
 
     _drawBarcodeIndicator(ctx, bx, by, scale) {
-      // Approximate barcode height from font size; width ≈ address block width
       var barH  = parseFloat(this.barcodeFontSize || 14);
       var barW  = this.addrBlockWPt;
       var cx    = bx * scale;
@@ -558,14 +581,12 @@ function addrBlockConfig(cfg) {
       ctx.fillStyle = 'rgba(180,110,0,0.9)';
       ctx.font = 'bold ' + Math.max(7, 8 * scale) + 'px sans-serif';
       ctx.textAlign = 'left';
-      // Draw simulated barcode bars as vertical lines inside the indicator
       var barCount = 12;
       var barSpacing = cw / (barCount * 2 + 1);
       ctx.strokeStyle = 'rgba(180,110,0,0.55)';
       ctx.lineWidth = Math.max(1, barSpacing * 0.7);
       for (var i = 0; i < barCount; i++) {
         var bxi = cx + barSpacing * (i * 2 + 1);
-        // Alternate full-height and half-height bars like a real IMb
         var barTop = (i % 3 === 0) ? cy : cy + ch * 0.25;
         var barBot = (i % 3 === 1) ? cy + ch * 0.75 : cy + ch;
         ctx.beginPath(); ctx.moveTo(bxi, barTop); ctx.lineTo(bxi, barBot); ctx.stroke();
@@ -576,7 +597,6 @@ function addrBlockConfig(cfg) {
 
     _drawTrayIndicator(ctx, tx, ty, scale) {
       var lineH  = parseFloat(this.trayFontSize || this.fontSize || 9);
-      // "T00001" is ~6 chars; approximate width at the given font size
       var approxW = lineH * 4.5;
       var cx = tx * scale;
       var cy = (this.cardHPt - ty - lineH) * scale;
@@ -724,6 +744,12 @@ function addrBlockConfig(cfg) {
 
     init() {
       var self = this;
+      // Load template from the json_script tag Django emitted
+      var el = document.getElementById('_addr_tmpl');
+      if (el) {
+        try { self.addressTemplate = JSON.parse(el.textContent); } catch(e) {}
+      }
+      if (!self.addressTemplate) self.addressTemplate = DEFAULT_TEMPLATE;
       this.$nextTick(function() { self.redraw(); });
     },
   };

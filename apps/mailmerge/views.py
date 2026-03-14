@@ -410,15 +410,18 @@ class AddressBlockConfigView(LoginRequiredMixin, View):
 
     def get(self, request):
         from .models import DEFAULT_CSV_FIELDS, FONT_CHOICES, AddressBlockConfig
+        from .services import _DEFAULT_TEMPLATE
 
         config = AddressBlockConfig.get_solo()
         csv_fields = config.csv_fields or []
+        address_template = config.address_template or _DEFAULT_TEMPLATE
         return render(
             request,
             self.template_name,
             {
                 "config": config,
                 "csv_fields_json": json.dumps(csv_fields),
+                "address_template": address_template,
                 "all_fields": DEFAULT_CSV_FIELDS,
                 "font_choices": FONT_CHOICES,
             },
@@ -489,6 +492,9 @@ class AddressBlockConfigView(LoginRequiredMixin, View):
                 pass
         else:
             config.csv_fields = []
+
+        # Address block template
+        config.address_template = request.POST.get("address_template", "").strip()
 
         config.save()
         messages.success(request, "Address block defaults saved.")
