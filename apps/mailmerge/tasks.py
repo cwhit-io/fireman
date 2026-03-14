@@ -84,9 +84,13 @@ def process_mail_merge_task(job_id: str) -> None:
         with job.artwork_file.open("rb") as art_fh:
             artwork_bytes = art_fh.read()
 
-        # Resolve optional address block position
-        addr_x_in = float(job.addr_x_in) if job.addr_x_in is not None else None
-        addr_y_in = float(job.addr_y_in) if job.addr_y_in is not None else None
+        # Resolve address block position from site-wide config
+        addr_x_in = (
+            float(addr_config.addr_x_in) if addr_config.addr_x_in is not None else None
+        )
+        addr_y_in = (
+            float(addr_config.addr_y_in) if addr_config.addr_y_in is not None else None
+        )
 
         safe_name = job.name or f"mailmerge_{job.pk}"
 
@@ -219,13 +223,18 @@ def generate_merged_pdf_task(job_id: str) -> None:
         with job.artwork_file.open("rb") as art_fh:
             artwork_bytes = art_fh.read()
 
-        addr_x_in = float(job.addr_x_in) if job.addr_x_in is not None else None
-        addr_y_in = float(job.addr_y_in) if job.addr_y_in is not None else None
-
         # Load site-wide address block config
         from .models import AddressBlockConfig
 
         addr_config = AddressBlockConfig.get_solo()
+
+        # Resolve address block position from site-wide config
+        addr_x_in = (
+            float(addr_config.addr_x_in) if addr_config.addr_x_in is not None else None
+        )
+        addr_y_in = (
+            float(addr_config.addr_y_in) if addr_config.addr_y_in is not None else None
+        )
         cfg_font_name = addr_config.font_name or None
         cfg_font_size = float(addr_config.font_size) if addr_config.font_size else None
         cfg_line_height = (
