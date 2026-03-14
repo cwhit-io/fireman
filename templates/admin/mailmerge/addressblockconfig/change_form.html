@@ -208,7 +208,9 @@
     ctx.textAlign = 'left';
     for (var i = 0; i < lines.length; i++) {
       var lineY = cy + (i + 0.8) * S.lhPt * scale;
-      var label = lines[i].replace(/\{([^}]+)\}/g, '$1');
+      var label = lines[i].replace(/\{([^}]+)\}/g, function (_, token) {
+        return token.toLowerCase() === 'br' ? '' : token;
+      });
       ctx.fillStyle = i === 0 ? 'rgba(59,130,246,0.85)' : 'rgba(59,130,246,0.6)';
       ctx.fillText(label, cx + 3 * scale, lineY);
     }

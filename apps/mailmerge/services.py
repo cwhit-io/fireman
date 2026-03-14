@@ -125,11 +125,19 @@ def _template_to_slot_lines(
             # Pure static text — include if non-blank.
             if raw_line.strip():
                 rendered.append(raw_line)
+            else:
+                # Allow explicit blank lines via a literal marker handled elsewhere
+                # (e.g. a single-token line like {br} will produce an empty slot).
+                pass
             continue
 
         # Single-token-only line → special handling for barcode / tray.
         if len(tokens) == 1 and raw_line.strip() == "{" + tokens[0] + "}":
             field = tokens[0]
+            # Special token to force a blank line (paragraph break).
+            if field.lower() == "br" or field.lower() == "blank":
+                rendered.append("")
+                continue
             val = record.get(field, "") or record.get(field.lower(), "")
             val = val.strip()
             if not val:
