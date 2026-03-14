@@ -14,6 +14,11 @@
        fontSize:         {{ config.font_size }},
        lineHeight:       {{ config.line_height }},
        barcodeFontSize:  {{ config.barcode_font_size }},
+       barcodeXIn:       '{{ config.barcode_x_in|default:'' }}',
+       barcodeYIn:       '{{ config.barcode_y_in|default:'' }}',
+       trayXIn:          '{{ config.tray_x_in|default:'' }}',
+       trayYIn:          '{{ config.tray_y_in|default:'' }}',
+       trayFontSize:     {{ config.tray_font_size|default:9 }},
        addrBlockWidthIn: {{ config.addr_block_width_in }},
        csvFields:        {{ csv_fields_json }}
      })">
@@ -91,18 +96,17 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="form-control">
             <label class="label" for="addr_x_in">
-              <span class="label-text">Left edge (inches from card left)</span>
+              <span class="label-text">Right edge (inches from card right)</span>
             </label>
             <input type="number" name="addr_x_in" id="addr_x_in"
                    step="0.0625" min="0"
                    class="input input-bordered w-full"
                    x-model="addrXIn"
                    @input="redraw()"
-                   :placeholder="addrXDefault.toFixed(4).replace(/\.?0+$/, '')">
+                   placeholder="4.5">
             <label class="label">
               <span class="label-text-alt text-base-content/40">
-                Default: <span x-text="addrXDefault.toFixed(4).replace(/\.?0+$/, '')"></span>&Prime;
-                (card width − 4.5&Prime;)
+                Default: 4.5&Prime; from card right
               </span>
             </label>
           </div>
@@ -166,14 +170,77 @@
                    x-model="lineHeight"
                    @input="redraw()">
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USPS IMb Barcode position -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">USPS IMb Barcode (<code>encodedimbno</code>)</h2>
+        <p class="text-xs text-base-content/50">Independent position and size for the IMb barcode. Leave X / Y blank to use the main address block anchor.</p>
+        <div class="grid grid-cols-3 gap-4">
           <div class="form-control">
-            <label class="label" for="barcode_font_size">
-              <span class="label-text">Barcode font size (pt)</span>
-            </label>
+            <label class="label" for="barcode_x_in"><span class="label-text">X (inches from right)</span></label>
+            <input type="number" name="barcode_x_in" id="barcode_x_in"
+                   step="0.0625" min="0" max="20"
+                   class="input input-bordered w-full"
+                   x-model="barcodeXIn"
+                   @input="redraw()"
+                   placeholder="(use addr X)">
+          </div>
+          <div class="form-control">
+            <label class="label" for="barcode_y_in"><span class="label-text">Y (inches from bottom)</span></label>
+            <input type="number" name="barcode_y_in" id="barcode_y_in"
+                   step="0.0625" min="0" max="20"
+                   class="input input-bordered w-full"
+                   x-model="barcodeYIn"
+                   @input="redraw()"
+                   placeholder="(use addr Y)">
+          </div>
+          <div class="form-control">
+            <label class="label" for="barcode_font_size"><span class="label-text">Font size (pt)</span></label>
             <input type="number" name="barcode_font_size" id="barcode_font_size"
                    step="0.5" min="8" max="72"
                    class="input input-bordered w-full"
-                   x-model="barcodeFontSize">
+                   x-model="barcodeFontSize"
+                   @input="redraw()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tray ID position -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Presort Tray ID (<code>presorttrayid</code>)</h2>
+        <p class="text-xs text-base-content/50">Independent position and size for the tray ID. Leave X / Y blank to include tray ID in the normal address block flow.</p>
+        <div class="grid grid-cols-3 gap-4">
+          <div class="form-control">
+            <label class="label" for="tray_x_in"><span class="label-text">X (inches from right)</span></label>
+            <input type="number" name="tray_x_in" id="tray_x_in"
+                   step="0.0625" min="0" max="20"
+                   class="input input-bordered w-full"
+                   x-model="trayXIn"
+                   @input="redraw()"
+                   placeholder="(in addr flow)">
+          </div>
+          <div class="form-control">
+            <label class="label" for="tray_y_in"><span class="label-text">Y (inches from bottom)</span></label>
+            <input type="number" name="tray_y_in" id="tray_y_in"
+                   step="0.0625" min="0" max="20"
+                   class="input input-bordered w-full"
+                   x-model="trayYIn"
+                   @input="redraw()"
+                   placeholder="(in addr flow)">
+          </div>
+          <div class="form-control">
+            <label class="label" for="tray_font_size"><span class="label-text">Font size (pt)</span></label>
+            <input type="number" name="tray_font_size" id="tray_font_size"
+                   step="0.5" min="4" max="72"
+                   class="input input-bordered w-full"
+                   x-model="trayFontSize"
+                   @input="redraw()">
           </div>
         </div>
       </div>
@@ -236,7 +303,7 @@
       <div class="card-body gap-3">
         <div class="flex items-center justify-between">
           <h2 class="card-title text-base">Preview</h2>
-          <span class="text-xs text-base-content/40">Drag the blue block to reposition</span>
+          <span class="text-xs text-base-content/40">Drag blue&nbsp;(address), amber&nbsp;(barcode), or green&nbsp;(tray ID) blocks to reposition</span>
         </div>
         <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3">
           <canvas id="previewCanvas"
@@ -287,10 +354,15 @@ function addrBlockConfig(cfg) {
     fontSize:         cfg.fontSize  || 9,
     lineHeight:       cfg.lineHeight || 13,
     barcodeFontSize:  cfg.barcodeFontSize || 14,
+    barcodeXIn:       cfg.barcodeXIn !== undefined ? String(cfg.barcodeXIn) : '',
+    barcodeYIn:       cfg.barcodeYIn !== undefined ? String(cfg.barcodeYIn) : '',
+    trayXIn:          cfg.trayXIn !== undefined ? String(cfg.trayXIn) : '',
+    trayYIn:          cfg.trayYIn !== undefined ? String(cfg.trayYIn) : '',
+    trayFontSize:     cfg.trayFontSize || 9,
     addrBlockWidthIn: cfg.addrBlockWidthIn || 4.25,
     csvFields:        (cfg.csvFields && cfg.csvFields.length) ? cfg.csvFields : ALL_FIELDS.slice(),
     allFields:        ALL_FIELDS,
-    isDragging:       false,
+    _draggingBlock:   null,   // 'addr' | 'barcode' | 'tray' | null
     _dragOffsetX:     0,
     _dragOffsetY:     0,
     _scale:           1,
@@ -302,29 +374,54 @@ function addrBlockConfig(cfg) {
     get addrBlockHPt() { return this.csvFields.length * parseFloat(this.lineHeight || 13); },
 
     get addrXDefault() {
-      return Math.max(0, this.cardWPt / PT_PER_IN - 4.5);
+      return 4.5;
     },
 
     _resolveAddrPt() {
-      var addrX = this.addrXIn !== '' ? parseFloat(this.addrXIn) * PT_PER_IN
-                                      : Math.max(0, this.cardWPt - 4.5 * PT_PER_IN);
+      // addrXIn is inches from the RIGHT edge; convert to PDF left-edge points
+      var addrX = this.cardWPt - (this.addrXIn !== '' ? parseFloat(this.addrXIn) : 4.5) * PT_PER_IN;
       var addrY = this.addrYIn !== '' ? parseFloat(this.addrYIn) * PT_PER_IN
                                       : 2.5 * PT_PER_IN;
       return { addrX: addrX, addrY: addrY };
     },
 
-    positionLabel() {
+    _resolveBarcodePt() {
       var p = this._resolveAddrPt();
-      var x = (p.addrX / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
-      var y = (p.addrY / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
-      return 'Left: ' + x + '\u2033  \u00b7  Bottom: ' + y + '\u2033';
+      return {
+        bx: this.barcodeXIn !== '' ? this.cardWPt - parseFloat(this.barcodeXIn) * PT_PER_IN : p.addrX,
+        by: this.barcodeYIn !== '' ? parseFloat(this.barcodeYIn) * PT_PER_IN : p.addrY,
+      };
+    },
+
+    _resolveTrayPt() {
+      if (this.trayXIn === '' || this.trayYIn === '') return null;
+      return {
+        tx: this.cardWPt - parseFloat(this.trayXIn) * PT_PER_IN,
+        ty: parseFloat(this.trayYIn) * PT_PER_IN,
+      };
+    },
+
+    positionLabel() {
+      // X stored as from-right inches — display directly; Y is from-bottom
+      var fmt = function(v) { return parseFloat(v).toFixed(4).replace(/\.?0+$/, ''); };
+      var addrXR = this.addrXIn  !== '' ? this.addrXIn  : '4.5';
+      var addrY  = this.addrYIn  !== '' ? this.addrYIn  : '2.5';
+      var bpXR   = this.barcodeXIn !== '' ? this.barcodeXIn : addrXR;
+      var bpY    = this.barcodeYIn !== '' ? this.barcodeYIn : addrY;
+      var parts = [
+        'Addr  x:' + fmt(addrXR) + '\u2033R  y:' + fmt(addrY) + '\u2033',
+        'Barcode  x:' + fmt(bpXR) + '\u2033R  y:' + fmt(bpY) + '\u2033',
+      ];
+      if (this.trayXIn !== '' && this.trayYIn !== '') {
+        parts.push('Tray  x:' + fmt(this.trayXIn) + '\u2033R  y:' + fmt(this.trayYIn) + '\u2033');
+      }
+      return parts.join('   \u00b7   ');
     },
 
     // ── Field management ─────────────────────────────────────────────────
     toggleField(field) {
       var idx = this.csvFields.indexOf(field);
       if (idx === -1) {
-        // re-insert at its natural position
         var natural = ALL_FIELDS.indexOf(field);
         var insertAt = 0;
         for (var i = 0; i < this.csvFields.length; i++) {
@@ -338,7 +435,6 @@ function addrBlockConfig(cfg) {
     },
 
     moveField(field, direction) {
-      // direction: -1 = move toward index 0 (bottom), +1 = move toward end (top)
       var idx = this.csvFields.indexOf(field);
       if (idx === -1) return;
       var newIdx = idx + direction;
@@ -378,15 +474,19 @@ function addrBlockConfig(cfg) {
     },
 
     _drawPlaceholder(ctx, w, h) {
-      var p = this._resolveAddrPt();
+      var p  = this._resolveAddrPt();
+      var bp = this._resolveBarcodePt();
+      var tp = this._resolveTrayPt();
       var scale = this._scale || 1;
 
+      // Background + border
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(0, 0, w, h);
       ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1;
       ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
 
+      // Grid lines
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 0.5;
       for (var gx = PT_PER_IN; gx < this.cardWPt; gx += PT_PER_IN) {
@@ -398,6 +498,7 @@ function addrBlockConfig(cfg) {
         ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
       }
 
+      // Card dimension label
       ctx.fillStyle = '#94a3b8';
       ctx.font = Math.max(9, 11 * scale) + 'px sans-serif';
       ctx.textAlign = 'center';
@@ -407,7 +508,10 @@ function addrBlockConfig(cfg) {
         w / 2, h / 2
       );
 
+      // Draw order: addr block first (bottom), then barcode, then tray on top
       this._drawAddressBlock(ctx, p.addrX, p.addrY, scale);
+      this._drawBarcodeIndicator(ctx, bp.bx, bp.by, scale);
+      if (tp) this._drawTrayIndicator(ctx, tp.tx, tp.ty, scale);
     },
 
     _drawAddressBlock(ctx, addrX, addrY, scale) {
@@ -434,6 +538,66 @@ function addrBlockConfig(cfg) {
       ctx.restore();
     },
 
+    _drawBarcodeIndicator(ctx, bx, by, scale) {
+      // Approximate barcode height from font size; width ≈ address block width
+      var barH  = parseFloat(this.barcodeFontSize || 14);
+      var barW  = this.addrBlockWPt;
+      var cx    = bx * scale;
+      var cy    = (this.cardHPt - by - barH) * scale;
+      var cw    = barW * scale;
+      var ch    = Math.max(3, barH * scale);
+
+      ctx.save();
+      ctx.fillStyle   = 'rgba(245,158,11,0.13)';
+      ctx.fillRect(cx, cy, cw, ch);
+      ctx.strokeStyle = 'rgba(245,158,11,0.85)';
+      ctx.lineWidth   = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(cx, cy, cw, ch);
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(180,110,0,0.9)';
+      ctx.font = 'bold ' + Math.max(7, 8 * scale) + 'px sans-serif';
+      ctx.textAlign = 'left';
+      // Draw simulated barcode bars as vertical lines inside the indicator
+      var barCount = 12;
+      var barSpacing = cw / (barCount * 2 + 1);
+      ctx.strokeStyle = 'rgba(180,110,0,0.55)';
+      ctx.lineWidth = Math.max(1, barSpacing * 0.7);
+      for (var i = 0; i < barCount; i++) {
+        var bxi = cx + barSpacing * (i * 2 + 1);
+        // Alternate full-height and half-height bars like a real IMb
+        var barTop = (i % 3 === 0) ? cy : cy + ch * 0.25;
+        var barBot = (i % 3 === 1) ? cy + ch * 0.75 : cy + ch;
+        ctx.beginPath(); ctx.moveTo(bxi, barTop); ctx.lineTo(bxi, barBot); ctx.stroke();
+      }
+      ctx.fillText('IMb Barcode', cx + 3 * scale, cy + Math.max(9, barH * scale * 0.75));
+      ctx.restore();
+    },
+
+    _drawTrayIndicator(ctx, tx, ty, scale) {
+      var lineH  = parseFloat(this.trayFontSize || this.fontSize || 9);
+      // "T00001" is ~6 chars; approximate width at the given font size
+      var approxW = lineH * 4.5;
+      var cx = tx * scale;
+      var cy = (this.cardHPt - ty - lineH) * scale;
+      var cw = approxW * scale;
+      var ch = Math.max(3, lineH * scale);
+
+      ctx.save();
+      ctx.fillStyle   = 'rgba(34,197,94,0.13)';
+      ctx.fillRect(cx, cy, cw, ch);
+      ctx.strokeStyle = 'rgba(34,197,94,0.85)';
+      ctx.lineWidth   = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(cx, cy, cw, ch);
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(21,128,61,0.95)';
+      ctx.font = Math.max(7, 8 * scale) + 'px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('T00001', cx + 2 * scale, cy + Math.max(8, lineH * scale * 0.82));
+      ctx.restore();
+    },
+
     _canvasEventCoords(event) {
       var canvas = document.getElementById('previewCanvas');
       var rect = canvas.getBoundingClientRect();
@@ -446,7 +610,7 @@ function addrBlockConfig(cfg) {
       };
     },
 
-    _isInsideBlock(cx, cy) {
+    _hitTestAddr(cx, cy) {
       var p = this._resolveAddrPt();
       var scale = this._scale || 1;
       var bx = p.addrX * scale;
@@ -456,40 +620,100 @@ function addrBlockConfig(cfg) {
              cy >= by && cy <= by + bh * scale;
     },
 
+    _hitTestBarcode(cx, cy) {
+      var bp   = this._resolveBarcodePt();
+      var barH = parseFloat(this.barcodeFontSize || 14);
+      var barW = this.addrBlockWPt;
+      var scale = this._scale || 1;
+      var bx = bp.bx * scale;
+      var by = (this.cardHPt - bp.by - barH) * scale;
+      return cx >= bx && cx <= bx + barW * scale &&
+             cy >= by && cy <= by + Math.max(3, barH) * scale;
+    },
+
+    _hitTestTray(cx, cy) {
+      var tp = this._resolveTrayPt();
+      if (!tp) return false;
+      var lineH  = parseFloat(this.trayFontSize || this.fontSize || 9);
+      var approxW = lineH * 4.5;
+      var scale = this._scale || 1;
+      var bx = tp.tx * scale;
+      var by = (this.cardHPt - tp.ty - lineH) * scale;
+      return cx >= bx && cx <= bx + approxW * scale &&
+             cy >= by && cy <= by + Math.max(3, lineH) * scale;
+    },
+
     onCanvasMouseDown(event) {
       var coords = this._canvasEventCoords(event);
-      if (!this._isInsideBlock(coords.cx, coords.cy)) return;
-      var p = this._resolveAddrPt();
+      var cx = coords.cx, cy = coords.cy;
       var scale = this._scale || 1;
-      this.isDragging = true;
-      var bh = this.addrBlockHPt;
-      this._dragOffsetX = coords.cx - p.addrX * scale;
-      this._dragOffsetY = coords.cy - (this.cardHPt - p.addrY - bh) * scale;
-      event.target.style.cursor = 'grabbing';
+
+      // Tray is smallest — check it first to allow fine control
+      if (this._hitTestTray(cx, cy)) {
+        var tp = this._resolveTrayPt();
+        var lineH = parseFloat(this.trayFontSize || this.fontSize || 9);
+        this._draggingBlock = 'tray';
+        this._dragOffsetX = cx - tp.tx * scale;
+        this._dragOffsetY = cy - (this.cardHPt - tp.ty - lineH) * scale;
+      } else if (this._hitTestBarcode(cx, cy)) {
+        var bp   = this._resolveBarcodePt();
+        var barH = parseFloat(this.barcodeFontSize || 14);
+        this._draggingBlock = 'barcode';
+        this._dragOffsetX = cx - bp.bx * scale;
+        this._dragOffsetY = cy - (this.cardHPt - bp.by - barH) * scale;
+      } else if (this._hitTestAddr(cx, cy)) {
+        var p  = this._resolveAddrPt();
+        var bh = this.addrBlockHPt;
+        this._draggingBlock = 'addr';
+        this._dragOffsetX = cx - p.addrX * scale;
+        this._dragOffsetY = cy - (this.cardHPt - p.addrY - bh) * scale;
+      }
+      if (this._draggingBlock) event.target.style.cursor = 'grabbing';
     },
 
     onCanvasMouseMove(event) {
-      if (!this.isDragging) return;
+      if (!this._draggingBlock) return;
       var coords = this._canvasEventCoords(event);
-      var scale = this._scale || 1;
-      var cardWPt = this.cardWPt;
-      var cardHPt = this.cardHPt;
-      var bw = this.addrBlockWPt;
-      var bh = this.addrBlockHPt;
-      var newLeftPt  = (coords.cx - this._dragOffsetX) / scale;
-      var newTopCvPt = (coords.cy - this._dragOffsetY) / scale;
-      var newAddrY = cardHPt - newTopCvPt - bh;
-      var snapPt = GRID_SNAP_IN * PT_PER_IN;
-      var clampedX = Math.round(Math.max(0, Math.min(newLeftPt, cardWPt - bw)) / snapPt) * snapPt;
-      var clampedY = Math.round(Math.max(0, Math.min(newAddrY,  cardHPt - bh)) / snapPt) * snapPt;
-      this.addrXIn = (clampedX / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
-      this.addrYIn = (clampedY / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
+      var scale    = this._scale || 1;
+      var cardWPt  = this.cardWPt;
+      var cardHPt  = this.cardHPt;
+      var snapPt   = GRID_SNAP_IN * PT_PER_IN;
+      var newLPt   = (coords.cx - this._dragOffsetX) / scale;
+      var newTopCv = (coords.cy - this._dragOffsetY) / scale;
+
+      var snap = function(v, lo, hi) {
+        return Math.round(Math.max(lo, Math.min(v, hi)) / snapPt) * snapPt;
+      };
+      var fmt = function(v) { return (v / PT_PER_IN).toFixed(4).replace(/\.?0+$/, ''); };
+
+      // X values are stored as from-right; newLPt is a left-edge in points.
+      // from_right_pt = cardWPt - left_edge_pt
+      if (this._draggingBlock === 'addr') {
+        var bw = this.addrBlockWPt, bh = this.addrBlockHPt;
+        var ay = cardHPt - newTopCv - bh;
+        this.addrXIn = fmt(cardWPt - snap(newLPt, 0, cardWPt - bw));
+        this.addrYIn = fmt(snap(ay, 0, cardHPt - bh));
+
+      } else if (this._draggingBlock === 'barcode') {
+        var barH = parseFloat(this.barcodeFontSize || 14);
+        var barW = this.addrBlockWPt;
+        var by   = cardHPt - newTopCv - barH;
+        this.barcodeXIn = fmt(cardWPt - snap(newLPt, 0, cardWPt - barW));
+        this.barcodeYIn = fmt(snap(by, 0, cardHPt - barH));
+
+      } else if (this._draggingBlock === 'tray') {
+        var lineH   = parseFloat(this.trayFontSize || this.fontSize || 9);
+        var approxW = lineH * 4.5;
+        var ty = cardHPt - newTopCv - lineH;
+        this.trayXIn = fmt(cardWPt - snap(newLPt, 0, cardWPt - approxW));
+        this.trayYIn = fmt(snap(ty, 0, cardHPt - lineH));
+      }
       this.redraw();
     },
 
     onCanvasMouseUp(event) {
-      if (this.isDragging) {
-        this.isDragging = false;
+      if (this._draggingBlock) {
+        this._draggingBlock = null;
         var canvas = document.getElementById('previewCanvas');
         if (canvas) canvas.style.cursor = 'grab';
       }

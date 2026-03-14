@@ -97,16 +97,16 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="form-control">
               <label class="label" for="addr_x_in">
-                <span class="label-text">Left edge (inches from card left)</span>
+                <span class="label-text">Right edge (inches from card right)</span>
               </label>
               <input type="number" name="addr_x_in" id="addr_x_in" step="0.0625" min="0"
                      class="input input-bordered w-full"
                      x-model="addrXIn"
                      @input="onAddrInputChange()"
-                     :placeholder="addrXDefault.toFixed(4).replace(/\.?0+$/, '')">
+                     placeholder="4.5">
               <label class="label">
                 <span class="label-text-alt text-base-content/40">
-                  Default: <span x-text="addrXDefault.toFixed(4).replace(/\.?0+$/, '')"></span>&Prime;
+                  Default: 4.5&Prime; from card right
                 </span>
               </label>
             </div>
@@ -214,7 +214,7 @@ function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl
     recordIdx: 0,
 
     get addrXDefault() {
-      return Math.max(0, this.cardWPt / PT_PER_IN - 4.5);
+      return 4.5;
     },
 
     get currentRecord() {
@@ -229,8 +229,8 @@ function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl
     },
 
     _resolveAddrPt() {
-      var addrX = this.addrXIn !== '' ? parseFloat(this.addrXIn) * PT_PER_IN
-                                      : Math.max(0, this.cardWPt - 4.5 * PT_PER_IN);
+      // addrXIn is inches from the RIGHT edge; convert to PDF left-edge points
+      var addrX = this.cardWPt - (this.addrXIn !== '' ? parseFloat(this.addrXIn) : 4.5) * PT_PER_IN;
       var addrY = this.addrYIn !== '' ? parseFloat(this.addrYIn) * PT_PER_IN
                                       : 2.5 * PT_PER_IN;
       return { addrX: addrX, addrY: addrY };
@@ -443,7 +443,8 @@ function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl
       clampedX = Math.round(clampedX / snapPt) * snapPt;
       clampedY = Math.round(clampedY / snapPt) * snapPt;
 
-      this.addrXIn = (clampedX / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
+      // Store X as from-right (card_w - left_edge)
+      this.addrXIn = ((cardWPt - clampedX) / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
       this.addrYIn = (clampedY / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
       // Fast overlay-only redraw — no PDF re-render during drag
       this._drawOverlay();

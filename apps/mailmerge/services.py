@@ -584,6 +584,11 @@ def build_address_steprepeat(
     line_height: float | None = None,
     fields: list[str] | None = None,
     barcode_font_size: float | None = None,
+    barcode_x: float | None = None,
+    barcode_y: float | None = None,
+    tray_x: float | None = None,
+    tray_y: float | None = None,
+    tray_font_size: float | None = None,
 ) -> int:
     """Produce a step-and-repeat PDF containing only address blocks (no artwork).
 
@@ -603,11 +608,17 @@ def build_address_steprepeat(
     effective_font_size = font_size if font_size is not None else _FONT_SIZE
     effective_line_height = line_height if line_height is not None else _LINE_HEIGHT
     effective_fields = fields if fields else _DEFAULT_FIELDS
+    effective_barcode_font_size = (
+        barcode_font_size if barcode_font_size is not None else _BARCODE_FONT_SIZE
+    )
 
     if addr_x is None:
         addr_x = card_w - _ADDR_FROM_RIGHT_IN_DEFAULT * _PT_PER_IN
     if addr_y is None:
         addr_y = _ADDR_BOTTOM_IN_DEFAULT * _PT_PER_IN
+
+    # Whether barcode / tray use their own card-relative positions
+    tray_independent = tray_x is not None and tray_y is not None
 
     per_sheet = cols * rows
     cell_w = sheet_w / cols
@@ -656,6 +667,19 @@ def build_address_steprepeat(
                 sheet_addr_y = (
                     target_bottom + (card_w - addr_x - effective_font_size) * scale
                 )
+                # Barcode position (card-relative, or fallback to addr)
+                _bx = barcode_x if barcode_x is not None else addr_x
+                _by = barcode_y if barcode_y is not None else addr_y
+                sheet_barcode_x = target_left + _by * scale
+                sheet_barcode_y = (
+                    target_bottom + (card_w - _bx - effective_barcode_font_size) * scale
+                )
+                # Tray position
+                if tray_independent:
+                    sheet_tray_x = target_left + tray_y * scale
+                    sheet_tray_y = (
+                        target_bottom + (card_w - tray_x - effective_font_size) * scale
+                    )
             else:
                 placed_w = card_w * scale
                 placed_h = card_h * scale
@@ -665,23 +689,36 @@ def build_address_steprepeat(
                 target_bottom = cell_bottom + center_y
                 sheet_addr_x = target_left + addr_x * scale
                 sheet_addr_y = target_bottom + addr_y * scale
+                # Barcode position (card-relative, or fallback to addr)
+                _bx = barcode_x if barcode_x is not None else addr_x
+                _by = barcode_y if barcode_y is not None else addr_y
+                sheet_barcode_x = target_left + _bx * scale
+                sheet_barcode_y = target_bottom + _by * scale
+                # Tray position
+                if tray_independent:
+                    sheet_tray_x = target_left + tray_x * scale
+                    sheet_tray_y = target_bottom + tray_y * scale
 
-            # Build text lines with slot-based y-offsets (barcode slot preserved).
+            # Build text lines with slot-based y-offsets.
+            # encodedimbno always rendered as TrueType overlay (never in text stream).
+            # presorttrayid rendered at its own position if tray_independent.
             text_slot_lines: list[tuple[int, str]] = []
+            tray_text_val: str = ""
             slot = 0
             for f in effective_fields:
                 val = record.get(f, "").strip()
                 if not val:
                     continue
                 if f == _BARCODE_FIELD:
-                    # Collect barcode for separate TrueType overlay
-                    b_y = sheet_addr_y + slot * effective_line_height
-                    sheet_barcodes.append((val, sheet_addr_x, b_y))
-                else:
-                    text_slot_lines.append((slot, val))
+                    sheet_barcodes.append((val, sheet_barcode_x, sheet_barcode_y))
+                    continue
+                if f == _TRAY_FIELD and tray_independent:
+                    tray_text_val = val
+                    continue
+                text_slot_lines.append((slot, val))
                 slot += 1
 
-            if not text_slot_lines:
+            if not text_slot_lines and not (tray_independent and tray_text_val):
                 continue
 
             eff_fn = f"/{font_name}".encode() if font_name else _FONT_NAME
@@ -695,6 +732,21 @@ def build_address_steprepeat(
                 parts.append(f"{sheet_addr_x:.3f} {y:.3f} Td".encode())
                 parts.append(b"(" + escaped + b") Tj")
                 parts.append(f"{-sheet_addr_x:.3f} {-y:.3f} Td".encode())
+
+            # Tray ID at its independent sheet position
+            if tray_independent and tray_text_val:
+                eff_tray_fs = (
+                    tray_font_size
+                    if tray_font_size is not None
+                    else effective_font_size
+                )
+                if eff_tray_fs != effective_font_size:
+                    parts.append(eff_fn + f" {eff_tray_fs:.1f} Tf".encode())
+                escaped_tray = _escape_pdf_string(tray_text_val)
+                parts.append(f"{sheet_tray_x:.3f} {sheet_tray_y:.3f} Td".encode())
+                parts.append(b"(" + escaped_tray + b") Tj")
+                parts.append(f"{-sheet_tray_x:.3f} {-sheet_tray_y:.3f} Td".encode())
+
             parts.append(b"ET")
             combined_parts.extend(parts)
 
@@ -793,8 +845,8 @@ def merge_postcards(
         1-based page number within the artwork that should receive the address
         block.  Ignored for single-page artwork (always page 1).
     addr_x_in:
-        Left edge of the address block in inches from the card's left edge.
-        ``None`` uses the default (card_width - 4.5 in).
+        Right edge of address block measured from card's right edge (inches).
+        ``None`` uses the default (4.5 in from card right).
     addr_y_in:
         Bottom baseline of the address block in inches from the card's bottom.
         ``None`` uses the default (2.5 in).
@@ -820,21 +872,27 @@ def merge_postcards(
     merge_page = max(1, min(merge_page, num_artwork_pages))
     merge_page_idx = merge_page - 1  # 0-based
 
-    # Resolve address block anchor in points
-    addr_x_pt = addr_x_in * _PT_PER_IN if addr_x_in is not None else None
+    # Resolve Y positions (from-bottom → points, card_w not required)
     addr_y_pt = addr_y_in * _PT_PER_IN if addr_y_in is not None else None
+    barcode_y_pt = barcode_y_in * _PT_PER_IN if barcode_y_in is not None else None
+    tray_y_pt = tray_y_in * _PT_PER_IN if tray_y_in is not None else None
 
-    # Dimensions of the address page
+    # Dimensions of the address page (needed for X from-right conversion)
     addr_page_media = artwork_reader.pages[merge_page_idx].mediabox
     card_w = float(addr_page_media.width)
     card_h = float(addr_page_media.height)
 
+    # Resolve X positions (from-right → PDF left-edge in points)
+    addr_x_pt = (card_w - addr_x_in * _PT_PER_IN) if addr_x_in is not None else None
+    barcode_x_pt = (
+        (card_w - barcode_x_in * _PT_PER_IN) if barcode_x_in is not None else None
+    )
+    tray_x_pt = (card_w - tray_x_in * _PT_PER_IN) if tray_x_in is not None else None
+
     writer = PdfWriter()
     pages_written = 0
 
-    # Pre-compute effective rendering params (needed for barcode position)
-    effective_fields_val = fields if fields else _DEFAULT_FIELDS
-    effective_line_height_val = line_height if line_height is not None else _LINE_HEIGHT
+    # Pre-compute effective address anchor (needed for barcode fallback)
     eff_addr_x = (
         addr_x_pt
         if addr_x_pt is not None
@@ -843,6 +901,8 @@ def merge_postcards(
     eff_addr_y = (
         addr_y_pt if addr_y_pt is not None else (_ADDR_BOTTOM_IN_DEFAULT * _PT_PER_IN)
     )
+
+    effective_fields_val = fields if fields else _DEFAULT_FIELDS
 
     for record in records:
         for page_idx in range(num_artwork_pages):
@@ -861,6 +921,9 @@ def merge_postcards(
                     font_size=font_size,
                     line_height=line_height,
                     fields=fields,
+                    tray_x=tray_x_pt,
+                    tray_y=tray_y_pt,
+                    tray_font_size=tray_font_size,
                 )
                 if stream:
                     overlay = _make_address_overlay_page(
@@ -868,15 +931,19 @@ def merge_postcards(
                     )
                     page.merge_page(overlay)
 
-                # Barcode overlay (TrueType via reportlab)
-                barcode_info = _barcode_slot(record, effective_fields_val)
-                if barcode_info:
-                    btext, bslot = barcode_info
-                    b_y = eff_addr_y + bslot * effective_line_height_val
+                # Barcode overlay (TrueType via reportlab) at its own position
+                btext = (
+                    record.get(_BARCODE_FIELD, "").strip()
+                    if _BARCODE_FIELD in effective_fields_val
+                    else ""
+                )
+                if btext:
+                    b_x = barcode_x_pt if barcode_x_pt is not None else eff_addr_x
+                    b_y = barcode_y_pt if barcode_y_pt is not None else eff_addr_y
                     b_overlay = _make_barcode_overlay(
                         card_w,
                         card_h,
-                        [(btext, eff_addr_x, b_y)],
+                        [(btext, b_x, b_y)],
                         font_size=barcode_font_size,
                     )
                     if b_overlay:
