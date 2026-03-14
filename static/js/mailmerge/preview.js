@@ -28,6 +28,19 @@ if (typeof pdfjsLib === 'undefined') {
 var PT_PER_IN = 72;
 var LINE_HEIGHT = 13;
 
+// Default CSV field order used when cfg.csvFields is empty.
+// Bottom-to-top display order; matches the DEFAULT_CSV_FIELDS list in models.py.
+var _DEFAULT_CSV_FIELDS = [
+  'encodedimbno',     // rendered as USPS IMb visual barcode
+  'city-state-zip',
+  'primary street',
+  'sec-primary street',
+  'urbanization',
+  'company',
+  'name',
+  'presorttrayid'
+];
+
 /* ── CSV helpers ─────────────────────────────────────────────────────────── */
 
 function _parseSimpleCsv(text) {
@@ -816,10 +829,7 @@ window.mailMergeEdit = function mailMergeEdit(cfg) {
     get currentRecordLines() {
       var rec = this.currentRecord;
       if (!rec) return [];
-      var fields = (cfg.csvFields && cfg.csvFields.length)
-        ? cfg.csvFields
-        : ['encodedimbno', 'city-state-zip', 'primary street', 'sec-primary street',
-           'urbanization', 'company', 'name', 'presorttrayid'];
+      var fields = (cfg.csvFields && cfg.csvFields.length) ? cfg.csvFields : _DEFAULT_CSV_FIELDS;
       var out = [];
       for (var i = fields.length - 1; i >= 0; i--) {
         var val = (rec[fields[i]] || '').trim();
@@ -891,7 +901,7 @@ window.mailMergeEdit = function mailMergeEdit(cfg) {
         } else {
           // Fetch with credentials so authenticated Django sessions work correctly.
           fetch(cfg.artworkUrl, { credentials: 'same-origin' })
-            .then(function(r) { if (!r.ok) throw new Error('Fetch failed'); return r.arrayBuffer(); })
+            .then(function(r) { if (!r.ok) throw new Error('Artwork fetch failed: HTTP ' + r.status); return r.arrayBuffer(); })
             .then(function(buf) { return pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise; })
             .then(function(doc) {
               self._pdfDoc = doc;
