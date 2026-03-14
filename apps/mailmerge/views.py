@@ -47,6 +47,15 @@ class MailMergeJobDetailView(LoginRequiredMixin, DetailView):
             qs = qs.filter(owner=self.request.user)
         return qs
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from .models import DEFAULT_CSV_FIELDS, AddressBlockConfig
+
+        config = AddressBlockConfig.get_solo()
+        ctx["addr_config"] = config
+        ctx["csv_fields_json"] = json.dumps(config.csv_fields or DEFAULT_CSV_FIELDS)
+        return ctx
+
 
 class MailMergeArtworkInspectView(LoginRequiredMixin, View):
     """HTMX/JSON endpoint: inspect an uploaded artwork PDF and return page info."""
@@ -68,13 +77,17 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
     def _get_context(self):
         from apps.impose.models import ImpositionTemplate
 
-        from .models import AddressBlockConfig
+        from .models import DEFAULT_CSV_FIELDS, AddressBlockConfig
 
         templates = ImpositionTemplate.objects.filter(allow_mailmerge=True).order_by(
             "name"
         )
         config = AddressBlockConfig.get_solo()
-        return {"impose_templates": templates, "addr_config": config}
+        return {
+            "impose_templates": templates,
+            "addr_config": config,
+            "csv_fields_json": json.dumps(config.csv_fields or DEFAULT_CSV_FIELDS),
+        }
 
     def get(self, request):
         return render(request, self.template_name, self._get_context())

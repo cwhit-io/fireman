@@ -41,6 +41,11 @@ urlpatterns = [
         name="generate_merged",
     ),
     path(
+        "<uuid:pk>/records/",
+        views.MailMergeJobRecordsView.as_view(),
+        name="records",
+    ),
+    path(
         "address-block/",
         views.AddressBlockConfigView.as_view(),
         name="address_block_config",
