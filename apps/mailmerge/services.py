@@ -37,6 +37,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import re as _re
 from pathlib import Path
 from typing import IO
 
@@ -69,6 +70,91 @@ _DEFAULT_FIELDS: list[str] = [
 _BARCODE_FIELD: str = "encodedimbno"
 _TRAY_FIELD: str = "presorttrayid"
 _BARCODE_FONT_SIZE: float = 14.0
+
+# Default address template (top-to-bottom reading / printing order).
+# Each line is a template line; {field} tokens are replaced with record values;
+# plain text lines are printed verbatim; blank lines are skipped.
+_DEFAULT_TEMPLATE: str = (
+    "{presorttrayid}\n"
+    "{name}\n"
+    "{company}\n"
+    "{urbanization}\n"
+    "{sec-primary street}\n"
+    "{primary street}\n"
+    "{city-state-zip}\n"
+    "{encodedimbno}"
+)
+
+_TEMPLATE_TOKEN_RE = _re.compile(r"\{([^}]+)\}")
+
+
+def _template_to_slot_lines(
+    template: str,
+    record: dict[str, str],
+    tray_separate: bool = False,
+) -> tuple[list[tuple[int, str]], str | None, str | None]:
+    """Parse an address template string against *record*.
+
+    The template is read top-to-bottom (first line = top of printed address).
+    ``{field}`` tokens in a line are replaced with the corresponding record
+    value; lines where every token resolves to an empty string are omitted.
+    Static lines (no tokens) are always included.  A line that consists of
+    *only* ``{encodedimbno}`` is treated as the USPS IMb barcode placeholder
+    and removed from the text flow; its record value is returned separately so
+    the caller can apply the TrueType barcode overlay at the configured
+    position.  Similarly, a ``{presorttrayid}``-only line is extracted when
+    *tray_separate* is ``True``.
+
+    Returns
+    -------
+    slot_lines : list[tuple[int, str]]
+        ``(slot_idx, text)`` pairs where ``slot_idx`` 0 is the *bottom* of the
+        address block (``y = addr_y + slot_idx * line_height``).  The list is
+        ordered so that the topmost template line receives the largest slot.
+    barcode_val : str | None
+    tray_val : str | None
+    """
+    rendered: list[str] = []
+    barcode_val: str | None = None
+    tray_val: str | None = None
+
+    for raw_line in template.splitlines():
+        tokens = _TEMPLATE_TOKEN_RE.findall(raw_line)
+
+        if not tokens:
+            # Pure static text — include if non-blank.
+            if raw_line.strip():
+                rendered.append(raw_line)
+            continue
+
+        # Single-token-only line → special handling for barcode / tray.
+        if len(tokens) == 1 and raw_line.strip() == "{" + tokens[0] + "}":
+            field = tokens[0]
+            val = record.get(field, "").strip()
+            if not val:
+                continue
+            if field == _BARCODE_FIELD:
+                barcode_val = val
+                continue
+            if field == _TRAY_FIELD and tray_separate:
+                tray_val = val
+                continue
+            rendered.append(val)
+            continue
+
+        # Mixed line: substitute all tokens; skip if the result is empty.
+        substituted = _TEMPLATE_TOKEN_RE.sub(
+            lambda m: record.get(m.group(1), ""), raw_line
+        ).strip()
+        if substituted:
+            rendered.append(substituted)
+
+    # Assign PDF slots: top template line → highest slot (top of block).
+    n = len(rendered)
+    slot_lines = [(n - 1 - i, text) for i, text in enumerate(rendered)]
+    return slot_lines, barcode_val, tray_val
+
+
 _BARCODE_FONT_PATH: str = str(
     Path(__file__).resolve().parent.parent.parent
     / "fonts"
@@ -254,6 +340,7 @@ def _address_text_stream(
     tray_x: float | None = None,
     tray_y: float | None = None,
     tray_font_size: float | None = None,
+    address_template: str | None = None,
 ) -> bytes:
     """Return a PDF content-stream fragment that draws the address block.
 
@@ -293,25 +380,31 @@ def _address_text_stream(
     tray_separate = tray_x is not None and tray_y is not None
     tray_val: str = ""
 
-    # ── Build address lines with slot-based y-offsets ─────────────────────
-    # encodedimbno is always handled via a separate TrueType overlay.
-    # presorttrayid is handled via its own absolute position when tray_x/tray_y
-    # are set; otherwise it falls through to normal slot-based rendering.
-    # Neither special field contributes to the slot index of the others.
-    text_slot_lines: list[tuple[int, str]] = []
-    slot = 0
-    for f in effective_fields:
-        val = record.get(f, "").strip()
-        if not val:
-            continue
-        if f == _BARCODE_FIELD:
-            # Always rendered via TrueType overlay — never in this stream
-            continue
-        if f == _TRAY_FIELD and tray_separate:
-            tray_val = val
-            continue
-        text_slot_lines.append((slot, val))
-        slot += 1
+    # ── Build address lines ────────────────────────────────────────────────
+    if address_template:
+        text_slot_lines, _bval, _tray = _template_to_slot_lines(
+            address_template, record, tray_separate=tray_separate
+        )
+        if tray_separate and _tray:
+            tray_val = _tray
+    else:
+        # Legacy: iterate ordered fields list (bottom → top).
+        # encodedimbno is always handled via a separate TrueType overlay.
+        # presorttrayid is handled via its own absolute position when tray_x/tray_y
+        # are set; otherwise it falls through to normal slot-based rendering.
+        text_slot_lines = []
+        slot = 0
+        for f in effective_fields:
+            val = record.get(f, "").strip()
+            if not val:
+                continue
+            if f == _BARCODE_FIELD:
+                continue
+            if f == _TRAY_FIELD and tray_separate:
+                tray_val = val
+                continue
+            text_slot_lines.append((slot, val))
+            slot += 1
 
     if not text_slot_lines and not (tray_separate and tray_val):
         return b""
@@ -589,6 +682,7 @@ def build_address_steprepeat(
     tray_x: float | None = None,
     tray_y: float | None = None,
     tray_font_size: float | None = None,
+    address_template: str | None = None,
 ) -> int:
     """Produce a step-and-repeat PDF containing only address blocks (no artwork).
 
@@ -704,19 +798,29 @@ def build_address_steprepeat(
             # presorttrayid rendered at its own position if tray_independent.
             text_slot_lines: list[tuple[int, str]] = []
             tray_text_val: str = ""
-            slot = 0
-            for f in effective_fields:
-                val = record.get(f, "").strip()
-                if not val:
-                    continue
-                if f == _BARCODE_FIELD:
-                    sheet_barcodes.append((val, sheet_barcode_x, sheet_barcode_y))
-                    continue
-                if f == _TRAY_FIELD and tray_independent:
-                    tray_text_val = val
-                    continue
-                text_slot_lines.append((slot, val))
-                slot += 1
+
+            if address_template:
+                text_slot_lines, _bval, _trav = _template_to_slot_lines(
+                    address_template, record, tray_separate=tray_independent
+                )
+                if _bval:
+                    sheet_barcodes.append((_bval, sheet_barcode_x, sheet_barcode_y))
+                if tray_independent and _trav:
+                    tray_text_val = _trav
+            else:
+                slot = 0
+                for f in effective_fields:
+                    val = record.get(f, "").strip()
+                    if not val:
+                        continue
+                    if f == _BARCODE_FIELD:
+                        sheet_barcodes.append((val, sheet_barcode_x, sheet_barcode_y))
+                        continue
+                    if f == _TRAY_FIELD and tray_independent:
+                        tray_text_val = val
+                        continue
+                    text_slot_lines.append((slot, val))
+                    slot += 1
 
             if not text_slot_lines and not (tray_independent and tray_text_val):
                 continue
@@ -823,6 +927,7 @@ def merge_postcards(
     tray_x_in: float | None = None,
     tray_y_in: float | None = None,
     tray_font_size: float | None = None,
+    address_template: str | None = None,
 ) -> int:
     """Produce a mail-merged PDF with one (or two) pages per address record.
 
@@ -924,6 +1029,7 @@ def merge_postcards(
                     tray_x=tray_x_pt,
                     tray_y=tray_y_pt,
                     tray_font_size=tray_font_size,
+                    address_template=address_template,
                 )
                 if stream:
                     overlay = _make_address_overlay_page(
@@ -931,11 +1037,15 @@ def merge_postcards(
                     )
                     page.merge_page(overlay)
 
-                # Barcode overlay (TrueType via reportlab) at its own position
+                # Barcode overlay (TrueType via reportlab) at its own position.
+                # With a template, include the barcode only when {encodedimbno}
+                # appears in it; otherwise fall back to the fields list check.
+                if address_template:
+                    include_barcode = "{" + _BARCODE_FIELD + "}" in address_template
+                else:
+                    include_barcode = _BARCODE_FIELD in effective_fields_val
                 btext = (
-                    record.get(_BARCODE_FIELD, "").strip()
-                    if _BARCODE_FIELD in effective_fields_val
-                    else ""
+                    record.get(_BARCODE_FIELD, "").strip() if include_barcode else ""
                 )
                 if btext:
                     b_x = barcode_x_pt if barcode_x_pt is not None else eff_addr_x

@@ -72,6 +72,7 @@ def process_mail_merge_task(job_id: str) -> None:
         cfg_tray_font_size = (
             float(addr_config.tray_font_size) if addr_config.tray_font_size else None
         )
+        cfg_address_template = addr_config.address_template or None
         with job.csv_file.open("rb") as csv_fh:
             records = parse_usps_csv(csv_fh)
 
@@ -124,6 +125,65 @@ def process_mail_merge_task(job_id: str) -> None:
             sheet_h,
             gangup_buf,
         )
+
+        # ── Apply cutter barcode overlay if the template has print_barcode ─
+        if (
+            job.impose_template
+            and job.impose_template.print_barcode
+            and job.impose_template.cutter_program
+        ):
+            from pypdf import PdfReader, PdfWriter
+
+            from apps.impose.services import (
+                _barcode_tif_pdf_stream,
+                _make_overlay_page,
+                _resolve_barcode_tif,
+            )
+
+            cutter_prog = job.impose_template.cutter_program
+            barcode_value = cutter_prog.duplo_code
+            # Position: cutter program overrides template
+            eff_bc_x = (
+                float(cutter_prog.barcode_x)
+                if cutter_prog.barcode_x is not None
+                else (
+                    float(job.impose_template.barcode_x)
+                    if job.impose_template.barcode_x is not None
+                    else None
+                )
+            )
+            eff_bc_y = (
+                float(cutter_prog.barcode_y)
+                if cutter_prog.barcode_y is not None
+                else (
+                    float(job.impose_template.barcode_y)
+                    if job.impose_template.barcode_y is not None
+                    else None
+                )
+            )
+            eff_bc_w = float(cutter_prog.barcode_width)
+            eff_bc_h = float(cutter_prog.barcode_height)
+
+            if barcode_value and eff_bc_x is not None and eff_bc_y is not None:
+                tif_path = _resolve_barcode_tif(barcode_value)
+                if tif_path:
+                    overlay_stream = _barcode_tif_pdf_stream(
+                        tif_path, eff_bc_x, eff_bc_y, eff_bc_w, eff_bc_h
+                    )
+                    if overlay_stream:
+                        gangup_buf.seek(0)
+                        reader = PdfReader(gangup_buf)
+                        stamped = PdfWriter()
+                        for page in reader.pages:
+                            stamped.add_page(page)
+                        overlay_page = _make_overlay_page(
+                            sheet_w, sheet_h, overlay_stream
+                        )
+                        for page in stamped.pages:
+                            page.merge_page(overlay_page)
+                        gangup_buf = io.BytesIO()
+                        stamped.write(gangup_buf)
+
         gangup_buf.seek(0)
 
         if job.gangup_file and job.gangup_file.name:
@@ -167,6 +227,7 @@ def process_mail_merge_task(job_id: str) -> None:
             else None,
             tray_y=cfg_tray_y_in * 72.0 if cfg_tray_y_in is not None else None,
             tray_font_size=cfg_tray_font_size,
+            address_template=cfg_address_template,
         )
         addr_buf.seek(0)
 
@@ -265,6 +326,7 @@ def generate_merged_pdf_task(job_id: str) -> None:
         cfg_tray_font_size = (
             float(addr_config.tray_font_size) if addr_config.tray_font_size else None
         )
+        cfg_address_template_merged = addr_config.address_template or None
 
         output_buf = io.BytesIO()
         merge_postcards(
@@ -284,6 +346,7 @@ def generate_merged_pdf_task(job_id: str) -> None:
             tray_x_in=cfg_tray_x_in,
             tray_y_in=cfg_tray_y_in,
             tray_font_size=cfg_tray_font_size,
+            address_template=cfg_address_template_merged,
         )
         output_buf.seek(0)
         safe_name = job.name or f"mailmerge_{job.pk}"

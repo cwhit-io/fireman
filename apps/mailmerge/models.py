@@ -240,6 +240,17 @@ class AddressBlockConfig(models.Model):
         ),
     )
 
+    # ── Address block template ─────────────────────────────────────────────
+    address_template = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Multiline address block template. Each line is printed top-to-bottom. "
+            "Use {field_name} for CSV fields; plain text for static lines like "
+            "'Address Service Requested'. Leave blank to use csv_fields ordering."
+        ),
+    )
+
     # ── Barcode (encodedimbno) ────────────────────────────────────────────
     barcode_font_size = models.DecimalField(
         max_digits=5,
