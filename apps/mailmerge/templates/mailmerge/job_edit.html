@@ -336,5 +336,10 @@ function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl
 
   };
 }
+<script>
+window.PDFJS_WORKER_SRC = '{% static "vendor/pdfjs/pdf.worker.min.js" %}';
+window.MAILMERGE_IMB_FONT_URL = '{% static "fonts/usps/USPSIMBStandard.ttf" %}';
 </script>
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}" defer crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'js/mailmerge/preview.js' %}" defer></script>
 {% endblock %}
