@@ -175,6 +175,325 @@
 
 </div>
 
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'js/impose/template.js' %}"></script>
+<script>
+(function () {
+  if (typeof pdfjsLib !== 'undefined') {
+    var _w = new URL('{% static "vendor/pdfjs/pdf.worker.min.js" %}', window.location.origin).href;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = _w;
+  }
+})();
+
+var PT_PER_IN = 72;
+
+function mailMergeUpload(cfg) {
+  return {
+    pdfInfo: null,
+    mergePage: 1,
+    _artworkFile: null,
+    _pdfDoc: null,
+    _scale: 1,
+    _cardWPt: 0,
+    _cardHPt: 0,
+    _bgCanvas: null,
+    _bgValid: false,
+    _imbFont: null,
+    csvRecords: [],
+    recordIdx: 0,
+
+    get currentRecord() {
+      return this.csvRecords[this.recordIdx] || null;
+    },
+
+    prevRecord() {
+      if (this.recordIdx > 0) { this.recordIdx--; this._drawOverlay(); }
+    },
+    nextRecord() {
+      if (this.recordIdx < this.csvRecords.length - 1) { this.recordIdx++; this._drawOverlay(); }
+    },
+
+    _getCardInfo() {
+      if (!this.pdfInfo || !this.pdfInfo.pages) return null;
+      var idx = Math.max(0, this.mergePage - 1);
+      return this.pdfInfo.pages[idx] || null;
+    },
+
+    // Resolve all drawing positions from config + page dimensions.
+    // x values in config are from-right; convert to PDF left-edge points.
+    _resolvePositions(pageInfo) {
+      var cardWPt = pageInfo.width_pt;
+      var cardHPt = pageInfo.height_pt;
+      var addrX = cardWPt - (cfg.addrXIn != null ? cfg.addrXIn : 4.5) * PT_PER_IN;
+      var addrY = (cfg.addrYIn != null ? cfg.addrYIn : 2.5) * PT_PER_IN;
+      var barcodeX = cfg.barcodeXIn != null ? (cardWPt - cfg.barcodeXIn * PT_PER_IN) : addrX;
+      var barcodeY = cfg.barcodeYIn != null ? cfg.barcodeYIn * PT_PER_IN : addrY;
+      var trayX = cfg.trayXIn != null ? (cardWPt - cfg.trayXIn * PT_PER_IN) : addrX;
+      var trayY = cfg.trayYIn != null ? cfg.trayYIn * PT_PER_IN : null;
+      return { cardWPt: cardWPt, cardHPt: cardHPt, addrX: addrX, addrY: addrY,
+               barcodeX: barcodeX, barcodeY: barcodeY, trayX: trayX, trayY: trayY };
+    },
+
+    onMergePageChange(page) {
+      this.mergePage = page;
+      this._pdfDoc = null;
+      this._bgValid = false;
+      this.renderPreview();
+    },
+
+    onArtworkChange(event) {
+      var file = event.target.files[0];
+      if (!file) { this.pdfInfo = null; return; }
+      this._artworkFile = file;
+      this._pdfDoc = null;
+      this._bgValid = false;
+
+      var self = this;
+      var formData = new FormData();
+      formData.append('artwork_file', file);
+      formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+      fetch('{% url "mailmerge:inspect_artwork" %}', {
+        method: 'POST',
+        body: formData,
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          self.pdfInfo = data;
+          self.mergePage = 1;
+          self.$nextTick(function() { self.renderPreview(); });
+        })
+        .catch(function() { self.pdfInfo = null; });
+    },
+
+    onCsvChange(event) {
+      var file = event.target.files[0];
+      if (!file) { this.csvRecords = []; return; }
+      var self = this;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var text = e.target.result;
+        self.csvRecords = _parseSimpleCsv(text);
+        self.recordIdx = 0;
+        self._drawOverlay();
+      };
+      reader.readAsText(file);
+    },
+
+    renderPreview() {
+      var canvas = document.getElementById('previewCanvas');
+      if (!canvas || !this.pdfInfo || !this.pdfInfo.pages) return;
+
+      var pageInfo = this._getCardInfo();
+      if (!pageInfo) return;
+
+      var pos = this._resolvePositions(pageInfo);
+      var maxW = canvas.parentElement.clientWidth - 24;
+      var maxH = 300;
+      var scale = Math.min(maxW / pos.cardWPt, maxH / pos.cardHPt, 1);
+      canvas.width  = Math.round(pos.cardWPt * scale);
+      canvas.height = Math.round(pos.cardHPt * scale);
+
+      this._scale = scale;
+      this._cardWPt = pos.cardWPt;
+      this._cardHPt = pos.cardHPt;
+      this._bgValid = false;
+
+      var ctx = canvas.getContext('2d');
+      var self = this;
+
+      if (this._artworkFile && typeof pdfjsLib !== 'undefined') {
+        var pageIdx = Math.max(0, this.mergePage - 1);
+
+        var renderPage = function(doc) {
+          doc.getPage(pageIdx + 1).then(function(page) {
+            var viewport = page.getViewport({ scale: scale });
+            canvas.width  = viewport.width;
+            canvas.height = viewport.height;
+            page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
+              self._cacheBg(canvas);
+              self._drawAddressText(ctx, pos, scale);
+            });
+          }).catch(function() {
+            self._drawPlaceholder(ctx, canvas.width, canvas.height, pos, scale);
+          });
+        };
+
+        if (this._pdfDoc) {
+          renderPage(this._pdfDoc);
+        } else {
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            var typedarray = new Uint8Array(e.target.result);
+            pdfjsLib.getDocument({ data: typedarray }).promise.then(function(doc) {
+              self._pdfDoc = doc;
+              renderPage(doc);
+            }).catch(function() {
+              self._drawPlaceholder(ctx, canvas.width, canvas.height, pos, scale);
+            });
+          };
+          reader.readAsArrayBuffer(this._artworkFile);
+        }
+      } else {
+        this._drawPlaceholder(ctx, canvas.width, canvas.height, pos, scale);
+      }
+    },
+
+    _cacheBg(canvas) {
+      if (!this._bgCanvas) this._bgCanvas = document.createElement('canvas');
+      this._bgCanvas.width = canvas.width;
+      this._bgCanvas.height = canvas.height;
+      this._bgCanvas.getContext('2d').drawImage(canvas, 0, 0);
+      this._bgValid = true;
+    },
+
+    _drawOverlay() {
+      var canvas = document.getElementById('previewCanvas');
+      if (!canvas) return;
+      var pageInfo = this._getCardInfo();
+      if (!pageInfo) return;
+      var pos = this._resolvePositions(pageInfo);
+      var scale = this._scale || 1;
+      var ctx = canvas.getContext('2d');
+      if (this._bgValid && this._bgCanvas) {
+        ctx.drawImage(this._bgCanvas, 0, 0);
+      } else {
+        this.renderPreview();
+        return;
+      }
+      this._drawAddressText(ctx, pos, scale);
+    },
+
+    _drawPlaceholder(ctx, w, h, pos, scale) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = Math.max(10, 14 * scale) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Artwork page ' + this.mergePage, w / 2, h / 2 - 8 * scale);
+      ctx.font = Math.max(8, 11 * scale) + 'px sans-serif';
+      ctx.fillText('(upload a PDF to see preview)', w / 2, h / 2 + 8 * scale);
+      this._bgValid = false;
+      this._drawAddressText(ctx, pos, scale);
+    },
+
+    _drawAddressText(ctx, pos, scale) {
+      var rec = this.currentRecord;
+      if (!rec) return;
+
+      var fontSizePt   = cfg.fontPt        != null ? cfg.fontPt        : 9;
+      var lineHeightPt = cfg.lineHeightPt  != null ? cfg.lineHeightPt  : 13;
+      var barcodeFontPt = cfg.barcodeFontPt != null ? cfg.barcodeFontPt : 14;
+      var trayFontPt   = cfg.trayFontPt    != null ? cfg.trayFontPt    : fontSizePt;
+      var hasSeparateTray = pos.trayY != null;
+
+      // Build address lines using the canonical template builder (top → bottom).
+      // Reverse to bottom → top for y-offset drawing (lines[0] drawn at baseY).
+      var topToBottom = imposeTemplate.buildLinesFromTemplate(
+        rec, cfg.addressTemplate || '', { skipTray: hasSeparateTray }
+      );
+      var lines = topToBottom.slice().reverse();
+
+      // Draw regular address text
+      if (lines.length) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.font = Math.max(6, fontSizePt * scale) + 'px Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'left';
+        var lineH = lineHeightPt * scale;
+        var baseY = (pos.cardHPt - pos.addrY) * scale;
+        for (var j = 0; j < lines.length; j++) {
+          ctx.fillText(lines[j], pos.addrX * scale, baseY - j * lineH);
+        }
+        ctx.restore();
+      }
+
+      // Draw USPS IMb barcode (encodedimbno)
+      var barcodeVal = (rec['encodedimbno'] || '').trim();
+      if (barcodeVal) {
+        ctx.save();
+        var bFontPx = Math.max(8, barcodeFontPt * scale);
+        if (this._imbFont) {
+          ctx.font = bFontPx + 'px USPSIMBStandard';
+        } else {
+          ctx.font = 'italic ' + Math.max(6, 8 * scale) + 'px monospace';
+          barcodeVal = '[Barcode] ' + barcodeVal.substring(0, 20);
+        }
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.textAlign = 'left';
+        ctx.fillText(barcodeVal, pos.barcodeX * scale, (pos.cardHPt - pos.barcodeY) * scale);
+        ctx.restore();
+      }
+
+      // Draw tray ID (presorttrayid) at its dedicated position
+      if (hasSeparateTray) {
+        var trayVal = (rec['presorttrayid'] || '').trim();
+        if (trayVal) {
+          ctx.save();
+          ctx.font = Math.max(6, trayFontPt * scale) + 'px Helvetica, Arial, sans-serif';
+          ctx.fillStyle = 'rgba(0,0,0,0.85)';
+          ctx.textAlign = 'left';
+          ctx.fillText(trayVal, pos.trayX * scale, (pos.cardHPt - pos.trayY) * scale);
+          ctx.restore();
+        }
+      }
+    },
+
+    onKeyNav(e) {
+      if (this.csvRecords.length < 2) return;
+      if (e.key === 'ArrowLeft') this.prevRecord();
+      if (e.key === 'ArrowRight') this.nextRecord();
+    },
+
+    init() {
+      if (typeof FontFace !== 'undefined') {
+        var self = this;
+        var fontUrl = '{% static "fonts/usps/USPSIMBStandard.ttf" %}';
+        var face = new FontFace('USPSIMBStandard', 'url(' + fontUrl + ')');
+        face.load().then(function(loaded) {
+          document.fonts.add(loaded);
+          self._imbFont = loaded;
+        }).catch(function() {});
+      }
+    },
+  };
+}
+
+// Minimal CSV parser (handles quoted fields with commas)
+function _parseSimpleCsv(text) {
+  var lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  if (lines.length < 2) return [];
+  var headers = _csvSplitLine(lines[0]).map(function(h) { return h.trim().toLowerCase(); });
+  var records = [];
+  for (var i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    var vals = _csvSplitLine(lines[i]);
+    var rec = {};
+    headers.forEach(function(h, idx) { rec[h] = (vals[idx] || '').trim(); });
+    records.push(rec);
+  }
+  return records;
+}
+
+function _csvSplitLine(line) {
+  var result = [], current = '', inQuote = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') {
+      if (inQuote && line[i+1] === '"') { current += '"'; i++; }
+      else inQuote = !inQuote;
+    } else if (c === ',' && !inQuote) {
+      result.push(current); current = '';
+    } else {
+      current += c;
+    }
+  }
+  result.push(current);
+  return result;
+}
 <script>
 window.PDFJS_WORKER_SRC = '{% static "vendor/pdfjs/pdf.worker.min.js" %}';
 window.MAILMERGE_IMB_FONT_URL = '{% static "fonts/usps/USPSIMBStandard.ttf" %}';
