@@ -37,7 +37,6 @@ from __future__ import annotations
 import csv
 import io
 import logging
-import re as _re
 from pathlib import Path
 from typing import IO
 
@@ -85,9 +84,6 @@ _DEFAULT_TEMPLATE: str = (
     "{encodedimbno}"
 )
 
-_TEMPLATE_TOKEN_RE = _re.compile(r"\{([^}]+)\}")
-
-
 def _template_to_slot_lines(
     template: str,
     record: dict[str, str],
@@ -95,15 +91,9 @@ def _template_to_slot_lines(
 ) -> tuple[list[tuple[int, str]], str | None, str | None]:
     """Parse an address template string against *record*.
 
-    The template is read top-to-bottom (first line = top of printed address).
-    ``{field}`` tokens in a line are replaced with the corresponding record
-    value; lines where every token resolves to an empty string are omitted.
-    Static lines (no tokens) are always included.  A line that consists of
-    *only* ``{encodedimbno}`` is treated as the USPS IMb barcode placeholder
-    and removed from the text flow; its record value is returned separately so
-    the caller can apply the TrueType barcode overlay at the configured
-    position.  Similarly, a ``{presorttrayid}``-only line is extracted when
-    *tray_separate* is ``True``.
+    Delegates to :func:`apps.impose.utils.parse_imposition_template` and
+    :func:`apps.impose.utils.render_imposition_lines` for all template
+    parsing.  Do not add inline parsing here.
 
     Returns
     -------
@@ -114,54 +104,33 @@ def _template_to_slot_lines(
     barcode_val : str | None
     tray_val : str | None
     """
-    rendered: list[str] = []
+    from apps.impose.utils import parse_imposition_template, render_imposition_lines
+
+    ast = parse_imposition_template(template)
+
+    # Extract special values (barcode / tray) that are rendered at their own
+    # positions rather than as part of the text flow.
     barcode_val: str | None = None
     tray_val: str | None = None
+    for line in ast:
+        if line.kind == "field":
+            if line.field == _BARCODE_FIELD:
+                v = record.get(_BARCODE_FIELD, "").strip()
+                if v:
+                    barcode_val = v
+            elif line.field == _TRAY_FIELD and tray_separate:
+                v = record.get(_TRAY_FIELD, "").strip()
+                if v:
+                    tray_val = v
 
-    for raw_line in template.splitlines():
-        tokens = _TEMPLATE_TOKEN_RE.findall(raw_line)
-
-        if not tokens:
-            # Pure static text — include if non-blank.
-            if raw_line.strip():
-                rendered.append(raw_line)
-            else:
-                # Allow explicit blank lines via a literal marker handled elsewhere
-                # (e.g. a single-token line like {br} will produce an empty slot).
-                pass
-            continue
-
-        # Single-token-only line → special handling for barcode / tray.
-        if len(tokens) == 1 and raw_line.strip() == "{" + tokens[0] + "}":
-            field = tokens[0]
-            # Special token to force a blank line (paragraph break).
-            if field.lower() == "br" or field.lower() == "blank":
-                rendered.append("")
-                continue
-            val = record.get(field, "") or record.get(field.lower(), "")
-            val = val.strip()
-            if not val:
-                continue
-            if field.lower() == _BARCODE_FIELD:
-                barcode_val = val
-                continue
-            if field.lower() == _TRAY_FIELD and tray_separate:
-                tray_val = val
-                continue
-            rendered.append(val)
-            continue
-
-        # Mixed line: substitute all tokens; skip if the result is empty.
-        substituted = _TEMPLATE_TOKEN_RE.sub(
-            lambda m: record.get(m.group(1), "") or record.get(m.group(1).lower(), ""),
-            raw_line,
-        ).strip()
-        if substituted:
-            rendered.append(substituted)
+    # Build skip set: encodedimbno always skipped; presorttrayid skipped when
+    # rendered at a dedicated tray position instead of inline.
+    skip = frozenset({_BARCODE_FIELD} | ({_TRAY_FIELD} if tray_separate else set()))
+    text_lines = render_imposition_lines(record, ast, skip_fields=skip)
 
     # Assign PDF slots: top template line → highest slot (top of block).
-    n = len(rendered)
-    slot_lines = [(n - 1 - i, text) for i, text in enumerate(rendered)]
+    n = len(text_lines)
+    slot_lines = [(n - 1 - i, text) for i, text in enumerate(text_lines)]
     return slot_lines, barcode_val, tray_val
 
 
