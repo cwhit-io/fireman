@@ -4,7 +4,27 @@
 {% block title %}{{ job.name|default:"Mail Merge Job" }} — Ember{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-10 pb-28" x-data="mmDetail('{% url "mailmerge:serve_artwork" job.pk %}', '{% url "mailmerge:records" job.pk %}')" @keydown.window="onKeyNav($event)">
+<div class="max-w-3xl mx-auto px-4 py-10 pb-28"
+     x-data="mailMergeEdit({
+       artworkUrl: '{% url "mailmerge:serve_artwork" job.pk %}',
+       recordsUrl: '{% url "mailmerge:records" job.pk %}',
+       cardWPt:      {{ job.card_width|default:'null' }},
+       cardHPt:      {{ job.card_height|default:'null' }},
+       mergePageIdx: {{ job.merge_page|default:1 }} - 1,
+       addrXIn:      {{ addr_config.addr_x_in|default:'null' }},
+       addrYIn:      {{ addr_config.addr_y_in|default:'null' }},
+       fontPt:       {{ addr_config.font_size|default:'null' }},
+       lineHeightPt: {{ addr_config.line_height|default:'null' }},
+       barcodeFontPt:{{ addr_config.barcode_font_size|default:'null' }},
+       barcodeXIn:   {{ addr_config.barcode_x_in|default:'null' }},
+       barcodeYIn:   {{ addr_config.barcode_y_in|default:'null' }},
+       trayXIn:      {{ addr_config.tray_x_in|default:'null' }},
+       trayYIn:      {{ addr_config.tray_y_in|default:'null' }},
+       trayFontPt:   {{ addr_config.tray_font_size|default:'null' }},
+       addressTemplate: '{{ addr_config.address_template|escapejs }}',
+       csvFields:    {{ csv_fields_json|safe }}
+     })"
+     @keydown.window="onKeyNav($event)">
 
   <div class="flex items-start justify-between gap-4 mb-6">
     <div>
@@ -139,7 +159,7 @@
       <!-- Canvas preview -->
       <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3"
            x-show="canvasReady">
-        <canvas id="detailPreviewCanvas"
+        <canvas id="previewCanvas"
                 class="max-w-full rounded shadow-sm"
                 style="max-height:320px;"></canvas>
       </div>
@@ -168,259 +188,14 @@
 </div>
 
 <script src="{% static 'vendor/pdfjs/pdf.min.js' %}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'js/impose/template.js' %}"></script>
 <script>
-(function () {
-  if (typeof pdfjsLib !== 'undefined') {
-    var _w = new URL('{% static "vendor/pdfjs/pdf.worker.min.js" %}', window.location.origin).href;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = _w;
-  }
-})();
-
-var _DETAIL_CFG = {
-  addrXIn:      {{ addr_config.addr_x_in|default:'null' }},
-  addrYIn:      {{ addr_config.addr_y_in|default:'null' }},
-  fontPt:       {{ addr_config.font_size|default:'null' }},
-  lineHeightPt: {{ addr_config.line_height|default:'null' }},
-  barcodeFontPt:{{ addr_config.barcode_font_size|default:'null' }},
-  barcodeXIn:   {{ addr_config.barcode_x_in|default:'null' }},
-  barcodeYIn:   {{ addr_config.barcode_y_in|default:'null' }},
-  trayXIn:      {{ addr_config.tray_x_in|default:'null' }},
-  trayYIn:      {{ addr_config.tray_y_in|default:'null' }},
-  trayFontPt:   {{ addr_config.tray_font_size|default:'null' }},
-  csvFields:    {{ csv_fields_json|safe }},
-  mergePageIdx: {{ job.merge_page|default:1 }} - 1,
-  cardWPt:      {{ job.card_width|default:'null' }},
-  cardHPt:      {{ job.card_height|default:'null' }},
-};
-
-var PT_PER_IN_D = 72;
-
-function mmDetail(artworkUrl, recordsUrl) {
-  return {
-    records: [],
-    recordIdx: 0,
-    canvasReady: false,
-    _pdfDoc: null,
-    _bgCanvas: null,
-    _bgValid: false,
-    _scale: 1,
-    _imbFont: null,
-
-    get currentRecord() {
-      return this.records[this.recordIdx] || null;
-    },
-
-    get currentRecordLines() {
-      var rec = this.currentRecord;
-      if (!rec) return [];
-      var fields = (_DETAIL_CFG.csvFields && _DETAIL_CFG.csvFields.length)
-        ? _DETAIL_CFG.csvFields
-        : ['encodedimbno', 'city-state-zip', 'primary street', 'sec-primary street', 'urbanization', 'company', 'name', 'presorttrayid'];
-      var out = [];
-      // Reverse to show top-to-bottom on screen
-      for (var i = fields.length - 1; i >= 0; i--) {
-        var val = (rec[fields[i]] || '').trim();
-        if (val) out.push({ field: fields[i], value: val });
-      }
-      return out;
-    },
-
-    prevRecord() {
-      if (this.recordIdx > 0) { this.recordIdx--; this._drawOverlay(); }
-    },
-    nextRecord() {
-      if (this.recordIdx < this.records.length - 1) { this.recordIdx++; this._drawOverlay(); }
-    },
-
-    _resolvePositions() {
-      var cardWPt = _DETAIL_CFG.cardWPt || 432;
-      var cardHPt = _DETAIL_CFG.cardHPt || 288;
-      var addrX = cardWPt - (_DETAIL_CFG.addrXIn != null ? _DETAIL_CFG.addrXIn : 4.5) * PT_PER_IN_D;
-      var addrY = (_DETAIL_CFG.addrYIn != null ? _DETAIL_CFG.addrYIn : 2.5) * PT_PER_IN_D;
-      var barcodeX = _DETAIL_CFG.barcodeXIn != null ? (cardWPt - _DETAIL_CFG.barcodeXIn * PT_PER_IN_D) : addrX;
-      var barcodeY = _DETAIL_CFG.barcodeYIn != null ? _DETAIL_CFG.barcodeYIn * PT_PER_IN_D : addrY;
-      var trayX = _DETAIL_CFG.trayXIn != null ? (cardWPt - _DETAIL_CFG.trayXIn * PT_PER_IN_D) : addrX;
-      var trayY = _DETAIL_CFG.trayYIn != null ? _DETAIL_CFG.trayYIn * PT_PER_IN_D : null;
-      return { cardWPt: cardWPt, cardHPt: cardHPt, addrX: addrX, addrY: addrY,
-               barcodeX: barcodeX, barcodeY: barcodeY, trayX: trayX, trayY: trayY };
-    },
-
-    _drawAddressText(ctx, pos, scale) {
-      var rec = this.currentRecord;
-      if (!rec) return;
-      var fields = (_DETAIL_CFG.csvFields && _DETAIL_CFG.csvFields.length)
-        ? _DETAIL_CFG.csvFields
-        : ['encodedimbno', 'city-state-zip', 'primary street', 'sec-primary street', 'urbanization', 'company', 'name', 'presorttrayid'];
-      var fontSizePt   = _DETAIL_CFG.fontPt        != null ? _DETAIL_CFG.fontPt        : 9;
-      var lineHeightPt = _DETAIL_CFG.lineHeightPt  != null ? _DETAIL_CFG.lineHeightPt  : 13;
-      var barcodeFontPt = _DETAIL_CFG.barcodeFontPt != null ? _DETAIL_CFG.barcodeFontPt : 14;
-      var trayFontPt   = _DETAIL_CFG.trayFontPt    != null ? _DETAIL_CFG.trayFontPt    : fontSizePt;
-      var hasSeparateTray = pos.trayY != null;
-
-      var lines = [];
-      for (var i = 0; i < fields.length; i++) {
-        var f = fields[i];
-        var val = (rec[f] || '').trim();
-        if (!val) continue;
-        if (f === 'encodedimbno') continue;
-        if (f === 'presorttrayid' && hasSeparateTray) continue;
-        lines.push(val);
-      }
-
-      if (lines.length) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.85)';
-        ctx.font = Math.max(6, fontSizePt * scale) + 'px Helvetica, Arial, sans-serif';
-        ctx.textAlign = 'left';
-        var lineH = lineHeightPt * scale;
-        var baseY = (pos.cardHPt - pos.addrY) * scale;
-        for (var j = 0; j < lines.length; j++) {
-          ctx.fillText(lines[j], pos.addrX * scale, baseY - j * lineH);
-        }
-        ctx.restore();
-      }
-
-      var barcodeVal = (rec['encodedimbno'] || '').trim();
-      if (barcodeVal) {
-        ctx.save();
-        var bFontPx = Math.max(8, barcodeFontPt * scale);
-        if (this._imbFont) {
-          ctx.font = bFontPx + 'px USPSIMBStandard';
-        } else {
-          ctx.font = 'italic ' + Math.max(6, 8 * scale) + 'px monospace';
-          barcodeVal = '[Barcode] ' + barcodeVal.substring(0, 20);
-        }
-        ctx.fillStyle = 'rgba(0,0,0,0.85)';
-        ctx.textAlign = 'left';
-        ctx.fillText(barcodeVal, pos.barcodeX * scale, (pos.cardHPt - pos.barcodeY) * scale);
-        ctx.restore();
-      }
-
-      if (hasSeparateTray) {
-        var trayVal = (rec['presorttrayid'] || '').trim();
-        if (trayVal) {
-          ctx.save();
-          ctx.font = Math.max(6, trayFontPt * scale) + 'px Helvetica, Arial, sans-serif';
-          ctx.fillStyle = 'rgba(0,0,0,0.85)';
-          ctx.textAlign = 'left';
-          ctx.fillText(trayVal, pos.trayX * scale, (pos.cardHPt - pos.trayY) * scale);
-          ctx.restore();
-        }
-      }
-    },
-
-    _cacheBg(canvas) {
-      if (!this._bgCanvas) this._bgCanvas = document.createElement('canvas');
-      this._bgCanvas.width = canvas.width;
-      this._bgCanvas.height = canvas.height;
-      this._bgCanvas.getContext('2d').drawImage(canvas, 0, 0);
-      this._bgValid = true;
-    },
-
-    _renderCanvas() {
-      var canvas = document.getElementById('detailPreviewCanvas');
-      if (!canvas) return;
-      var pos = this._resolvePositions();
-      var container = canvas.closest('.card-body') || canvas.parentElement;
-      var maxW = (container.clientWidth || 600) - 24;
-      var maxH = 300;
-      var scale = Math.min(maxW / pos.cardWPt, maxH / pos.cardHPt, 1);
-      this._scale = scale;
-      var ctx = canvas.getContext('2d');
-      var self = this;
-
-      var renderPage = function(doc) {
-        var pageIdx = Math.max(0, _DETAIL_CFG.mergePageIdx || 0);
-        doc.getPage(pageIdx + 1).then(function(page) {
-          var viewport = page.getViewport({ scale: scale });
-          canvas.width  = viewport.width;
-          canvas.height = viewport.height;
-          page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
-            self._cacheBg(canvas);
-            self.canvasReady = true;
-            self._drawAddressText(ctx, pos, scale);
-          });
-        }).catch(function() { self.canvasReady = false; });
-      };
-
-      if (this._pdfDoc) {
-        renderPage(this._pdfDoc);
-      } else if (typeof pdfjsLib !== 'undefined') {
-        // Fetch artwork with credentials so authenticated sessions work,
-        // then pass ArrayBuffer to PDF.js to avoid cross-origin/cookie issues.
-        fetch(artworkUrl, { credentials: 'same-origin' })
-          .then(function(r) { if (!r.ok) throw new Error('Fetch failed'); return r.arrayBuffer(); })
-          .then(function(buf) {
-            var typedarray = new Uint8Array(buf);
-            return pdfjsLib.getDocument({ data: typedarray }).promise;
-          })
-          .then(function(doc) {
-            self._pdfDoc = doc;
-            renderPage(doc);
-          })
-          .catch(function() { self.canvasReady = false; });
-      }
-    },
-
-    _drawOverlay() {
-      var canvas = document.getElementById('detailPreviewCanvas');
-      if (!canvas || !this.canvasReady) return;
-      var ctx = canvas.getContext('2d');
-      if (this._bgValid && this._bgCanvas) {
-        ctx.drawImage(this._bgCanvas, 0, 0);
-      } else {
-        this._renderCanvas();
-        return;
-      }
-      var pos = this._resolvePositions();
-      this._drawAddressText(ctx, pos, this._scale);
-    },
-
-    onKeyNav(e) {
-      if (this.records.length < 2) return;
-      if (e.key === 'ArrowLeft') this.prevRecord();
-      if (e.key === 'ArrowRight') this.nextRecord();
-    },
-
-    init() {
-      var self = this;
-
-      // Load IMb font
-      if (typeof FontFace !== 'undefined') {
-        var fontUrl = '{% static "fonts/usps/USPSIMBStandard.ttf" %}';
-        var face = new FontFace('USPSIMBStandard', 'url(' + fontUrl + ')');
-        face.load().then(function(loaded) {
-          document.fonts.add(loaded);
-          self._imbFont = loaded;
-          if (self.canvasReady) self._drawOverlay();
-        }).catch(function() {});
-      }
-
-      // Fetch records from server. Accept either {records: [...]} or a raw array.
-      fetch(recordsUrl, { credentials: 'same-origin' })
-        .then(function(r) {
-          if (!r.ok) throw new Error('records fetch failed');
-          return r.json();
-        })
-        .then(function(data) {
-          // Support both { records: [...] } and direct array responses
-          var list = [];
-          if (Array.isArray(data)) list = data;
-          else if (Array.isArray(data.records)) list = data.records;
-          self.records = list || [];
-          if (self.records.length) {
-            if (typeof self.$nextTick === 'function') {
-              self.$nextTick(function() { self._renderCanvas(); });
-            } else {
-              setTimeout(function() { self._renderCanvas(); }, 0);
-            }
-          }
-        })
-        .catch(function(err) { console.debug('mailmerge: records fetch error', err); });
-    },
-  };
-}
+window.PDFJS_WORKER_SRC = '{% static "vendor/pdfjs/pdf.worker.min.js" %}';
+window.MAILMERGE_IMB_FONT_URL = '{% static "fonts/usps/USPSIMBStandard.ttf" %}';
 </script>
+{# preview.js must load synchronously: Alpine.js (deferred from base <head>) runs before #}
+{# deferred body scripts, so window.mailMergeEdit must be defined before Alpine inits. #}
+<script src="{% static 'js/mailmerge/preview.js' %}"></script>
 
 {# ── Sticky Bottom Action Bar ── #}
 {% if job.status == "done" %}
