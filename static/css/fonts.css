@@ -1,0 +1,11 @@
+/* Base font variables — Figtree (body) and Barlow Semi Condensed (headings/CTAs) */
+:root {
+  --font-heading: 'Barlow Semi Condensed', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-body: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+body { font-family: var(--font-body); }
+h1, h2, h3, h4, h5, h6,
+.btn, .btn-primary, .btn-secondary,
+.navbar, .menu, .card-title, .badge {
+  font-family: var(--font-heading);
+}
