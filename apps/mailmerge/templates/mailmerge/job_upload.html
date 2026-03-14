@@ -494,5 +494,11 @@ function _csvSplitLine(line) {
   result.push(current);
   return result;
 }
+<script>
+window.PDFJS_WORKER_SRC = '{% static "vendor/pdfjs/pdf.worker.min.js" %}';
+window.MAILMERGE_IMB_FONT_URL = '{% static "fonts/usps/USPSIMBStandard.ttf" %}';
+window.MAILMERGE_INSPECT_URL = '{% url "mailmerge:inspect_artwork" %}';
 </script>
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}" defer crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'js/mailmerge/preview.js' %}" defer></script>
 {% endblock %}
