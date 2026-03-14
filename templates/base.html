@@ -8,21 +8,10 @@
   <meta name="description" content="{% block meta_description %}Ember — your friendly print helper. Prep PDFs and send jobs with confidence.{% endblock %}" />
   <title>{% block title %}Ember — Your Friendly Print Helper{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/output.css' %}">
+  <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
   <!-- Google Fonts: Figtree (body) + Barlow Semi Condensed (headings / CTAs) -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --font-heading: 'Barlow Semi Condensed', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      --font-body: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    }
-    body { font-family: var(--font-body); }
-    h1, h2, h3, h4, h5, h6,
-    .btn, .btn-primary, .btn-secondary,
-    .navbar, .menu, .card-title, .badge {
-      font-family: var(--font-heading);
-    }
-  </style>
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-base-100 text-base-content min-h-screen flex flex-col">
@@ -57,26 +46,7 @@
   {# Alpine.js — lightweight reactivity for dropdowns, toggles, etc. #}
   <script defer src="{% static 'js/alpine.min.js' %}"></script>
   {# DaisyUI theme controller — enables theme switching #}
-  <script>
-    // Theme controller for DaisyUI
-    document.addEventListener('DOMContentLoaded', function() {
-      const themeController = {
-        init() {
-          this.setTheme(localStorage.getItem('theme') || 'fireman');
-          document.querySelectorAll('[data-set-theme]').forEach(btn => {
-            btn.addEventListener('click', () => {
-              this.setTheme(btn.getAttribute('data-set-theme'));
-            });
-          });
-        },
-        setTheme(theme) {
-          document.documentElement.setAttribute('data-theme', theme);
-          localStorage.setItem('theme', theme);
-        }
-      };
-      themeController.init();
-    });
-  </script>
+  <script src="{% static 'js/theme.js' %}"></script>
   {% block extra_js %}{% endblock %}
   {% if debug %}{% django_browser_reload_script %}{% endif %}
 </body>
