@@ -4,7 +4,7 @@
 {% block title %}New Mail Merge Job — Ember{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-10" x-data="mailMergeUpload({ addrXIn: {{ addr_config.addr_x_in|default:'null' }}, addrYIn: {{ addr_config.addr_y_in|default:'null' }}, fontPt: {{ addr_config.font_size|default:'null' }}, lineHeightPt: {{ addr_config.line_height|default:'null' }}, barcodeFontPt: {{ addr_config.barcode_font_size|default:'null' }}, barcodeXIn: {{ addr_config.barcode_x_in|default:'null' }}, barcodeYIn: {{ addr_config.barcode_y_in|default:'null' }}, trayXIn: {{ addr_config.tray_x_in|default:'null' }}, trayYIn: {{ addr_config.tray_y_in|default:'null' }}, trayFontPt: {{ addr_config.tray_font_size|default:'null' }}, csvFields: {{ csv_fields_json }} })" @keydown.window="onKeyNav($event)">
+<div class="max-w-3xl mx-auto px-4 py-10" x-data="mailMergeUpload({ addrXIn: {{ addr_config.addr_x_in|default:'null' }}, addrYIn: {{ addr_config.addr_y_in|default:'null' }}, fontPt: {{ addr_config.font_size|default:'null' }}, lineHeightPt: {{ addr_config.line_height|default:'null' }}, barcodeFontPt: {{ addr_config.barcode_font_size|default:'null' }}, barcodeXIn: {{ addr_config.barcode_x_in|default:'null' }}, barcodeYIn: {{ addr_config.barcode_y_in|default:'null' }}, trayXIn: {{ addr_config.tray_x_in|default:'null' }}, trayYIn: {{ addr_config.tray_y_in|default:'null' }}, trayFontPt: {{ addr_config.tray_font_size|default:'null' }}, csvFields: {{ csv_fields_json }}, addressTemplate: '{{ addr_config.address_template|escapejs }}' })" @keydown.window="onKeyNav($event)">
 
   <div class="mb-6">
     <h1 class="text-3xl font-extrabold text-base-content tracking-tight">New Mail Merge Job</h1>
@@ -392,17 +392,55 @@ function mailMergeUpload(cfg) {
       var trayFontPt   = cfg.trayFontPt    != null ? cfg.trayFontPt    : fontSizePt;
       var hasSeparateTray = pos.trayY != null;
 
-      // Build regular address lines (bottom → top order from fields list).
-      // encodedimbno rendered via IMb font at its own position.
-      // presorttrayid rendered at its own position when tray_y is configured.
+      // Build regular address lines (bottom → top order).
       var lines = [];
-      for (var i = 0; i < fields.length; i++) {
-        var f = fields[i];
-        var val = (rec[f] || '').trim();
-        if (!val) continue;
-        if (f === 'encodedimbno') continue;
-        if (f === 'presorttrayid' && hasSeparateTray) continue;
-        lines.push(val);
+      if (cfg.addressTemplate && cfg.addressTemplate.trim && cfg.addressTemplate.trim() !== '') {
+        var tpl = cfg.addressTemplate || '';
+        var rawLines = tpl.split('\n');
+        var tokenRe = /\{([^}]+)\}/g;
+        var rendered = [];
+        for (var li = 0; li < rawLines.length; li++) {
+          var raw = rawLines[li];
+          var tokens = [];
+          var m;
+          tokenRe.lastIndex = 0;
+          while ((m = tokenRe.exec(raw)) !== null) tokens.push(m[1]);
+
+          if (tokens.length === 0) {
+            if (raw.trim()) rendered.push(raw);
+            continue;
+          }
+
+          if (tokens.length === 1 && raw.trim() === '{' + tokens[0] + '}') {
+            var fld = tokens[0];
+            if (fld.toLowerCase() === 'br' || fld.toLowerCase() === 'blank') {
+              rendered.push('');
+              continue;
+            }
+            var v = (rec[fld] || rec[fld.toLowerCase()] || '').trim();
+            if (!v) continue;
+            if (fld.toLowerCase() === 'encodedimbno') continue;
+            if (fld.toLowerCase() === 'presorttrayid' && hasSeparateTray) continue;
+            rendered.push(v);
+            continue;
+          }
+
+          // Mixed line: substitute tokens
+          var substituted = raw.replace(tokenRe, function(_, t) { return (rec[t] || rec[t.toLowerCase()] || ''); }).trim();
+          if (substituted) rendered.push(substituted);
+        }
+        // Server-side rendering uses top->bottom template; preview draws bottom->top
+        rendered.reverse();
+        lines = rendered;
+      } else {
+        for (var i = 0; i < fields.length; i++) {
+          var f = fields[i];
+          var val = (rec[f] || '').trim();
+          if (!val) continue;
+          if (f === 'encodedimbno') continue;
+          if (f === 'presorttrayid' && hasSeparateTray) continue;
+          lines.push(val);
+        }
       }
 
       // Draw regular address text
