@@ -529,6 +529,15 @@ class AddressBlockConfigView(LoginRequiredMixin, View):
         if barcode_font_size_val and 1 <= barcode_font_size_val <= 72:
             config.barcode_font_size = barcode_font_size_val
 
+        config.barcode_x_in = _parse_float("barcode_x_in")
+        config.barcode_y_in = _parse_float("barcode_y_in")
+        config.tray_x_in = _parse_float("tray_x_in")
+        config.tray_y_in = _parse_float("tray_y_in")
+
+        tray_font_size_val = _parse_float("tray_font_size")
+        if tray_font_size_val and 1 <= tray_font_size_val <= 72:
+            config.tray_font_size = tray_font_size_val
+
         addr_block_width_in = _parse_float("addr_block_width_in")
         if addr_block_width_in and 0.1 <= addr_block_width_in <= 20:
             config.addr_block_width_in = addr_block_width_in

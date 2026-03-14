@@ -53,6 +53,25 @@ def process_mail_merge_task(job_id: str) -> None:
             if addr_config.barcode_font_size
             else None
         )
+        cfg_barcode_x_in = (
+            float(addr_config.barcode_x_in)
+            if addr_config.barcode_x_in is not None
+            else None
+        )
+        cfg_barcode_y_in = (
+            float(addr_config.barcode_y_in)
+            if addr_config.barcode_y_in is not None
+            else None
+        )
+        cfg_tray_x_in = (
+            float(addr_config.tray_x_in) if addr_config.tray_x_in is not None else None
+        )
+        cfg_tray_y_in = (
+            float(addr_config.tray_y_in) if addr_config.tray_y_in is not None else None
+        )
+        cfg_tray_font_size = (
+            float(addr_config.tray_font_size) if addr_config.tray_font_size else None
+        )
         with job.csv_file.open("rb") as csv_fh:
             records = parse_usps_csv(csv_fh)
 
@@ -113,7 +132,9 @@ def process_mail_merge_task(job_id: str) -> None:
         )
 
         # ── 2. Address step-and-repeat PDF ────────────────────────────────
-        addr_x_pt = addr_x_in * 72.0 if addr_x_in is not None else None
+        # X values are stored as "from right"; convert to PDF left-edge points.
+        eff_card_w = card_w or 432.0
+        addr_x_pt = (eff_card_w - addr_x_in * 72.0) if addr_x_in is not None else None
         addr_y_pt = addr_y_in * 72.0 if addr_y_in is not None else None
 
         addr_buf = io.BytesIO()
@@ -133,6 +154,15 @@ def process_mail_merge_task(job_id: str) -> None:
             line_height=cfg_line_height,
             fields=cfg_fields,
             barcode_font_size=cfg_barcode_font_size,
+            barcode_x=(eff_card_w - cfg_barcode_x_in * 72.0)
+            if cfg_barcode_x_in is not None
+            else None,
+            barcode_y=cfg_barcode_y_in * 72.0 if cfg_barcode_y_in is not None else None,
+            tray_x=(eff_card_w - cfg_tray_x_in * 72.0)
+            if cfg_tray_x_in is not None
+            else None,
+            tray_y=cfg_tray_y_in * 72.0 if cfg_tray_y_in is not None else None,
+            tray_font_size=cfg_tray_font_size,
         )
         addr_buf.seek(0)
 
@@ -207,6 +237,25 @@ def generate_merged_pdf_task(job_id: str) -> None:
             if addr_config.barcode_font_size
             else None
         )
+        cfg_barcode_x_in = (
+            float(addr_config.barcode_x_in)
+            if addr_config.barcode_x_in is not None
+            else None
+        )
+        cfg_barcode_y_in = (
+            float(addr_config.barcode_y_in)
+            if addr_config.barcode_y_in is not None
+            else None
+        )
+        cfg_tray_x_in = (
+            float(addr_config.tray_x_in) if addr_config.tray_x_in is not None else None
+        )
+        cfg_tray_y_in = (
+            float(addr_config.tray_y_in) if addr_config.tray_y_in is not None else None
+        )
+        cfg_tray_font_size = (
+            float(addr_config.tray_font_size) if addr_config.tray_font_size else None
+        )
 
         output_buf = io.BytesIO()
         merge_postcards(
@@ -221,6 +270,11 @@ def generate_merged_pdf_task(job_id: str) -> None:
             line_height=cfg_line_height,
             fields=cfg_fields,
             barcode_font_size=cfg_barcode_font_size,
+            barcode_x_in=cfg_barcode_x_in,
+            barcode_y_in=cfg_barcode_y_in,
+            tray_x_in=cfg_tray_x_in,
+            tray_y_in=cfg_tray_y_in,
+            tray_font_size=cfg_tray_font_size,
         )
         output_buf.seek(0)
         safe_name = job.name or f"mailmerge_{job.pk}"
