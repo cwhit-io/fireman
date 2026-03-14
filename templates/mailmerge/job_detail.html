@@ -4,7 +4,27 @@
 {% block title %}{{ job.name|default:"Mail Merge Job" }} — Ember{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-10 pb-28" x-data="mmDetail('{% url "mailmerge:serve_artwork" job.pk %}', '{% url "mailmerge:records" job.pk %}')" @keydown.window="onKeyNav($event)">
+<div class="max-w-3xl mx-auto px-4 py-10 pb-28"
+     x-data="mailMergeEdit({
+       artworkUrl: '{% url "mailmerge:serve_artwork" job.pk %}',
+       recordsUrl: '{% url "mailmerge:records" job.pk %}',
+       cardWPt:      {{ job.card_width|default:'null' }},
+       cardHPt:      {{ job.card_height|default:'null' }},
+       mergePageIdx: {{ job.merge_page|default:1 }} - 1,
+       addrXIn:      {{ addr_config.addr_x_in|default:'null' }},
+       addrYIn:      {{ addr_config.addr_y_in|default:'null' }},
+       fontPt:       {{ addr_config.font_size|default:'null' }},
+       lineHeightPt: {{ addr_config.line_height|default:'null' }},
+       barcodeFontPt:{{ addr_config.barcode_font_size|default:'null' }},
+       barcodeXIn:   {{ addr_config.barcode_x_in|default:'null' }},
+       barcodeYIn:   {{ addr_config.barcode_y_in|default:'null' }},
+       trayXIn:      {{ addr_config.tray_x_in|default:'null' }},
+       trayYIn:      {{ addr_config.tray_y_in|default:'null' }},
+       trayFontPt:   {{ addr_config.tray_font_size|default:'null' }},
+       addressTemplate: '{{ addr_config.address_template|escapejs }}',
+       csvFields:    {{ csv_fields_json|safe }}
+     })"
+     @keydown.window="onKeyNav($event)">
 
   <div class="flex items-start justify-between gap-4 mb-6">
     <div>
@@ -139,7 +159,7 @@
       <!-- Canvas preview -->
       <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3"
            x-show="canvasReady">
-        <canvas id="detailPreviewCanvas"
+        <canvas id="previewCanvas"
                 class="max-w-full rounded shadow-sm"
                 style="max-height:320px;"></canvas>
       </div>
@@ -168,29 +188,14 @@
 </div>
 
 <script src="{% static 'vendor/pdfjs/pdf.min.js' %}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'js/impose/template.js' %}"></script>
 <script>
 window.PDFJS_WORKER_SRC = '{% static "vendor/pdfjs/pdf.worker.min.js" %}';
 window.MAILMERGE_IMB_FONT_URL = '{% static "fonts/usps/USPSIMBStandard.ttf" %}';
-var _DETAIL_CFG = {
-  addrXIn:      {{ addr_config.addr_x_in|default:'null' }},
-  addrYIn:      {{ addr_config.addr_y_in|default:'null' }},
-  fontPt:       {{ addr_config.font_size|default:'null' }},
-  lineHeightPt: {{ addr_config.line_height|default:'null' }},
-  barcodeFontPt:{{ addr_config.barcode_font_size|default:'null' }},
-  barcodeXIn:   {{ addr_config.barcode_x_in|default:'null' }},
-  barcodeYIn:   {{ addr_config.barcode_y_in|default:'null' }},
-  trayXIn:      {{ addr_config.tray_x_in|default:'null' }},
-  trayYIn:      {{ addr_config.tray_y_in|default:'null' }},
-  trayFontPt:   {{ addr_config.tray_font_size|default:'null' }},
-  csvFields:    {{ csv_fields_json|safe }},
-  mergePageIdx: {{ job.merge_page|default:1 }} - 1,
-  cardWPt:      {{ job.card_width|default:'null' }},
-  cardHPt:      {{ job.card_height|default:'null' }},
-};
 </script>
-{# detail.js must load synchronously: Alpine.js (deferred from base <head>) runs before #}
-{# deferred body scripts, so window.mmDetail must be defined before Alpine inits. #}
-<script src="{% static 'js/mailmerge/detail.js' %}"></script>
+{# preview.js must load synchronously: Alpine.js (deferred from base <head>) runs before #}
+{# deferred body scripts, so window.mailMergeEdit must be defined before Alpine inits. #}
+<script src="{% static 'js/mailmerge/preview.js' %}"></script>
 
 {# ── Sticky Bottom Action Bar ── #}
 {% if job.status == "done" %}
