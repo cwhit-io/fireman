@@ -525,6 +525,10 @@ class AddressBlockConfigView(LoginRequiredMixin, View):
         if line_height_val and 1 <= line_height_val <= 144:
             config.line_height = line_height_val
 
+        barcode_font_size_val = _parse_float("barcode_font_size")
+        if barcode_font_size_val and 1 <= barcode_font_size_val <= 72:
+            config.barcode_font_size = barcode_font_size_val
+
         addr_block_width_in = _parse_float("addr_block_width_in")
         if addr_block_width_in and 0.1 <= addr_block_width_in <= 20:
             config.addr_block_width_in = addr_block_width_in

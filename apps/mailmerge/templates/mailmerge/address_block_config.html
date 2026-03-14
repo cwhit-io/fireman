@@ -13,6 +13,7 @@
        fontName:         '{{ config.font_name }}',
        fontSize:         {{ config.font_size }},
        lineHeight:       {{ config.line_height }},
+       barcodeFontSize:  {{ config.barcode_font_size }},
        addrBlockWidthIn: {{ config.addr_block_width_in }},
        csvFields:        {{ csv_fields_json }}
      })">
@@ -165,6 +166,15 @@
                    x-model="lineHeight"
                    @input="redraw()">
           </div>
+          <div class="form-control">
+            <label class="label" for="barcode_font_size">
+              <span class="label-text">Barcode font size (pt)</span>
+            </label>
+            <input type="number" name="barcode_font_size" id="barcode_font_size"
+                   step="0.5" min="8" max="72"
+                   class="input input-bordered w-full"
+                   x-model="barcodeFontSize">
+          </div>
         </div>
       </div>
     </div>
@@ -256,12 +266,14 @@ var PT_PER_IN     = 72;
 var GRID_SNAP_IN  = 0.0625;
 
 var ALL_FIELDS = [
+  "encodedimbno",
   "city-state-zip",
   "primary street",
   "sec-primary street",
   "urbanization",
   "company",
   "name",
+  "presorttrayid",
   "imbno"
 ];
 
@@ -274,6 +286,7 @@ function addrBlockConfig(cfg) {
     fontName:         cfg.fontName  || 'Helvetica',
     fontSize:         cfg.fontSize  || 9,
     lineHeight:       cfg.lineHeight || 13,
+    barcodeFontSize:  cfg.barcodeFontSize || 14,
     addrBlockWidthIn: cfg.addrBlockWidthIn || 4.25,
     csvFields:        (cfg.csvFields && cfg.csvFields.length) ? cfg.csvFields : ALL_FIELDS.slice(),
     allFields:        ALL_FIELDS,

@@ -37,6 +37,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+from pathlib import Path
 from typing import IO
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,20 @@ _DEFAULT_FIELDS: list[str] = [
     "name",
     "imbno",
 ]
+
+# Barcode
+_BARCODE_FIELD: str = "encodedimbno"
+_TRAY_FIELD: str = "presorttrayid"
+_BARCODE_FONT_SIZE: float = 14.0
+_BARCODE_FONT_PATH: str = str(
+    Path(__file__).resolve().parent.parent.parent
+    / "fonts"
+    / "usps"
+    / "trueType"
+    / "USPSIMBStandard.ttf"
+)
+# Module-level cache to avoid re-registering the same reportlab font in a process
+_rl_registered_fonts: set[str] = set()
 
 
 def parse_usps_csv(csv_file: IO[bytes]) -> list[dict[str, str]]:
@@ -148,6 +163,84 @@ def _escape_pdf_string(text: str) -> bytes:
     return "".join(out).encode("latin-1", errors="replace")
 
 
+def _barcode_slot(
+    record: dict[str, str],
+    fields: list[str],
+) -> tuple[str, int] | None:
+    """Return ``(barcode_text, slot_index)`` for the barcode field, or ``None``.
+
+    ``slot_index`` is the 0-based sequential position among **non-empty** fields
+    (same basis used to compute Y offsets in the address block).
+    """
+    if _BARCODE_FIELD not in fields:
+        return None
+    barcode_text = record.get(_BARCODE_FIELD, "").strip()
+    if not barcode_text:
+        return None
+    slot = 0
+    for f in fields:
+        if not record.get(f, "").strip():
+            continue
+        if f == _BARCODE_FIELD:
+            return (barcode_text, slot)
+        slot += 1
+    return None
+
+
+def _make_barcode_overlay(
+    page_w: float,
+    page_h: float,
+    barcodes: list[tuple[str, float, float]],
+    font_path: str | None = None,
+    font_size: float | None = None,
+):
+    """Return a transparent pypdf page with USPS IMb barcodes rendered via reportlab.
+
+    Parameters
+    ----------
+    page_w, page_h:
+        Dimensions of the target page in points (must match the page being overlaid).
+    barcodes:
+        List of ``(text, x, y)`` tuples — one per barcode to draw.  ``x``/``y``
+        are in PDF points (origin at bottom-left), matching the coordinate system
+        used throughout the address block rendering.
+    font_path:
+        Path to the USPSIMBStandard TrueType font file.  Defaults to the bundled
+        font at ``fonts/usps/trueType/USPSIMBStandard.ttf``.
+    font_size:
+        Point size for the barcode font.  Defaults to :data:`_BARCODE_FONT_SIZE`.
+    """
+    effective_barcodes = [(t, x, y) for t, x, y in barcodes if t.strip()]
+    if not effective_barcodes:
+        return None
+
+    effective_font_path = font_path or _BARCODE_FONT_PATH
+    effective_font_size = font_size if font_size is not None else _BARCODE_FONT_SIZE
+    font_alias = "USPSIMBStandard"
+
+    try:
+        from pypdf import PdfReader
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.pdfgen import canvas as rl_canvas
+
+        if font_alias not in _rl_registered_fonts:
+            pdfmetrics.registerFont(TTFont(font_alias, effective_font_path))
+            _rl_registered_fonts.add(font_alias)
+
+        buf = io.BytesIO()
+        c = rl_canvas.Canvas(buf, pagesize=(page_w, page_h))
+        c.setFont(font_alias, effective_font_size)
+        for text, x, y in effective_barcodes:
+            c.drawString(x, y, text)
+        c.save()
+        buf.seek(0)
+        return PdfReader(buf).pages[0]
+    except Exception:
+        logger.exception("Barcode overlay generation failed")
+        return None
+
+
 def _address_text_stream(
     record: dict[str, str],
     card_w: float,
@@ -158,6 +251,9 @@ def _address_text_stream(
     font_size: float | None = None,
     line_height: float | None = None,
     fields: list[str] | None = None,
+    tray_x: float | None = None,
+    tray_y: float | None = None,
+    tray_font_size: float | None = None,
 ) -> bytes:
     """Return a PDF content-stream fragment that draws the address block.
 
@@ -182,18 +278,42 @@ def _address_text_stream(
     fields:
         Ordered list of CSV keys to render (bottom → top). Defaults to
         ``_DEFAULT_FIELDS``.
+    tray_x, tray_y:
+        Absolute position (points) for the ``presorttrayid`` field independent
+        of the address block.  When set, the tray field is removed from the
+        slot-based flow and rendered at this fixed position instead.
+    tray_font_size:
+        Font size (points) for the tray ID.  Defaults to *font_size*.
     """
     effective_font_name = f"/{font_name}".encode() if font_name else _FONT_NAME
     effective_font_size = font_size if font_size is not None else _FONT_SIZE
     effective_line_height = line_height if line_height is not None else _LINE_HEIGHT
     effective_fields = fields if fields else _DEFAULT_FIELDS
 
-    # ── Build address lines (bottom → top) ──────────────────────────────
-    lines: list[str] = [
-        record.get(f, "").strip() for f in effective_fields if record.get(f, "").strip()
-    ]
+    tray_separate = tray_x is not None and tray_y is not None
+    tray_val: str = ""
 
-    if not lines:
+    # ── Build address lines with slot-based y-offsets ─────────────────────
+    # encodedimbno is always handled via a separate TrueType overlay.
+    # presorttrayid is handled via its own absolute position when tray_x/tray_y
+    # are set; otherwise it falls through to normal slot-based rendering.
+    # Neither special field contributes to the slot index of the others.
+    text_slot_lines: list[tuple[int, str]] = []
+    slot = 0
+    for f in effective_fields:
+        val = record.get(f, "").strip()
+        if not val:
+            continue
+        if f == _BARCODE_FIELD:
+            # Always rendered via TrueType overlay — never in this stream
+            continue
+        if f == _TRAY_FIELD and tray_separate:
+            tray_val = val
+            continue
+        text_slot_lines.append((slot, val))
+        slot += 1
+
+    if not text_slot_lines and not (tray_separate and tray_val):
         return b""
 
     # ── Compute anchor position ─────────────────────────────────────────
@@ -211,14 +331,26 @@ def _address_text_stream(
         effective_font_name + f" {effective_font_size:.1f} Tf".encode(),
     ]
 
-    for i, line in enumerate(lines):
-        y = y_base + i * effective_line_height
+    for slot_idx, line in text_slot_lines:
+        y = y_base + slot_idx * effective_line_height
         escaped = _escape_pdf_string(line)
         parts.append(f"{x:.3f} {y:.3f} Td".encode())
         parts.append(b"(" + escaped + b") Tj")
         # Reset Td so the next iteration specifies an absolute position
         # by undoing the current translation before the next Td.
         parts.append(f"{-x:.3f} {-y:.3f} Td".encode())
+
+    # ── Tray ID at independent absolute position ─────────────────────────
+    if tray_separate and tray_val:
+        eff_tray_fs = (
+            tray_font_size if tray_font_size is not None else effective_font_size
+        )
+        if eff_tray_fs != effective_font_size:
+            parts.append(effective_font_name + f" {eff_tray_fs:.1f} Tf".encode())
+        escaped_tray = _escape_pdf_string(tray_val)
+        parts.append(f"{tray_x:.3f} {tray_y:.3f} Td".encode())
+        parts.append(b"(" + escaped_tray + b") Tj")
+        parts.append(f"{-tray_x:.3f} {-tray_y:.3f} Td".encode())
 
     parts.append(b"ET")
     return b"\n".join(parts)
@@ -451,6 +583,7 @@ def build_address_steprepeat(
     font_size: float | None = None,
     line_height: float | None = None,
     fields: list[str] | None = None,
+    barcode_font_size: float | None = None,
 ) -> int:
     """Produce a step-and-repeat PDF containing only address blocks (no artwork).
 
@@ -487,6 +620,8 @@ def build_address_steprepeat(
 
         # Collect all text streams for this sheet into one combined stream.
         combined_parts: list[bytes] = []
+        # Collect barcode positions for this sheet (rendered separately via reportlab)
+        sheet_barcodes: list[tuple[str, float, float]] = []
 
         for idx in range(per_sheet):
             rec_idx = sheet_start + idx
@@ -514,12 +649,6 @@ def build_address_steprepeat(
                 placed_h = card_w * scale
                 center_y = (cell_h - placed_h) / 2
                 target_bottom = cell_bottom + center_y
-                # When rotated 90° CW, the card's "bottom" maps to the right side.
-                # addr_x (from card left) → vertical offset from card bottom after rotation
-                # addr_y (from card bottom) → horizontal offset from card left after rotation
-                # The rotated coordinate: sheet_x = target_left + addr_y * scale,
-                #                         sheet_y = target_bottom + (card_w - addr_x) * scale - font_size
-                # This places the address block correctly in the rotated card orientation.
                 placed_w = card_h * scale
                 center_x = (cell_w - placed_w) / 2
                 target_left = cell_left + center_x
@@ -537,13 +666,22 @@ def build_address_steprepeat(
                 sheet_addr_x = target_left + addr_x * scale
                 sheet_addr_y = target_bottom + addr_y * scale
 
-            # Build address lines (same logic as _address_text_stream).
-            lines: list[str] = [
-                record.get(f, "").strip()
-                for f in effective_fields
-                if record.get(f, "").strip()
-            ]
-            if not lines:
+            # Build text lines with slot-based y-offsets (barcode slot preserved).
+            text_slot_lines: list[tuple[int, str]] = []
+            slot = 0
+            for f in effective_fields:
+                val = record.get(f, "").strip()
+                if not val:
+                    continue
+                if f == _BARCODE_FIELD:
+                    # Collect barcode for separate TrueType overlay
+                    b_y = sheet_addr_y + slot * effective_line_height
+                    sheet_barcodes.append((val, sheet_addr_x, b_y))
+                else:
+                    text_slot_lines.append((slot, val))
+                slot += 1
+
+            if not text_slot_lines:
                 continue
 
             eff_fn = f"/{font_name}".encode() if font_name else _FONT_NAME
@@ -551,8 +689,8 @@ def build_address_steprepeat(
                 b"BT",
                 eff_fn + f" {effective_font_size:.1f} Tf".encode(),
             ]
-            for i, line in enumerate(lines):
-                y = sheet_addr_y + i * effective_line_height
+            for slot_idx, line in text_slot_lines:
+                y = sheet_addr_y + slot_idx * effective_line_height
                 escaped = _escape_pdf_string(line)
                 parts.append(f"{sheet_addr_x:.3f} {y:.3f} Td".encode())
                 parts.append(b"(" + escaped + b") Tj")
@@ -564,6 +702,17 @@ def build_address_steprepeat(
             _apply_text_stream_to_page(
                 sheet, b"\n".join(combined_parts), font_name=font_name
             )
+
+        # Apply barcode overlay for this sheet
+        if sheet_barcodes:
+            barcode_overlay = _make_barcode_overlay(
+                sheet_w,
+                sheet_h,
+                sheet_barcodes,
+                font_size=barcode_font_size,
+            )
+            if barcode_overlay:
+                sheet.merge_page(barcode_overlay)
 
         writer.add_page(sheet)
 
@@ -616,6 +765,12 @@ def merge_postcards(
     font_size: float | None = None,
     line_height: float | None = None,
     fields: list[str] | None = None,
+    barcode_font_size: float | None = None,
+    barcode_x_in: float | None = None,
+    barcode_y_in: float | None = None,
+    tray_x_in: float | None = None,
+    tray_y_in: float | None = None,
+    tray_font_size: float | None = None,
 ) -> int:
     """Produce a mail-merged PDF with one (or two) pages per address record.
 
@@ -677,6 +832,18 @@ def merge_postcards(
     writer = PdfWriter()
     pages_written = 0
 
+    # Pre-compute effective rendering params (needed for barcode position)
+    effective_fields_val = fields if fields else _DEFAULT_FIELDS
+    effective_line_height_val = line_height if line_height is not None else _LINE_HEIGHT
+    eff_addr_x = (
+        addr_x_pt
+        if addr_x_pt is not None
+        else (card_w - _ADDR_FROM_RIGHT_IN_DEFAULT * _PT_PER_IN)
+    )
+    eff_addr_y = (
+        addr_y_pt if addr_y_pt is not None else (_ADDR_BOTTOM_IN_DEFAULT * _PT_PER_IN)
+    )
+
     for record in records:
         for page_idx in range(num_artwork_pages):
             # Re-read the artwork for each page/record to get a fresh copy
@@ -700,6 +867,20 @@ def merge_postcards(
                         card_w, card_h, stream, font_name=font_name
                     )
                     page.merge_page(overlay)
+
+                # Barcode overlay (TrueType via reportlab)
+                barcode_info = _barcode_slot(record, effective_fields_val)
+                if barcode_info:
+                    btext, bslot = barcode_info
+                    b_y = eff_addr_y + bslot * effective_line_height_val
+                    b_overlay = _make_barcode_overlay(
+                        card_w,
+                        card_h,
+                        [(btext, eff_addr_x, b_y)],
+                        font_size=barcode_font_size,
+                    )
+                    if b_overlay:
+                        page.merge_page(b_overlay)
 
             writer.add_page(page)
 
