@@ -48,7 +48,6 @@
         </button>
       </form>
       {% endif %}
-      <a href="{% url 'mailmerge:edit' job.pk %}" class="btn btn-ghost btn-sm">Edit</a>
       <a href="{% url 'mailmerge:delete' job.pk %}" class="btn btn-ghost btn-sm text-error">Delete</a>
     </div>
   </div>
@@ -390,7 +389,8 @@ function mmDetail(artworkUrl, recordsUrl) {
       var canvas = document.getElementById('detailPreviewCanvas');
       if (!canvas) return;
       var pos = this._resolvePositions();
-      var maxW = canvas.parentElement.clientWidth - 24;
+      var container = canvas.closest('.card-body') || canvas.parentElement;
+      var maxW = (container.clientWidth || 600) - 24;
       var maxH = 300;
       var scale = Math.min(maxW / pos.cardWPt, maxH / pos.cardHPt, 1);
       this._scale = scale;

@@ -194,62 +194,6 @@ class MailMergeJobDeleteView(LoginRequiredMixin, DeleteView):
         return super().form_valid(form)
 
 
-class MailMergeJobEditView(View):
-    """Allow editing address block position and re-triggering the merge."""
-
-    template_name = "mailmerge/job_edit.html"
-
-    def _get_context(self, job):
-        from apps.impose.models import ImpositionTemplate
-
-        from .models import AddressBlockConfig
-
-        templates = ImpositionTemplate.objects.filter(allow_mailmerge=True).order_by(
-            "name"
-        )
-        addr_config = AddressBlockConfig.get_solo()
-        return {"job": job, "impose_templates": templates, "addr_config": addr_config}
-
-    def get(self, request, pk):
-        job = get_object_or_404(MailMergeJob, pk=pk)
-        return render(request, self.template_name, self._get_context(job))
-
-    def post(self, request, pk):
-        job = get_object_or_404(MailMergeJob, pk=pk)
-
-        name = request.POST.get("name", "").strip()
-        if name:
-            job.name = name
-
-        try:
-            merge_page = int(request.POST.get("merge_page", job.merge_page))
-        except (TypeError, ValueError):
-            merge_page = job.merge_page
-        job.merge_page = max(1, min(merge_page, max(job.artwork_page_count or 1, 1)))
-
-        # Imposition template selection
-        impose_template_id = request.POST.get("impose_template_id", "").strip()
-        if impose_template_id:
-            from apps.impose.models import ImpositionTemplate
-
-            try:
-                job.impose_template = ImpositionTemplate.objects.get(
-                    pk=int(impose_template_id), allow_mailmerge=True
-                )
-            except (ImpositionTemplate.DoesNotExist, ValueError, TypeError):
-                job.impose_template = None
-        else:
-            job.impose_template = None
-
-        job.status = MailMergeJob.Status.PENDING
-        job.error_message = ""
-        job.save()
-
-        process_mail_merge_task.delay(str(job.pk))
-        messages.success(request, "Job updated — re-processing started.")
-        return redirect("mailmerge:detail", pk=job.pk)
-
-
 class MailMergeJobArtworkServeView(View):
     """Serve the artwork PDF for a job (used by the edit-page preview canvas)."""
 

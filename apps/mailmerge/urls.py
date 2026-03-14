@@ -13,7 +13,6 @@ urlpatterns = [
         name="inspect_artwork",
     ),
     path("<uuid:pk>/", views.MailMergeJobDetailView.as_view(), name="detail"),
-    path("<uuid:pk>/edit/", views.MailMergeJobEditView.as_view(), name="edit"),
     path(
         "<uuid:pk>/artwork/",
         views.MailMergeJobArtworkServeView.as_view(),
