@@ -130,13 +130,14 @@ def _template_to_slot_lines(
         # Single-token-only line → special handling for barcode / tray.
         if len(tokens) == 1 and raw_line.strip() == "{" + tokens[0] + "}":
             field = tokens[0]
-            val = record.get(field, "").strip()
+            val = record.get(field, "") or record.get(field.lower(), "")
+            val = val.strip()
             if not val:
                 continue
-            if field == _BARCODE_FIELD:
+            if field.lower() == _BARCODE_FIELD:
                 barcode_val = val
                 continue
-            if field == _TRAY_FIELD and tray_separate:
+            if field.lower() == _TRAY_FIELD and tray_separate:
                 tray_val = val
                 continue
             rendered.append(val)
@@ -144,7 +145,8 @@ def _template_to_slot_lines(
 
         # Mixed line: substitute all tokens; skip if the result is empty.
         substituted = _TEMPLATE_TOKEN_RE.sub(
-            lambda m: record.get(m.group(1), ""), raw_line
+            lambda m: record.get(m.group(1), "") or record.get(m.group(1).lower(), ""),
+            raw_line,
         ).strip()
         if substituted:
             rendered.append(substituted)
@@ -188,7 +190,13 @@ def parse_usps_csv(csv_file: IO[bytes]) -> list[dict[str, str]]:
     # Normalise header names: strip whitespace, lower-case
     records = []
     for row in reader:
-        records.append({k.strip().lower(): (v or "").strip() for k, v in row.items()})
+        records.append(
+            {
+                k.strip().lower(): (v or "").strip()
+                for k, v in row.items()
+                if k is not None
+            }
+        )
     return records
 
 
