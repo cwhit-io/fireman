@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Address Block Defaults — Ember{% endblock %}
+
+{% block content %}
+{{ address_template|json_script:"_addr_tmpl" }}
+<div class="max-w-3xl mx-auto px-4 py-10"
+     x-data="addrBlockConfig({
+       cardWIn:          {{ config.preview_card_width_in }},
+       cardHIn:          {{ config.preview_card_height_in }},
+       addrXIn:          '{{ config.addr_x_in|default:'' }}',
+       addrYIn:          '{{ config.addr_y_in|default:'' }}',
+       fontName:         '{{ config.font_name }}',
+       fontSize:         {{ config.font_size }},
+       lineHeight:       {{ config.line_height }},
+       barcodeFontSize:  {{ config.barcode_font_size }},
+       barcodeXIn:       '{{ config.barcode_x_in|default:'' }}',
+       barcodeYIn:       '{{ config.barcode_y_in|default:'' }}',
+       trayXIn:          '{{ config.tray_x_in|default:'' }}',
+       trayYIn:          '{{ config.tray_y_in|default:'' }}',
+       trayFontSize:     {{ config.tray_font_size|default:9 }},
+       addrBlockWidthIn: {{ config.addr_block_width_in }}
+     })">
+
+  <div class="mb-6">
+    <div class="breadcrumbs text-sm mb-3">
+      <ul>
+        <li><a href="{% url 'mailmerge:list' %}">Mail Merge</a></li>
+        <li>Address Block Defaults</li>
+      </ul>
+    </div>
+    <h1 class="text-3xl font-extrabold text-base-content tracking-tight">Address Block Defaults</h1>
+    <p class="text-base-content/60 mt-1 text-sm">
+      Set defaults used when creating new mail merge jobs.
+      Drag the blue block on the preview to reposition, or enter exact values.
+    </p>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2 mb-6">
+    {% for message in messages %}
+    <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} shadow-sm">
+      <span>{{ message }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+    <!-- Hidden field carrying the serialised csv_fields list (kept for backward compat) -->
+    <input type="hidden" name="csv_fields" :value="JSON.stringify([])">
+
+    <!-- Card size for preview -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Preview Card Size</h2>
+        <p class="text-xs text-base-content/50">Used only to render the preview canvas — does not affect actual job processing.</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label" for="preview_card_width_in">
+              <span class="label-text">Width (inches)</span>
+            </label>
+            <input type="number" name="preview_card_width_in" id="preview_card_width_in"
+                   step="0.25" min="1" max="30"
+                   class="input input-bordered w-full"
+                   x-model="cardWIn"
+                   @input="onCardSizeChange()">
+          </div>
+          <div class="form-control">
+            <label class="label" for="preview_card_height_in">
+              <span class="label-text">Height (inches)</span>
+            </label>
+            <input type="number" name="preview_card_height_in" id="preview_card_height_in"
+                   step="0.25" min="1" max="30"
+                   class="input input-bordered w-full"
+                   x-model="cardHIn"
+                   @input="onCardSizeChange()">
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(6, 9)">6×9"</button>
+          <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(6, 11)">6×11"</button>
+          <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(4, 6)">4×6"</button>
+          <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(5, 7)">5×7"</button>
+          <button type="button" class="btn btn-ghost btn-xs" @click="applyPreset(5.5, 8.5)">5.5×8.5"</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address block position -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Default Position</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label" for="addr_x_in">
+              <span class="label-text">Right edge (inches from card right)</span>
+            </label>
+            <input type="number" name="addr_x_in" id="addr_x_in"
+                   step="0.0625" min="0"
+                   class="input input-bordered w-full"
+                   x-model="addrXIn"
+                   @input="redraw()"
+                   placeholder="4.5">
+            <label class="label">
+              <span class="label-text-alt text-base-content/40">
+                Default: 4.5&Prime; from card right
+              </span>
+            </label>
+          </div>
+          <div class="form-control">
+            <label class="label" for="addr_y_in">
+              <span class="label-text">Bottom edge (inches from card bottom)</span>
+            </label>
+            <input type="number" name="addr_y_in" id="addr_y_in"
+                   step="0.0625" min="0"
+                   class="input input-bordered w-full"
+                   x-model="addrYIn"
+                   @input="redraw()"
+                   placeholder="2.5">
+            <label class="label">
+              <span class="label-text-alt text-base-content/40">Default: 2.5&Prime;</span>
+            </label>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm w-fit"
+                @click="addrXIn = ''; addrYIn = ''; redraw()">
+          Reset to defaults
+        </button>
+      </div>
+    </div>
+
+    <!-- Typography -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Typography</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="form-control sm:col-span-1">
+            <label class="label" for="font_name">
+              <span class="label-text">Font</span>
+            </label>
+            <select name="font_name" id="font_name"
+                    class="select select-bordered w-full"
+                    x-model="fontName"
+                    @change="redraw()">
+              {% for val, label in font_choices %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control">
+            <label class="label" for="font_size">
+              <span class="label-text">Font size (pt)</span>
+            </label>
+            <input type="number" name="font_size" id="font_size"
+                   step="0.5" min="4" max="72"
+                   class="input input-bordered w-full"
+                   x-model="fontSize"
+                   @input="redraw()">
+          </div>
+          <div class="form-control">
+            <label class="label" for="line_height">
+              <span class="label-text">Line height (pt)</span>
+            </label>
+            <input type="number" name="line_height" id="line_height"
+                   step="0.5" min="4" max="144"
+                   class="input input-bordered w-full"
+                   x-model="lineHeight"
+                   @input="redraw()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USPS IMb Barcode position -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">USPS IMb Barcode (<code>encodedimbno</code>)</h2>
+        <p class="text-xs text-base-content/50">Independent position and size for the IMb barcode. Leave X / Y blank to use the main address block anchor.</p>
+        <div class="grid grid-cols-3 gap-4">
+          <div class="form-control">
+            <label class="label" for="barcode_x_in"><span class="label-text">X (inches from right)</span></label>
+            <input type="number" name="barcode_x_in" id="barcode_x_in"
+                   step="0.0625" min="0" max="20"
+                   class="input input-bordered w-full"
+                   x-model="barcodeXIn"
+                   @input="redraw()"
+                   placeholder="(use addr X)">
+          </div>
+          <div class="form-control">
+            <label class="label" for="barcode_y_in"><span class="label-text">Y (inches from bottom)</span></label>
+            <input type="number" name="barcode_y_in" id="barcode_y_in"
+                   step="0.0625" min="0" max="20"
+                   class="input input-bordered w-full"
+                   x-model="barcodeYIn"
+                   @input="redraw()"
+                   placeholder="(use addr Y)">
+          </div>
+          <div class="form-control">
+            <label class="label" for="barcode_font_size"><span class="label-text">Font size (pt)</span></label>
+            <input type="number" name="barcode_font_size" id="barcode_font_size"
+                   step="0.5" min="8" max="72"
+                   class="input input-bordered w-full"
+                   x-model="barcodeFontSize"
+                   @input="redraw()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tray ID position -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Presort Tray ID (<code>presorttrayid</code>)</h2>
+        <p class="text-xs text-base-content/50">Independent position and size for the tray ID. Leave X / Y blank to include tray ID in the normal address block flow.</p>
+        <div class="grid grid-cols-3 gap-4">
+          <div class="form-control">
+            <label class="label" for="tray_x_in"><span class="label-text">X (inches from right)</span></label>
+            <input type="number" name="tray_x_in" id="tray_x_in"
+                   step="0.0625" min="0" max="20"
+                   class="input input-bordered w-full"
+                   x-model="trayXIn"
+                   @input="redraw()"
+                   placeholder="(in addr flow)">
+          </div>
+          <div class="form-control">
+            <label class="label" for="tray_y_in"><span class="label-text">Y (inches from bottom)</span></label>
+            <input type="number" name="tray_y_in" id="tray_y_in"
+                   step="0.0625" min="0" max="20"
+                   class="input input-bordered w-full"
+                   x-model="trayYIn"
+                   @input="redraw()"
+                   placeholder="(in addr flow)">
+          </div>
+          <div class="form-control">
+            <label class="label" for="tray_font_size"><span class="label-text">Font size (pt)</span></label>
+            <input type="number" name="tray_font_size" id="tray_font_size"
+                   step="0.5" min="4" max="72"
+                   class="input input-bordered w-full"
+                   x-model="trayFontSize"
+                   @input="redraw()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address box size -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Address Box Size</h2>
+        <p class="text-xs text-base-content/50">Width of the address block drawn on the preview canvas. Height is computed from the number of enabled fields × line height.</p>
+        <div class="form-control max-w-xs">
+          <label class="label" for="addr_block_width_in">
+            <span class="label-text">Box width (inches)</span>
+          </label>
+          <input type="number" name="addr_block_width_in" id="addr_block_width_in"
+                 step="0.0625" min="0.5" max="20"
+                 class="input input-bordered w-full"
+                 x-model="addrBlockWidthIn"
+                 @input="redraw()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Address block template editor -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-4">
+        <h2 class="card-title text-base">Address Block Template</h2>
+        <p class="text-xs text-base-content/50">
+          Each line prints as one line of text, top‑to‑bottom.
+          Click a field chip to insert it at the cursor.
+          Use plain text for static lines like <strong>Address Service Requested</strong>.
+          Lines where every <code>{field}</code> is blank in the record are automatically skipped.
+        </p>
+
+        <!-- Field chips -->
+        <div class="flex flex-wrap gap-1.5">
+          <template x-for="field in allFields" :key="field">
+            <button type="button"
+                    class="badge badge-outline badge-sm font-mono cursor-pointer hover:badge-primary transition-colors"
+                    @click="insertField(field)"
+                    x-text="'{' + field + '}'"></button>
+          </template>
+        </div>
+
+        <!-- Textarea -->
+        <textarea
+          id="addressTemplateArea"
+          name="address_template"
+          rows="10"
+          class="textarea textarea-bordered font-mono text-sm w-full leading-relaxed"
+          x-model="addressTemplate"
+          @input="redraw()"
+          placeholder="{presorttrayid}&#10;{name}&#10;{company}&#10;{urbanization}&#10;{sec-primary street}&#10;{primary street}&#10;{city-state-zip}&#10;{encodedimbno}"
+          spellcheck="false"></textarea>
+
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-ghost btn-sm w-fit"
+                  @click="resetTemplate()">
+            Reset to defaults
+          </button>
+        </div>
+
+        <div class="text-xs text-base-content/40 space-y-0.5">
+          <p><code class="bg-base-200 px-1 rounded">{encodedimbno}</code> — USPS IMb barcode (rendered as visual barcode at the configured barcode position)</p>
+          <p><code class="bg-base-200 px-1 rounded">{presorttrayid}</code> — presort tray ID (rendered at its own position if configured, otherwise inline)</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas preview -->
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body gap-3">
+        <div class="flex items-center justify-between">
+          <h2 class="card-title text-base">Preview</h2>
+          <span class="text-xs text-base-content/40">Drag blue&nbsp;(address), amber&nbsp;(barcode), or green&nbsp;(tray ID) blocks to reposition</span>
+        </div>
+        <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3">
+          <canvas id="previewCanvas"
+                  class="max-w-full rounded shadow-sm"
+                  style="max-height:360px; cursor:grab;"
+                  @mousedown="onCanvasMouseDown($event)"
+                  @mousemove="onCanvasMouseMove($event)"
+                  @mouseup="onCanvasMouseUp($event)"
+                  @mouseleave="onCanvasMouseUp($event)"
+                  @touchstart.prevent="onTouchStart($event)"
+                  @touchmove.prevent="onTouchMove($event)"
+                  @touchend.prevent="onCanvasMouseUp($event)"></canvas>
+        </div>
+        <p class="text-xs text-base-content/40 text-center" x-text="positionLabel()"></p>
+      </div>
+    </div>
+
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="btn btn-primary flex-1">Save Defaults</button>
+      <a href="{% url 'mailmerge:list' %}" class="btn btn-ghost flex-1">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script src="{% static 'js/mailmerge/address_block_config.js' %}"></script>
+{% endblock %}
