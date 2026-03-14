@@ -4,7 +4,7 @@
 {% block title %}New Mail Merge Job — Ember{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-10" x-data="mailMergeUpload({{ addr_config.addr_x_in|default:'null' }}, {{ addr_config.addr_y_in|default:'null' }})" @keydown.window="onKeyNav($event)">
+<div class="max-w-3xl mx-auto px-4 py-10" x-data="mailMergeUpload({ addrXIn: {{ addr_config.addr_x_in|default:'null' }}, addrYIn: {{ addr_config.addr_y_in|default:'null' }}, fontPt: {{ addr_config.font_size|default:'null' }}, lineHeightPt: {{ addr_config.line_height|default:'null' }}, barcodeFontPt: {{ addr_config.barcode_font_size|default:'null' }}, barcodeXIn: {{ addr_config.barcode_x_in|default:'null' }}, barcodeYIn: {{ addr_config.barcode_y_in|default:'null' }}, trayXIn: {{ addr_config.tray_x_in|default:'null' }}, trayYIn: {{ addr_config.tray_y_in|default:'null' }}, trayFontPt: {{ addr_config.tray_font_size|default:'null' }}, csvFields: {{ csv_fields_json }} })" @keydown.window="onKeyNav($event)">
 
   <div class="mb-6">
     <h1 class="text-3xl font-extrabold text-base-content tracking-tight">New Mail Merge Job</h1>
@@ -151,10 +151,7 @@
           <div class="card-body py-3 px-4">
             <p class="text-xs font-semibold text-base-content/70 mb-1">Expected CSV columns</p>
             <p class="text-xs text-base-content/50 font-mono leading-relaxed">
-              no, name, contactid, company, urbanization,<br>
-              sec-primary street, primary street, city-state-zip,<br>
-              ase, oel, presorttrayid, presortdate,<br>
-              imbno, encodedimbno, primary city, primary state, primary zip
+              no, name, contactid, company, urbanization, sec-primary street, primary street, city-state-zip, ase, oel, presorttrayid, presortdate, imbno, encodedimbno, primary city, primary state, primary zip
             </p>
           </div>
         </div>
@@ -188,9 +185,8 @@
 })();
 
 var PT_PER_IN = 72;
-var LINE_HEIGHT = 13;
 
-function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
+function mailMergeUpload(cfg) {
   return {
     pdfInfo: null,
     mergePage: 1,
@@ -199,10 +195,9 @@ function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
     _scale: 1,
     _cardWPt: 0,
     _cardHPt: 0,
-    // Cached background: holds the rendered PDF page (without address block)
     _bgCanvas: null,
     _bgValid: false,
-    // CSV record preview
+    _imbFont: null,
     csvRecords: [],
     recordIdx: 0,
 
@@ -223,13 +218,19 @@ function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
       return this.pdfInfo.pages[idx] || null;
     },
 
-    _resolveAddrPt(pageInfo) {
+    // Resolve all drawing positions from config + page dimensions.
+    // x values in config are from-right; convert to PDF left-edge points.
+    _resolvePositions(pageInfo) {
       var cardWPt = pageInfo.width_pt;
       var cardHPt = pageInfo.height_pt;
-      // cfgAddrXIn is inches from the RIGHT edge; convert to PDF left-edge points
-      var addrX = cardWPt - (cfgAddrXIn != null ? cfgAddrXIn : 4.5) * PT_PER_IN;
-      var addrY = (cfgAddrYIn != null ? cfgAddrYIn : 2.5) * PT_PER_IN;
-      return { addrX: addrX, addrY: addrY, cardWPt: cardWPt, cardHPt: cardHPt };
+      var addrX = cardWPt - (cfg.addrXIn != null ? cfg.addrXIn : 4.5) * PT_PER_IN;
+      var addrY = (cfg.addrYIn != null ? cfg.addrYIn : 2.5) * PT_PER_IN;
+      var barcodeX = cfg.barcodeXIn != null ? (cardWPt - cfg.barcodeXIn * PT_PER_IN) : addrX;
+      var barcodeY = cfg.barcodeYIn != null ? cfg.barcodeYIn * PT_PER_IN : addrY;
+      var trayX = cfg.trayXIn != null ? (cardWPt - cfg.trayXIn * PT_PER_IN) : addrX;
+      var trayY = cfg.trayYIn != null ? cfg.trayYIn * PT_PER_IN : null;
+      return { cardWPt: cardWPt, cardHPt: cardHPt, addrX: addrX, addrY: addrY,
+               barcodeX: barcodeX, barcodeY: barcodeY, trayX: trayX, trayY: trayY };
     },
 
     onMergePageChange(page) {
@@ -278,7 +279,6 @@ function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
       reader.readAsText(file);
     },
 
-    // Full re-render: renders PDF background + address block overlay
     renderPreview() {
       var canvas = document.getElementById('previewCanvas');
       if (!canvas || !this.pdfInfo || !this.pdfInfo.pages) return;
@@ -286,18 +286,16 @@ function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
       var pageInfo = this._getCardInfo();
       if (!pageInfo) return;
 
-      var p = this._resolveAddrPt(pageInfo);
-      var addrX = p.addrX, addrY = p.addrY, cardWPt = p.cardWPt, cardHPt = p.cardHPt;
-
+      var pos = this._resolvePositions(pageInfo);
       var maxW = canvas.parentElement.clientWidth - 24;
       var maxH = 300;
-      var scale = Math.min(maxW / cardWPt, maxH / cardHPt, 1);
-      canvas.width  = Math.round(cardWPt * scale);
-      canvas.height = Math.round(cardHPt * scale);
+      var scale = Math.min(maxW / pos.cardWPt, maxH / pos.cardHPt, 1);
+      canvas.width  = Math.round(pos.cardWPt * scale);
+      canvas.height = Math.round(pos.cardHPt * scale);
 
       this._scale = scale;
-      this._cardWPt = cardWPt;
-      this._cardHPt = cardHPt;
+      this._cardWPt = pos.cardWPt;
+      this._cardHPt = pos.cardHPt;
       this._bgValid = false;
 
       var ctx = canvas.getContext('2d');
@@ -313,10 +311,10 @@ function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
             canvas.height = viewport.height;
             page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
               self._cacheBg(canvas);
-              self._drawAddressText(ctx, addrX, addrY, scale, cardHPt);
+              self._drawAddressText(ctx, pos, scale);
             });
           }).catch(function() {
-            self._drawPlaceholder(ctx, canvas.width, canvas.height, addrX, addrY, scale, cardHPt);
+            self._drawPlaceholder(ctx, canvas.width, canvas.height, pos, scale);
           });
         };
 
@@ -330,17 +328,16 @@ function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
               self._pdfDoc = doc;
               renderPage(doc);
             }).catch(function() {
-              self._drawPlaceholder(ctx, canvas.width, canvas.height, addrX, addrY, scale, cardHPt);
+              self._drawPlaceholder(ctx, canvas.width, canvas.height, pos, scale);
             });
           };
           reader.readAsArrayBuffer(this._artworkFile);
         }
       } else {
-        this._drawPlaceholder(ctx, canvas.width, canvas.height, addrX, addrY, scale, cardHPt);
+        this._drawPlaceholder(ctx, canvas.width, canvas.height, pos, scale);
       }
     },
 
-    // Cache the background (PDF render without address block)
     _cacheBg(canvas) {
       if (!this._bgCanvas) this._bgCanvas = document.createElement('canvas');
       this._bgCanvas.width = canvas.width;
@@ -349,13 +346,12 @@ function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
       this._bgValid = true;
     },
 
-    // Redraw only the overlay (fast, no PDF re-render) — used during drag and record navigation
     _drawOverlay() {
       var canvas = document.getElementById('previewCanvas');
       if (!canvas) return;
       var pageInfo = this._getCardInfo();
       if (!pageInfo) return;
-      var p = this._resolveAddrPt(pageInfo);
+      var pos = this._resolvePositions(pageInfo);
       var scale = this._scale || 1;
       var ctx = canvas.getContext('2d');
       if (this._bgValid && this._bgCanvas) {
@@ -364,10 +360,10 @@ function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
         this.renderPreview();
         return;
       }
-      this._drawAddressText(ctx, p.addrX, p.addrY, scale, p.cardHPt);
+      this._drawAddressText(ctx, pos, scale);
     },
 
-    _drawPlaceholder(ctx, w, h, addrX, addrY, scale, cardHPt) {
+    _drawPlaceholder(ctx, w, h, pos, scale) {
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(0, 0, w, h);
       ctx.strokeStyle = '#cbd5e1';
@@ -380,25 +376,78 @@ function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
       ctx.font = Math.max(8, 11 * scale) + 'px sans-serif';
       ctx.fillText('(upload a PDF to see preview)', w / 2, h / 2 + 8 * scale);
       this._bgValid = false;
-      this._drawAddressText(ctx, addrX, addrY, scale, cardHPt);
+      this._drawAddressText(ctx, pos, scale);
     },
 
-    _drawAddressText(ctx, addrX, addrY, scale, cardHPt) {
+    _drawAddressText(ctx, pos, scale) {
       var rec = this.currentRecord;
       if (!rec) return;
-      var lines = _buildAddressLines(rec);
-      if (!lines.length) return;
-      ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,0.85)';
-      var fontSize = Math.max(6, 9 * scale);
-      ctx.font = fontSize + 'px monospace';
-      ctx.textAlign = 'left';
-      var lineH = LINE_HEIGHT * scale;
-      var bottomY = (cardHPt - addrY) * scale;
-      for (var i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], addrX * scale, bottomY - (lines.length - 1 - i) * lineH);
+
+      var fields = (cfg.csvFields && cfg.csvFields.length)
+        ? cfg.csvFields
+        : ['encodedimbno', 'city-state-zip', 'primary street', 'sec-primary street', 'urbanization', 'company', 'name', 'presorttrayid'];
+      var fontSizePt   = cfg.fontPt        != null ? cfg.fontPt        : 9;
+      var lineHeightPt = cfg.lineHeightPt  != null ? cfg.lineHeightPt  : 13;
+      var barcodeFontPt = cfg.barcodeFontPt != null ? cfg.barcodeFontPt : 14;
+      var trayFontPt   = cfg.trayFontPt    != null ? cfg.trayFontPt    : fontSizePt;
+      var hasSeparateTray = pos.trayY != null;
+
+      // Build regular address lines (bottom → top order from fields list).
+      // encodedimbno rendered via IMb font at its own position.
+      // presorttrayid rendered at its own position when tray_y is configured.
+      var lines = [];
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        var val = (rec[f] || '').trim();
+        if (!val) continue;
+        if (f === 'encodedimbno') continue;
+        if (f === 'presorttrayid' && hasSeparateTray) continue;
+        lines.push(val);
       }
-      ctx.restore();
+
+      // Draw regular address text
+      if (lines.length) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.font = Math.max(6, fontSizePt * scale) + 'px Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'left';
+        var lineH = lineHeightPt * scale;
+        var baseY = (pos.cardHPt - pos.addrY) * scale;
+        for (var j = 0; j < lines.length; j++) {
+          ctx.fillText(lines[j], pos.addrX * scale, baseY - j * lineH);
+        }
+        ctx.restore();
+      }
+
+      // Draw USPS IMb barcode (encodedimbno)
+      var barcodeVal = (rec['encodedimbno'] || '').trim();
+      if (barcodeVal) {
+        ctx.save();
+        var bFontPx = Math.max(8, barcodeFontPt * scale);
+        if (this._imbFont) {
+          ctx.font = bFontPx + 'px USPSIMBStandard';
+        } else {
+          ctx.font = 'italic ' + Math.max(6, 8 * scale) + 'px monospace';
+          barcodeVal = '[Barcode] ' + barcodeVal.substring(0, 20);
+        }
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.textAlign = 'left';
+        ctx.fillText(barcodeVal, pos.barcodeX * scale, (pos.cardHPt - pos.barcodeY) * scale);
+        ctx.restore();
+      }
+
+      // Draw tray ID (presorttrayid) at its dedicated position
+      if (hasSeparateTray) {
+        var trayVal = (rec['presorttrayid'] || '').trim();
+        if (trayVal) {
+          ctx.save();
+          ctx.font = Math.max(6, trayFontPt * scale) + 'px Helvetica, Arial, sans-serif';
+          ctx.fillStyle = 'rgba(0,0,0,0.85)';
+          ctx.textAlign = 'left';
+          ctx.fillText(trayVal, pos.trayX * scale, (pos.cardHPt - pos.trayY) * scale);
+          ctx.restore();
+        }
+      }
     },
 
     onKeyNav(e) {
@@ -407,22 +456,18 @@ function mailMergeUpload(cfgAddrXIn, cfgAddrYIn) {
       if (e.key === 'ArrowRight') this.nextRecord();
     },
 
-    init() {},
+    init() {
+      if (typeof FontFace !== 'undefined') {
+        var self = this;
+        var fontUrl = '{% static "fonts/usps/USPSIMBStandard.ttf" %}';
+        var face = new FontFace('USPSIMBStandard', 'url(' + fontUrl + ')');
+        face.load().then(function(loaded) {
+          document.fonts.add(loaded);
+          self._imbFont = loaded;
+        }).catch(function() {});
+      }
+    },
   };
-}
-
-// Build address lines (bottom to top order) from a USPS CSV record
-function _buildAddressLines(rec) {
-  var lines = [];
-  if (rec['city-state-zip']) lines.push(rec['city-state-zip']);
-  if (rec['primary street']) lines.push(rec['primary street']);
-  if (rec['sec-primary street']) lines.push(rec['sec-primary street']);
-  if (rec.urbanization) lines.push(rec.urbanization);
-  if (rec.company) lines.push(rec.company);
-  if (rec.name) lines.push(rec.name);
-  if (rec.imbno) lines.push(rec.imbno);
-  lines.reverse();
-  return lines;
 }
 
 // Minimal CSV parser (handles quoted fields with commas)

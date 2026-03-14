@@ -4,7 +4,7 @@
 {% block title %}{{ job.name|default:"Mail Merge Job" }} — Ember{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-10 pb-28" x-data="mmDetail()" @keydown.window="onKeyNav($event)">
+<div class="max-w-3xl mx-auto px-4 py-10 pb-28" x-data="mmDetail('{% url "mailmerge:serve_artwork" job.pk %}', '{% url "mailmerge:records" job.pk %}')" @keydown.window="onKeyNav($event)">
 
   <div class="flex items-start justify-between gap-4 mb-6">
     <div>
@@ -206,16 +206,23 @@
           <button class="btn btn-ghost btn-xs" @click="nextRecord()" :disabled="recordIdx === records.length - 1">&#8594;</button>
         </div>
       </div>
-      <div class="bg-base-200 rounded-lg p-3 text-xs font-mono space-y-0.5" x-show="currentRecord">
+      <!-- Canvas preview -->
+      <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3"
+           x-show="canvasReady">
+        <canvas id="detailPreviewCanvas"
+                class="max-w-full rounded shadow-sm"
+                style="max-height:320px;"></canvas>
+      </div>
+      <!-- Text fallback while canvas loads or if artwork unavailable -->
+      <div class="bg-base-200 rounded-lg p-3 text-xs font-mono space-y-0.5"
+           x-show="!canvasReady && currentRecord">
         <template x-if="currentRecord">
           <div>
-            <p x-show="currentRecord.imbno" class="text-base-content/50" x-text="'IMb: ' + (currentRecord.imbno || '')"></p>
-            <p x-show="currentRecord.name" class="font-semibold" x-text="currentRecord.name"></p>
-            <p x-show="currentRecord.company" x-text="currentRecord.company"></p>
-            <p x-show="currentRecord.urbanization" x-text="currentRecord.urbanization"></p>
-            <p x-show="currentRecord['sec-primary street']" x-text="currentRecord['sec-primary street']"></p>
-            <p x-show="currentRecord['primary street']" x-text="currentRecord['primary street']"></p>
-            <p x-show="currentRecord['city-state-zip']" x-text="currentRecord['city-state-zip']"></p>
+            <template x-for="line in currentRecordLines" :key="line.field">
+              <p :class="line.field === 'encodedimbno' ? 'text-base-content/50 text-[10px]' : (line.field === 'presorttrayid' ? 'text-base-content/40 text-[10px]' : '')"
+                 x-text="line.field === 'encodedimbno' ? '[Barcode] ' + line.value.substring(0, 20) : (line.field === 'presorttrayid' ? 'Tray: ' + line.value : line.value)">
+              </p>
+            </template>
           </div>
         </template>
       </div>
@@ -229,36 +236,235 @@
 
 </div>
 
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
-function mmDetail() {
+(function () {
+  if (typeof pdfjsLib !== 'undefined') {
+    var _w = new URL('{% static "vendor/pdfjs/pdf.worker.min.js" %}', window.location.origin).href;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = _w;
+  }
+})();
+
+var _DETAIL_CFG = {
+  addrXIn:      {{ addr_config.addr_x_in|default:'null' }},
+  addrYIn:      {{ addr_config.addr_y_in|default:'null' }},
+  fontPt:       {{ addr_config.font_size|default:'null' }},
+  lineHeightPt: {{ addr_config.line_height|default:'null' }},
+  barcodeFontPt:{{ addr_config.barcode_font_size|default:'null' }},
+  barcodeXIn:   {{ addr_config.barcode_x_in|default:'null' }},
+  barcodeYIn:   {{ addr_config.barcode_y_in|default:'null' }},
+  trayXIn:      {{ addr_config.tray_x_in|default:'null' }},
+  trayYIn:      {{ addr_config.tray_y_in|default:'null' }},
+  trayFontPt:   {{ addr_config.tray_font_size|default:'null' }},
+  csvFields:    {{ csv_fields_json }},
+  mergePageIdx: {{ job.merge_page|default:1 }} - 1,
+  cardWPt:      {{ job.card_width|default:'null' }},
+  cardHPt:      {{ job.card_height|default:'null' }},
+};
+
+var PT_PER_IN_D = 72;
+
+function mmDetail(artworkUrl, recordsUrl) {
   return {
     records: [],
     recordIdx: 0,
+    canvasReady: false,
+    _pdfDoc: null,
+    _bgCanvas: null,
+    _bgValid: false,
+    _scale: 1,
+    _imbFont: null,
+
     get currentRecord() {
       return this.records[this.recordIdx] || null;
     },
+
+    get currentRecordLines() {
+      var rec = this.currentRecord;
+      if (!rec) return [];
+      var fields = (_DETAIL_CFG.csvFields && _DETAIL_CFG.csvFields.length)
+        ? _DETAIL_CFG.csvFields
+        : ['encodedimbno', 'city-state-zip', 'primary street', 'sec-primary street', 'urbanization', 'company', 'name', 'presorttrayid'];
+      var out = [];
+      // Reverse to show top-to-bottom on screen
+      for (var i = fields.length - 1; i >= 0; i--) {
+        var val = (rec[fields[i]] || '').trim();
+        if (val) out.push({ field: fields[i], value: val });
+      }
+      return out;
+    },
+
     prevRecord() {
-      if (this.recordIdx > 0) this.recordIdx--;
+      if (this.recordIdx > 0) { this.recordIdx--; this._drawOverlay(); }
     },
     nextRecord() {
-      if (this.recordIdx < this.records.length - 1) this.recordIdx++;
+      if (this.recordIdx < this.records.length - 1) { this.recordIdx++; this._drawOverlay(); }
     },
-    init() {
-      {% comment %}
-      Records view not yet implemented
-      {% if job.status == "done" and job.record_count %}
+
+    _resolvePositions() {
+      var cardWPt = _DETAIL_CFG.cardWPt || 432;
+      var cardHPt = _DETAIL_CFG.cardHPt || 288;
+      var addrX = cardWPt - (_DETAIL_CFG.addrXIn != null ? _DETAIL_CFG.addrXIn : 4.5) * PT_PER_IN_D;
+      var addrY = (_DETAIL_CFG.addrYIn != null ? _DETAIL_CFG.addrYIn : 2.5) * PT_PER_IN_D;
+      var barcodeX = _DETAIL_CFG.barcodeXIn != null ? (cardWPt - _DETAIL_CFG.barcodeXIn * PT_PER_IN_D) : addrX;
+      var barcodeY = _DETAIL_CFG.barcodeYIn != null ? _DETAIL_CFG.barcodeYIn * PT_PER_IN_D : addrY;
+      var trayX = _DETAIL_CFG.trayXIn != null ? (cardWPt - _DETAIL_CFG.trayXIn * PT_PER_IN_D) : addrX;
+      var trayY = _DETAIL_CFG.trayYIn != null ? _DETAIL_CFG.trayYIn * PT_PER_IN_D : null;
+      return { cardWPt: cardWPt, cardHPt: cardHPt, addrX: addrX, addrY: addrY,
+               barcodeX: barcodeX, barcodeY: barcodeY, trayX: trayX, trayY: trayY };
+    },
+
+    _drawAddressText(ctx, pos, scale) {
+      var rec = this.currentRecord;
+      if (!rec) return;
+      var fields = (_DETAIL_CFG.csvFields && _DETAIL_CFG.csvFields.length)
+        ? _DETAIL_CFG.csvFields
+        : ['encodedimbno', 'city-state-zip', 'primary street', 'sec-primary street', 'urbanization', 'company', 'name', 'presorttrayid'];
+      var fontSizePt   = _DETAIL_CFG.fontPt        != null ? _DETAIL_CFG.fontPt        : 9;
+      var lineHeightPt = _DETAIL_CFG.lineHeightPt  != null ? _DETAIL_CFG.lineHeightPt  : 13;
+      var barcodeFontPt = _DETAIL_CFG.barcodeFontPt != null ? _DETAIL_CFG.barcodeFontPt : 14;
+      var trayFontPt   = _DETAIL_CFG.trayFontPt    != null ? _DETAIL_CFG.trayFontPt    : fontSizePt;
+      var hasSeparateTray = pos.trayY != null;
+
+      var lines = [];
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        var val = (rec[f] || '').trim();
+        if (!val) continue;
+        if (f === 'encodedimbno') continue;
+        if (f === 'presorttrayid' && hasSeparateTray) continue;
+        lines.push(val);
+      }
+
+      if (lines.length) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.font = Math.max(6, fontSizePt * scale) + 'px Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'left';
+        var lineH = lineHeightPt * scale;
+        var baseY = (pos.cardHPt - pos.addrY) * scale;
+        for (var j = 0; j < lines.length; j++) {
+          ctx.fillText(lines[j], pos.addrX * scale, baseY - j * lineH);
+        }
+        ctx.restore();
+      }
+
+      var barcodeVal = (rec['encodedimbno'] || '').trim();
+      if (barcodeVal) {
+        ctx.save();
+        var bFontPx = Math.max(8, barcodeFontPt * scale);
+        if (this._imbFont) {
+          ctx.font = bFontPx + 'px USPSIMBStandard';
+        } else {
+          ctx.font = 'italic ' + Math.max(6, 8 * scale) + 'px monospace';
+          barcodeVal = '[Barcode] ' + barcodeVal.substring(0, 20);
+        }
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx.textAlign = 'left';
+        ctx.fillText(barcodeVal, pos.barcodeX * scale, (pos.cardHPt - pos.barcodeY) * scale);
+        ctx.restore();
+      }
+
+      if (hasSeparateTray) {
+        var trayVal = (rec['presorttrayid'] || '').trim();
+        if (trayVal) {
+          ctx.save();
+          ctx.font = Math.max(6, trayFontPt * scale) + 'px Helvetica, Arial, sans-serif';
+          ctx.fillStyle = 'rgba(0,0,0,0.85)';
+          ctx.textAlign = 'left';
+          ctx.fillText(trayVal, pos.trayX * scale, (pos.cardHPt - pos.trayY) * scale);
+          ctx.restore();
+        }
+      }
+    },
+
+    _cacheBg(canvas) {
+      if (!this._bgCanvas) this._bgCanvas = document.createElement('canvas');
+      this._bgCanvas.width = canvas.width;
+      this._bgCanvas.height = canvas.height;
+      this._bgCanvas.getContext('2d').drawImage(canvas, 0, 0);
+      this._bgValid = true;
+    },
+
+    _renderCanvas() {
+      var canvas = document.getElementById('detailPreviewCanvas');
+      if (!canvas) return;
+      var pos = this._resolvePositions();
+      var maxW = canvas.parentElement.clientWidth - 24;
+      var maxH = 300;
+      var scale = Math.min(maxW / pos.cardWPt, maxH / pos.cardHPt, 1);
+      this._scale = scale;
+      var ctx = canvas.getContext('2d');
       var self = this;
-      fetch('/mailmerge/' + job.pk + '/records/')
-        .then(function(r) { return r.json(); })
-        .then(function(data) { self.records = data.records || []; })
-        .catch(function() {});
-      {% endif %}
-      {% endcomment %}
+
+      var renderPage = function(doc) {
+        var pageIdx = Math.max(0, _DETAIL_CFG.mergePageIdx || 0);
+        doc.getPage(pageIdx + 1).then(function(page) {
+          var viewport = page.getViewport({ scale: scale });
+          canvas.width  = viewport.width;
+          canvas.height = viewport.height;
+          page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
+            self._cacheBg(canvas);
+            self.canvasReady = true;
+            self._drawAddressText(ctx, pos, scale);
+          });
+        }).catch(function() { self.canvasReady = false; });
+      };
+
+      if (this._pdfDoc) {
+        renderPage(this._pdfDoc);
+      } else if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.getDocument({ url: artworkUrl }).promise.then(function(doc) {
+          self._pdfDoc = doc;
+          renderPage(doc);
+        }).catch(function() { self.canvasReady = false; });
+      }
     },
+
+    _drawOverlay() {
+      var canvas = document.getElementById('detailPreviewCanvas');
+      if (!canvas || !this.canvasReady) return;
+      var ctx = canvas.getContext('2d');
+      if (this._bgValid && this._bgCanvas) {
+        ctx.drawImage(this._bgCanvas, 0, 0);
+      } else {
+        this._renderCanvas();
+        return;
+      }
+      var pos = this._resolvePositions();
+      this._drawAddressText(ctx, pos, this._scale);
+    },
+
     onKeyNav(e) {
       if (this.records.length < 2) return;
       if (e.key === 'ArrowLeft') this.prevRecord();
       if (e.key === 'ArrowRight') this.nextRecord();
+    },
+
+    init() {
+      var self = this;
+
+      // Load IMb font
+      if (typeof FontFace !== 'undefined') {
+        var fontUrl = '{% static "fonts/usps/USPSIMBStandard.ttf" %}';
+        var face = new FontFace('USPSIMBStandard', 'url(' + fontUrl + ')');
+        face.load().then(function(loaded) {
+          document.fonts.add(loaded);
+          self._imbFont = loaded;
+          if (self.canvasReady) self._drawOverlay();
+        }).catch(function() {});
+      }
+
+      // Fetch records from server
+      fetch(recordsUrl, { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          self.records = data.records || [];
+          if (self.records.length) {
+            self.$nextTick(function() { self._renderCanvas(); });
+          }
+        })
+        .catch(function() {});
     },
   };
 }
