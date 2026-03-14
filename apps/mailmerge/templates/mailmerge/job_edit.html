@@ -5,7 +5,7 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto px-4 py-10"
-     x-data="mailMergeEdit({% if job.card_width %}{{ job.card_width }},{{ job.card_height }}{% else %}0,0{% endif %}, {{ job.artwork_page_count|default:1 }}, {{ job.merge_page|default:1 }}, '{% url "mailmerge:serve_artwork" job.pk %}', '')"
+     x-data="mailMergeEdit({% if job.card_width %}{{ job.card_width }},{{ job.card_height }}{% else %}0,0{% endif %}, {{ job.artwork_page_count|default:1 }}, {{ job.merge_page|default:1 }}, '{% url "mailmerge:serve_artwork" job.pk %}', '', {{ addr_config.addr_x_in|default:'null' }}, {{ addr_config.addr_y_in|default:'null' }}, {{ addr_config.addr_block_width_in|default:'4.25' }}, {{ addr_config.csv_fields|length|default:7 }})"
      @keydown.window="onKeyNav($event)">
 
   <div class="mb-6">
@@ -91,40 +91,6 @@
         <input type="hidden" name="merge_page" value="{{ job.merge_page|default:1 }}">
         {% endif %}
 
-        <!-- Address block position -->
-        <div>
-          <p class="text-sm font-medium text-base-content mb-3">Address Block Position</p>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="form-control">
-              <label class="label" for="addr_x_in">
-                <span class="label-text">Right edge (inches from card right)</span>
-              </label>
-              <input type="number" name="addr_x_in" id="addr_x_in" step="0.0625" min="0"
-                     class="input input-bordered w-full"
-                     x-model="addrXIn"
-                     @input="onAddrInputChange()"
-                     placeholder="4.5">
-              <label class="label">
-                <span class="label-text-alt text-base-content/40">
-                  Default: 4.5&Prime; from card right
-                </span>
-              </label>
-            </div>
-            <div class="form-control">
-              <label class="label" for="addr_y_in">
-                <span class="label-text">Bottom edge (inches from card bottom)</span>
-              </label>
-              <input type="number" name="addr_y_in" id="addr_y_in" step="0.0625" min="0"
-                     class="input input-bordered w-full"
-                     x-model="addrYIn"
-                     @input="onAddrInputChange()"
-                     placeholder="2.5">
-              <label class="label">
-                <span class="label-text-alt text-base-content/40">Default: 2.5&Prime;</span>
-              </label>
-            </div>
-          </div>
-        </div>
 
         <!-- Canvas preview -->
         <div>
@@ -139,19 +105,12 @@
                 </div>
               </template>
             </div>
-            <span class="text-xs text-base-content/40">Drag the blue address block to reposition</span>
+            <span class="text-xs text-base-content/40">Position set in <a href="{% url 'mailmerge:address_block_config' %}" class="link">Address Block Config</a></span>
           </div>
           <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3">
             <canvas id="previewCanvas"
                     class="max-w-full rounded shadow-sm"
-                    style="max-height:320px; cursor:grab;"
-                    @mousedown="onCanvasMouseDown($event)"
-                    @mousemove="onCanvasMouseMove($event)"
-                    @mouseup="onCanvasMouseUp($event)"
-                    @mouseleave="onCanvasMouseUp($event)"
-                    @touchstart.prevent="onTouchStart($event)"
-                    @touchmove.prevent="onTouchMove($event)"
-                    @touchend.prevent="onCanvasMouseUp($event)"></canvas>
+                    style="max-height:320px;"></canvas>
           </div>
         </div>
 
@@ -186,22 +145,17 @@
 
 var PT_PER_IN = 72;
 var LINE_HEIGHT = 13;
-var NUM_LINES = 7;
-var ADDR_BLOCK_W_PT = 4.25 * PT_PER_IN;
-var ADDR_BLOCK_H_PT = NUM_LINES * LINE_HEIGHT;
-var GRID_SNAP_IN = 0.0625; // snap to 1/16"
 
-function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl, recordsUrl) {
+function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl, recordsUrl, cfgAddrXIn, cfgAddrYIn, cfgAddrBlockWidthIn, cfgNumFields) {
+  var addrBlockWPt = (cfgAddrBlockWidthIn || 4.25) * PT_PER_IN;
+  var numLines     = cfgNumFields || 7;
+  var addrBlockHPt = numLines * LINE_HEIGHT;
+
   return {
     cardWPt: cardWPt || 432,
     cardHPt: cardHPt || 288,
     pageCount: pageCount || 1,
     mergePage: initialMergePage || 1,
-    addrXIn: '{{ job.addr_x_in|default:"" }}',
-    addrYIn: '{{ job.addr_y_in|default:"" }}',
-    isDragging: false,
-    _dragOffsetX: 0,
-    _dragOffsetY: 0,
     _pdfDoc: null,
     _scale: 1,
     artworkUrl: artworkUrl,
@@ -212,10 +166,6 @@ function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl
     // Record preview
     records: [],
     recordIdx: 0,
-
-    get addrXDefault() {
-      return 4.5;
-    },
 
     get currentRecord() {
       return this.records[this.recordIdx] || null;
@@ -229,10 +179,9 @@ function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl
     },
 
     _resolveAddrPt() {
-      // addrXIn is inches from the RIGHT edge; convert to PDF left-edge points
-      var addrX = this.cardWPt - (this.addrXIn !== '' ? parseFloat(this.addrXIn) : 4.5) * PT_PER_IN;
-      var addrY = this.addrYIn !== '' ? parseFloat(this.addrYIn) * PT_PER_IN
-                                      : 2.5 * PT_PER_IN;
+      // cfgAddrXIn is inches from the RIGHT edge; convert to PDF left-edge points
+      var addrX = this.cardWPt - (cfgAddrXIn != null ? cfgAddrXIn : 4.5) * PT_PER_IN;
+      var addrY = (cfgAddrYIn != null ? cfgAddrYIn : 2.5) * PT_PER_IN;
       return { addrX: addrX, addrY: addrY };
     },
 
@@ -257,11 +206,6 @@ function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl
     onMergePageChange(page) {
       this.mergePage = page;
       this._pdfDoc = null;
-      this._bgValid = false;
-      this.renderPreview();
-    },
-
-    onAddrInputChange() {
       this._bgValid = false;
       this.renderPreview();
     },
@@ -355,9 +299,9 @@ function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl
 
     _drawAddressBlock(ctx, addrX, addrY, scale, cardHPt) {
       var cx = addrX * scale;
-      var cy = (cardHPt - addrY - ADDR_BLOCK_H_PT) * scale;
-      var cw = ADDR_BLOCK_W_PT * scale;
-      var ch = ADDR_BLOCK_H_PT * scale;
+      var cy = (cardHPt - addrY - addrBlockHPt) * scale;
+      var cw = addrBlockWPt * scale;
+      var ch = addrBlockHPt * scale;
 
       ctx.save();
       ctx.fillStyle = 'rgba(59,130,246,0.12)';
@@ -382,84 +326,10 @@ function mailMergeEdit(cardWPt, cardHPt, pageCount, initialMergePage, artworkUrl
         ctx.font = 'bold ' + Math.max(8, 9 * scale) + 'px sans-serif';
         ctx.textAlign = 'left';
         ctx.fillText('Address Block', cx + 3 * scale, cy + 12 * scale);
-        ctx.fillStyle = 'rgba(59,130,246,0.6)';
-        ctx.font = Math.max(7, 8 * scale) + 'px sans-serif';
-        ctx.fillText('drag to reposition', cx + 3 * scale, cy + 22 * scale);
       }
       ctx.restore();
     },
 
-    _canvasEventCoords(event) {
-      var canvas = document.getElementById('previewCanvas');
-      var rect = canvas.getBoundingClientRect();
-      var scaleX = canvas.width / rect.width;
-      var scaleY = canvas.height / rect.height;
-      var src = event.touches ? event.touches[0] : event;
-      return {
-        cx: (src.clientX - rect.left) * scaleX,
-        cy: (src.clientY - rect.top) * scaleY,
-      };
-    },
-
-    _isInsideBlock(cx, cy) {
-      var p = this._resolveAddrPt();
-      var scale = this._scale || 1;
-      var bx = p.addrX * scale;
-      var by = (this.cardHPt - p.addrY - ADDR_BLOCK_H_PT) * scale;
-      var bw = ADDR_BLOCK_W_PT * scale;
-      var bh = ADDR_BLOCK_H_PT * scale;
-      return cx >= bx && cx <= bx + bw && cy >= by && cy <= by + bh;
-    },
-
-    onCanvasMouseDown(event) {
-      var coords = this._canvasEventCoords(event);
-      if (!this._isInsideBlock(coords.cx, coords.cy)) return;
-      var p = this._resolveAddrPt();
-      var scale = this._scale || 1;
-      var bx = p.addrX * scale;
-      var by = (this.cardHPt - p.addrY - ADDR_BLOCK_H_PT) * scale;
-      this.isDragging = true;
-      this._dragOffsetX = coords.cx - bx;
-      this._dragOffsetY = coords.cy - by;
-      event.target.style.cursor = 'grabbing';
-    },
-
-    onCanvasMouseMove(event) {
-      if (!this.isDragging) return;
-      var coords = this._canvasEventCoords(event);
-      var scale = this._scale || 1;
-      var cardWPt = this.cardWPt;
-      var cardHPt = this.cardHPt;
-
-      var newLeftPt  = (coords.cx - this._dragOffsetX) / scale;
-      var newTopCvPt = (coords.cy - this._dragOffsetY) / scale;
-      var newAddrY = cardHPt - newTopCvPt - ADDR_BLOCK_H_PT;
-
-      var clampedX = Math.max(0, Math.min(newLeftPt, cardWPt - ADDR_BLOCK_W_PT));
-      var clampedY = Math.max(0, Math.min(newAddrY, cardHPt - ADDR_BLOCK_H_PT));
-
-      // Snap to 1/16" grid
-      var snapPt = GRID_SNAP_IN * PT_PER_IN;
-      clampedX = Math.round(clampedX / snapPt) * snapPt;
-      clampedY = Math.round(clampedY / snapPt) * snapPt;
-
-      // Store X as from-right (card_w - left_edge)
-      this.addrXIn = ((cardWPt - clampedX) / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
-      this.addrYIn = (clampedY / PT_PER_IN).toFixed(4).replace(/\.?0+$/, '');
-      // Fast overlay-only redraw — no PDF re-render during drag
-      this._drawOverlay();
-    },
-
-    onCanvasMouseUp(event) {
-      if (this.isDragging) {
-        this.isDragging = false;
-        var canvas = document.getElementById('previewCanvas');
-        if (canvas) canvas.style.cursor = 'grab';
-      }
-    },
-
-    onTouchStart(event) { this.onCanvasMouseDown(event); },
-    onTouchMove(event)  { this.onCanvasMouseMove(event); },
   };
 }
 

@@ -123,17 +123,6 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
             card_width = p["width_pt"]
             card_height = p["height_pt"]
 
-        # Address block position (inches)
-        def _parse_float(key):
-            val = request.POST.get(key, "").strip()
-            try:
-                return float(val) if val else None
-            except ValueError:
-                return None
-
-        addr_x_in = _parse_float("addr_x_in")
-        addr_y_in = _parse_float("addr_y_in")
-
         # Imposition template selection
         impose_template = None
         impose_template_id = request.POST.get("impose_template_id", "").strip()
@@ -155,8 +144,6 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
             merge_page=merge_page,
             card_width=card_width,
             card_height=card_height,
-            addr_x_in=addr_x_in,
-            addr_y_in=addr_y_in,
             impose_template=impose_template,
             owner=request.user if request.user.is_authenticated else None,
         )
@@ -202,10 +189,13 @@ class MailMergeJobEditView(View):
     def _get_context(self, job):
         from apps.impose.models import ImpositionTemplate
 
+        from .models import AddressBlockConfig
+
         templates = ImpositionTemplate.objects.filter(allow_mailmerge=True).order_by(
             "name"
         )
-        return {"job": job, "impose_templates": templates}
+        addr_config = AddressBlockConfig.get_solo()
+        return {"job": job, "impose_templates": templates, "addr_config": addr_config}
 
     def get(self, request, pk):
         job = get_object_or_404(MailMergeJob, pk=pk)
@@ -223,18 +213,6 @@ class MailMergeJobEditView(View):
         except (TypeError, ValueError):
             merge_page = job.merge_page
         job.merge_page = max(1, min(merge_page, max(job.artwork_page_count or 1, 1)))
-
-        def _parse_float(key):
-            val = request.POST.get(key, "").strip()
-            try:
-                return float(val) if val else None
-            except ValueError:
-                return None
-
-        addr_x_in = _parse_float("addr_x_in")
-        addr_y_in = _parse_float("addr_y_in")
-        job.addr_x_in = addr_x_in
-        job.addr_y_in = addr_y_in
 
         # Imposition template selection
         impose_template_id = request.POST.get("impose_template_id", "").strip()
