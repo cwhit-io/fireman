@@ -170,8 +170,8 @@
                     x-model="isDoubleSided"
                     @change="if(isDoubleSided){ pagesAreUnique=false; updateHints() }">
                   <div>
-                    <p class="text-sm font-medium text-base-content group-hover:text-info transition-colors">Two-sided (duplex)</p>
-                    <p class="text-xs text-base-content/60 mt-1">Print on both sides of the sheet. Checking this clears "Pages are unique".</p>
+                    <p class="text-sm font-medium text-base-content group-hover:text-info transition-colors">Duplex</p>
+                    <p class="text-xs text-base-content/60 mt-1">2-Sided: Checking this clears "Pages are unique".</p>
                   </div>
                 </label>
 
@@ -224,7 +224,7 @@ function uploadForm() {
     submitting: false,
     isDoubleSided: true,
     pagesAreUnique: false,
-    pagesUniqueHint: 'Step-and-repeat / stack-cut: all positions print the same content.',
+    pagesUniqueHint: '1-Sided: Step-and-repeat / stack-cut',
 
     onSubmit(event) {
       this.submitting = true;
