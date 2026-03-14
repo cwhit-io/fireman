@@ -145,13 +145,14 @@ FONT_CHOICES = [
 ]
 
 DEFAULT_CSV_FIELDS = [
+    "encodedimbno",  # bottom — rendered as USPS IMb visual barcode
     "city-state-zip",
     "primary street",
     "sec-primary street",
     "urbanization",
     "company",
     "name",
-    "imbno",
+    "presorttrayid",  # top
 ]
 
 
@@ -236,6 +237,69 @@ class AddressBlockConfig(models.Model):
         help_text=(
             "Ordered list of CSV column keys to include in the address block "
             "(bottom-to-top). Leave empty to use all default USPS fields."
+        ),
+    )
+
+    # ── Barcode (encodedimbno) ────────────────────────────────────────────
+    barcode_font_size = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=14.0,
+        help_text=(
+            "Point size for the USPS IMb barcode line (encodedimbno field). "
+            "14pt renders the barcode at USPS-spec dimensions."
+        ),
+    )
+    barcode_x_in = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=(
+            "Left edge of the IMb barcode from card left (inches). "
+            "Leave blank to use the main address block X position."
+        ),
+    )
+    barcode_y_in = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=(
+            "Bottom baseline of the IMb barcode from card bottom (inches). "
+            "Leave blank to use the main address block Y position."
+        ),
+    )
+
+    # ── Tray ID (presorttrayid) ───────────────────────────────────────────
+    tray_x_in = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=(
+            "Left edge of the presort tray ID from card left (inches). "
+            "Leave blank to include tray ID in the normal address block flow."
+        ),
+    )
+    tray_y_in = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=(
+            "Bottom baseline of the presort tray ID from card bottom (inches). "
+            "Leave blank to include tray ID in the normal address block flow."
+        ),
+    )
+    tray_font_size = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Font size for the tray ID text (points). "
+            "Leave blank to use the main address font size."
         ),
     )
 

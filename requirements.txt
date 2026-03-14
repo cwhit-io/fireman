@@ -33,6 +33,9 @@ psycopg2-binary==2.9.10
 # Static files (production)
 whitenoise==6.12.0
 
+# PDF / fonts
+reportlab==4.4.1
+
 # UI / Admin
 django-daisy==2.0.8
 

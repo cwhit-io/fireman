@@ -48,6 +48,11 @@ def process_mail_merge_task(job_id: str) -> None:
             float(addr_config.line_height) if addr_config.line_height else None
         )
         cfg_fields = addr_config.csv_fields or None
+        cfg_barcode_font_size = (
+            float(addr_config.barcode_font_size)
+            if addr_config.barcode_font_size
+            else None
+        )
         with job.csv_file.open("rb") as csv_fh:
             records = parse_usps_csv(csv_fh)
 
@@ -127,6 +132,7 @@ def process_mail_merge_task(job_id: str) -> None:
             font_size=cfg_font_size,
             line_height=cfg_line_height,
             fields=cfg_fields,
+            barcode_font_size=cfg_barcode_font_size,
         )
         addr_buf.seek(0)
 
@@ -196,6 +202,11 @@ def generate_merged_pdf_task(job_id: str) -> None:
             float(addr_config.line_height) if addr_config.line_height else None
         )
         cfg_fields = addr_config.csv_fields or None
+        cfg_barcode_font_size = (
+            float(addr_config.barcode_font_size)
+            if addr_config.barcode_font_size
+            else None
+        )
 
         output_buf = io.BytesIO()
         merge_postcards(
@@ -209,6 +220,7 @@ def generate_merged_pdf_task(job_id: str) -> None:
             font_size=cfg_font_size,
             line_height=cfg_line_height,
             fields=cfg_fields,
+            barcode_font_size=cfg_barcode_font_size,
         )
         output_buf.seek(0)
         safe_name = job.name or f"mailmerge_{job.pk}"
