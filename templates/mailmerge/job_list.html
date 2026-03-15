@@ -40,17 +40,7 @@
               {{ job.name|default:job.pk }}
             </a>
           </td>
-          <td>
-            {% if job.status == "done" %}
-              <span class="badge badge-success badge-sm">Done</span>
-            {% elif job.status == "processing" %}
-              <span class="badge badge-warning badge-sm">Processing</span>
-            {% elif job.status == "error" %}
-              <span class="badge badge-error badge-sm">Error</span>
-            {% else %}
-              <span class="badge badge-ghost badge-sm">Pending</span>
-            {% endif %}
-          </td>
+          <td>{% include "mailmerge/_status_badge.html" with job=job size="sm" %}</td>
           <td>{{ job.record_count|default:"—" }}</td>
           <td class="text-base-content/60 text-sm">{{ job.created_at|date:"M j, Y" }}</td>
           <td class="text-right">
@@ -62,19 +52,7 @@
     </table>
   </div>
 
-  {% if is_paginated %}
-  <div class="flex justify-center mt-6 gap-2">
-    {% if page_obj.has_previous %}
-    <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm">← Prev</a>
-    {% endif %}
-    <span class="btn btn-ghost btn-sm no-animation cursor-default">
-      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-    </span>
-    {% if page_obj.has_next %}
-    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm">Next →</a>
-    {% endif %}
-  </div>
-  {% endif %}
+  {% include "partials/_pagination.html" %}
 
   {% else %}
   <div class="text-center py-16 text-base-content/50">

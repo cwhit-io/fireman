@@ -1,0 +1,4 @@
+{% comment %}Mail-merge job status badge.
+  Usage: {% include "mailmerge/_status_badge.html" with job=job %}
+  Optional: size="sm" adds badge-sm class.{% endcomment %}
+<span class="badge{% if size %} badge-{{ size }}{% endif %}{% if job.status == 'done' %} badge-success{% elif job.status == 'processing' %} badge-warning{% elif job.status == 'error' %} badge-error{% else %} badge-ghost{% endif %}">{{ job.get_status_display }}</span>

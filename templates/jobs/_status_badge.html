@@ -1,0 +1,4 @@
+{% comment %}Print job status badge.
+  Usage: {% include "jobs/_status_badge.html" with job=job %}
+  Optional: size="sm" adds badge-sm class.{% endcomment %}
+<span class="badge{% if size %} badge-{{ size }}{% endif %}{% if job.status == 'sent' %} badge-success{% elif job.status == 'error' %} badge-error{% elif job.status == 'pending' %} badge-warning{% else %} badge-info{% endif %}">{{ job.get_status_display }}</span>

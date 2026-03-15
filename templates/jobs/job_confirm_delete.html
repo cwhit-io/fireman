@@ -1,16 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Delete Job{% endblock %}
+{% block title %}Delete Job — Ember{% endblock %}
 {% block content %}
-<div class="max-w-lg mx-auto px-4 py-8">
-  <div class="card bg-base-100 shadow-lg border border-base-300 p-6">
-    <h1 class="text-2xl font-bold mb-6">Delete Job</h1>
-    <p>Are you sure you want to delete the job <strong>{{ object.name|default:object.id }}</strong>?</p>
-    <form method="post">{% csrf_token %}
-      <div class="mt-6 flex gap-4">
-        <button type="submit" class="btn btn-error">Delete</button>
-        <a href="{% url 'jobs:detail' object.id %}" class="btn btn-ghost">Cancel</a>
-      </div>
-    </form>
+<div class="max-w-lg mx-auto px-4 py-10">
+  <div class="card bg-base-100 border border-error/30 shadow-sm">
+    <div class="card-body gap-4">
+      <h1 class="card-title text-xl text-error">Delete Job</h1>
+      <p class="text-base-content/70">
+        Are you sure you want to delete
+        <strong>{{ object.name|default:object.id }}</strong>?
+        This will permanently remove the job and all associated files.
+      </p>
+      <form method="post" class="flex gap-3 justify-end mt-2">
+        {% csrf_token %}
+        <a href="{% url 'jobs:detail' object.id %}" class="btn btn-ghost btn-sm">Cancel</a>
+        <button type="submit" class="btn btn-error btn-sm">Delete</button>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}
