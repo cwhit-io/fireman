@@ -13,7 +13,7 @@ env = environ.Env(
     ALLOWED_HOSTS=(list, ["10.10.96.138", "localhost", "127.0.0.1ember.bhm.li"]),
     INTERNAL_IPS=(list, ["127.0.0.1"]),
     # SECRET_KEY has no default — raises ImproperlyConfigured if not set
-    DATABASE_URL=(str, f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+    DATABASE_URL=(str, f"sqlite:///{BASE_DIR / 'data' / 'db.sqlite3'}"),
     REDIS_URL=(str, "redis://localhost:6379/0"),
 )
 
