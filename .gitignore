@@ -23,8 +23,6 @@ env/
 # Env file (never commit secrets)
 .env
 
-# VSCode
-.vscode/
 
 # Node
 node_modules/
