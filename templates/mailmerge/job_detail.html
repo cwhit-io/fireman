@@ -146,36 +146,7 @@
   {% if job.status == "done" and job.record_count %}
   <div class="card bg-base-100 border border-base-300 shadow-sm mt-4" x-show="records.length > 0" x-cloak>
     <div class="card-body gap-3">
-      <div class="flex items-center justify-between">
-        <h2 class="card-title text-base">Record Preview</h2>
-        <div class="flex items-center gap-2 text-sm">
-          <button class="btn btn-ghost btn-xs" @click="prevRecord()" :disabled="recordIdx === 0">&#8592;</button>
-          <span class="text-base-content/60">
-            Record <span x-text="recordIdx + 1"></span> of <span x-text="records.length"></span>
-          </span>
-          <button class="btn btn-ghost btn-xs" @click="nextRecord()" :disabled="recordIdx === records.length - 1">&#8594;</button>
-        </div>
-      </div>
-      <!-- Canvas preview -->
-      <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3"
-           x-show="canvasReady">
-        <canvas id="previewCanvas"
-                class="max-w-full rounded shadow-sm"
-                style="max-height:320px;"></canvas>
-      </div>
-      <!-- Text fallback while canvas loads or if artwork unavailable -->
-      <div class="bg-base-200 rounded-lg p-3 text-xs font-mono space-y-0.5"
-           x-show="!canvasReady && currentRecord">
-        <template x-if="currentRecord">
-          <div>
-            <template x-for="line in currentRecordLines" :key="line.field">
-              <p :class="line.field === 'encodedimbno' ? 'text-base-content/50 text-[10px]' : (line.field === 'presorttrayid' ? 'text-base-content/40 text-[10px]' : '')"
-                 x-text="line.field === 'encodedimbno' ? '[Barcode] ' + line.value.substring(0, 20) : (line.field === 'presorttrayid' ? 'Tray: ' + line.value : line.value)">
-              </p>
-            </template>
-          </div>
-        </template>
-      </div>
+      {% include "mailmerge/_preview_canvas.html" %}
     </div>
   </div>
   {% endif %}
