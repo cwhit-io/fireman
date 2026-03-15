@@ -52,15 +52,7 @@
       <button type="button" @click="showRenameModal = true"
               class="btn btn-xs btn-ghost" title="Edit job name">✏️</button>
       {% endif %}
-      {% if job.status == 'sent' %}
-        <span class="badge badge-success">{{ job.get_status_display }}</span>
-      {% elif job.status == 'error' %}
-        <span class="badge badge-error">{{ job.get_status_display }}</span>
-      {% elif job.status == 'pending' %}
-        <span class="badge badge-warning">{{ job.get_status_display }}</span>
-      {% else %}
-        <span class="badge badge-info">{{ job.get_status_display }}</span>
-      {% endif %}
+      {% include "jobs/_status_badge.html" with job=job %}
     </div>
     <p class="text-base-content/60 text-sm italic border-l-4 border-indigo-200 pl-3 mt-2">
       Quick visual check: confirm page count, media, and finishing before sending to print.

@@ -1,0 +1,16 @@
+{% comment %}Reusable pagination bar.
+  Usage: {% include "partials/_pagination.html" %}
+  Expects: is_paginated, page_obj in template context.{% endcomment %}
+{% if is_paginated %}
+<div class="flex justify-center mt-6 gap-2">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-ghost btn-sm">← Prev</a>
+  {% endif %}
+  <span class="btn btn-ghost btn-sm no-animation cursor-default">
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+  </span>
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}" class="btn btn-ghost btn-sm">Next →</a>
+  {% endif %}
+</div>
+{% endif %}
