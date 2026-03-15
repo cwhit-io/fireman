@@ -580,21 +580,18 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
     _bgCanvas: null,
     _bgValid: false,
     _imbFont: null,
-    csvRecords: [],
+    records: [],
     recordIdx: 0,
 
-    // Unified alias used by the shared _preview_canvas.html template partial.
-    get records() { return this.csvRecords; },
-
     get currentRecord() {
-      return this.csvRecords[this.recordIdx] || null;
+      return this.records[this.recordIdx] || null;
     },
 
     prevRecord() {
       if (this.recordIdx > 0) { this.recordIdx--; this._drawOverlay(); }
     },
     nextRecord() {
-      if (this.recordIdx < this.csvRecords.length - 1) { this.recordIdx++; this._drawOverlay(); }
+      if (this.recordIdx < this.records.length - 1) { this.recordIdx++; this._drawOverlay(); }
     },
 
     _getCardInfo() {
@@ -643,12 +640,12 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
 
     onCsvChange(event) {
       var file = event.target.files[0];
-      if (!file) { this.csvRecords = []; return; }
+      if (!file) { this.records = []; return; }
       var self = this;
       var reader = new FileReader();
       reader.onload = function (e) {
         var text = e.target.result;
-        self.csvRecords = _parseSimpleCsv(text);
+        self.records = _parseSimpleCsv(text);
         self.recordIdx = 0;
         self._drawOverlay();
       };
@@ -760,7 +757,7 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
     },
 
     onKeyNav(e) {
-      if (this.csvRecords.length < 2) return;
+      if (this.records.length < 2) return;
       if (e.key === 'ArrowLeft') this.prevRecord();
       if (e.key === 'ArrowRight') this.nextRecord();
     },
