@@ -583,6 +583,9 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
     csvRecords: [],
     recordIdx: 0,
 
+    // Unified alias used by the shared _preview_canvas.html template partial.
+    get records() { return this.csvRecords; },
+
     get currentRecord() {
       return this.csvRecords[this.recordIdx] || null;
     },

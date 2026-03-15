@@ -110,27 +110,7 @@
             <input type="hidden" name="merge_page" :value="mergePage" x-show="pdfInfo && pdfInfo.page_count !== 2">
           </div>
 
-          <!-- Canvas preview -->
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-3">
-                <p class="text-sm font-medium text-base-content">Preview</p>
-                <template x-if="csvRecords.length > 0">
-                  <div class="flex items-center gap-1 text-xs text-base-content/60">
-                    <button type="button" class="btn btn-ghost btn-xs px-1" @click="prevRecord()" :disabled="recordIdx === 0">&#8592;</button>
-                    <span>Record <span x-text="recordIdx + 1"></span>/<span x-text="csvRecords.length"></span></span>
-                    <button type="button" class="btn btn-ghost btn-xs px-1" @click="nextRecord()" :disabled="recordIdx === csvRecords.length - 1">&#8594;</button>
-                  </div>
-                </template>
-              </div>
-              <span class="text-xs text-base-content/40" x-show="csvRecords.length === 0 && pdfInfo">Upload CSV to preview addresses</span>
-            </div>
-            <div class="border border-base-300 rounded-lg overflow-hidden bg-base-200 flex justify-center p-3">
-              <canvas id="previewCanvas"
-                      class="max-w-full rounded shadow-sm"
-                      style="max-height:320px;"></canvas>
-            </div>
-          </div>
+          {% include "mailmerge/_preview_canvas.html" %}
 
         </div>
 
