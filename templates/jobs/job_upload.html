@@ -79,7 +79,7 @@
                 <span class="text-sm font-medium text-center px-2 w-full block truncate" :title="dropLabel" x-text="dropLabel">Click or drag a PDF here</span>
                 <span class="text-xs opacity-60">PDF files only · Auto-repair enabled</span>
               </div>
-              <input type="file" name="file" id="file" accept=".pdf" required
+              <input type="file" name="file" id="file" accept=".pdf,.jpg,.jpeg,.png" required
                 class="hidden" @change="onFileChange($event)">
             </label>
 

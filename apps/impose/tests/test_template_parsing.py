@@ -5,15 +5,11 @@ Unit tests for apps/impose/utils.py — canonical template parser and renderer.
 
 from __future__ import annotations
 
-import pytest
-
 from apps.impose.utils import (
-    TemplateLine,
     _LEGACY_FIELDS_TOP_TO_BOTTOM,
     parse_imposition_template,
     render_imposition_lines,
 )
-
 
 # ---------------------------------------------------------------------------
 # parse_imposition_template
@@ -40,7 +36,7 @@ class TestParseImpositionTemplate:
     def test_blank_static_lines_dropped(self):
         ast = parse_imposition_template("line1\n\nline2")
         assert len(ast) == 2
-        kinds = [l.kind for l in ast]
+        kinds = [node.kind for node in ast]
         assert kinds == ["static", "static"]
 
     def test_single_field_line(self):
@@ -85,7 +81,7 @@ class TestParseImpositionTemplate:
         template = "{name}\n{company}\n{city-state-zip}"
         ast = parse_imposition_template(template)
         assert len(ast) == 3
-        assert [l.field for l in ast] == ["name", "company", "city-state-zip"]
+        assert [node.field for node in ast] == ["name", "company", "city-state-zip"]
 
     def test_default_template(self):
         """The default address template must parse without errors."""
@@ -100,9 +96,9 @@ class TestParseImpositionTemplate:
             "{encodedimbno}"
         )
         ast = parse_imposition_template(template)
-        kinds = {l.kind for l in ast}
+        kinds = {node.kind for node in ast}
         assert kinds == {"field"}
-        fields = [l.field for l in ast]
+        fields = [node.field for node in ast]
         assert "encodedimbno" in fields
         assert "name" in fields
 
@@ -114,7 +110,7 @@ class TestParseImpositionTemplate:
 
 class TestRenderImpositionLines:
     def _rec(self, **kwargs):
-        return {k: v for k, v in kwargs.items()}
+        return dict(kwargs)
 
     def test_empty_ast_legacy_fallback(self):
         record = self._rec(
