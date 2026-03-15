@@ -109,7 +109,7 @@
         {% endif %}
         {% if job.gangup_file %}
         <div class="py-2 flex justify-between text-sm">
-          <span class="text-base-content/60">Artwork Gang-up <span class="badge badge-sm badge-outline">{{ job.gangup_cols|default:"?" }}×{{ job.gangup_rows|default:"?" }}-up</span></span>
+          <span class="text-base-content/60">Artwork Gang-up</span>
           <a href="{% url 'mailmerge:download_gangup' job.pk %}" class="link link-primary font-medium truncate max-w-xs text-right">
             {{ job.gangup_file.name|cut:"mailmerge/output/" }}
           </a>
