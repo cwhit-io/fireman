@@ -618,6 +618,71 @@ def impose_business_card_21up(
     )
 
 
+def get_template_effective_margins(template) -> dict:
+    """Return the effective margins and cell geometry for *template*.
+
+    Used by both :func:`impose_from_template` and callers that need to place
+    content (e.g. address blocks) at the same cell positions as the imposed
+    artwork — so both always use identical layout maths without duplication.
+
+    Returns a dict with keys:
+        sheet_w, sheet_h, bleed,
+        margin_left, margin_right, margin_top, margin_bottom,
+        cols, rows,
+        cell_w, cell_h          — per-cell size (includes bleed on both sides)
+        cell_trim_w, cell_trim_h — trim area inside bleed
+    """
+    sheet_w = float(template.sheet_width)
+    sheet_h = float(template.sheet_height)
+    bleed = float(template.bleed)
+    cols = template.columns
+    rows = template.rows
+
+    cut_w = float(template.cut_width) if template.cut_width is not None else None
+    cut_h = float(template.cut_height) if template.cut_height is not None else None
+
+    if cut_w is not None and cut_h is not None:
+        cell_w = cut_w + 2 * bleed
+        cell_h = cut_h + 2 * bleed
+        grid_w = cols * cell_w
+        grid_h = rows * cell_h
+        if grid_w <= sheet_w and grid_h <= sheet_h:
+            margin_left = (sheet_w - grid_w) / 2
+            margin_right = margin_left
+            margin_top = (sheet_h - grid_h) / 2
+            margin_bottom = margin_top
+        else:
+            margin_left = float(template.margin_left)
+            margin_right = float(template.margin_right)
+            margin_top = float(template.margin_top)
+            margin_bottom = float(template.margin_bottom)
+            cell_w = (sheet_w - margin_left - margin_right) / cols
+            cell_h = (sheet_h - margin_top - margin_bottom) / rows
+    else:
+        margin_left = float(template.margin_left)
+        margin_right = float(template.margin_right)
+        margin_top = float(template.margin_top)
+        margin_bottom = float(template.margin_bottom)
+        cell_w = (sheet_w - margin_left - margin_right) / cols
+        cell_h = (sheet_h - margin_top - margin_bottom) / rows
+
+    return {
+        "sheet_w": sheet_w,
+        "sheet_h": sheet_h,
+        "bleed": bleed,
+        "cols": cols,
+        "rows": rows,
+        "margin_left": margin_left,
+        "margin_right": margin_right,
+        "margin_top": margin_top,
+        "margin_bottom": margin_bottom,
+        "cell_w": cell_w,
+        "cell_h": cell_h,
+        "cell_trim_w": cell_w - 2 * bleed,
+        "cell_trim_h": cell_h - 2 * bleed,
+    }
+
+
 def impose_from_template(
     template,
     input_pdf: IO[bytes],
@@ -667,35 +732,14 @@ def impose_from_template(
     """
     from pypdf import PdfReader, PdfWriter
 
-    sheet_w = float(template.sheet_width)
-    sheet_h = float(template.sheet_height)
-    bleed = float(template.bleed)
-
-    # ── Compute effective margins ──────────────────────────────────────────
-    cut_w = float(template.cut_width) if template.cut_width is not None else None
-    cut_h = float(template.cut_height) if template.cut_height is not None else None
-
-    if cut_w is not None and cut_h is not None:
-        cell_w_size = cut_w + 2 * bleed
-        cell_h_size = cut_h + 2 * bleed
-        grid_w = template.columns * cell_w_size
-        grid_h = template.rows * cell_h_size
-        if grid_w <= sheet_w and grid_h <= sheet_h:
-            # Centre grid symmetrically on the sheet.
-            eff_margin_left = (sheet_w - grid_w) / 2
-            eff_margin_right = eff_margin_left
-            eff_margin_top = (sheet_h - grid_h) / 2
-            eff_margin_bottom = eff_margin_top
-        else:
-            eff_margin_left = float(template.margin_left)
-            eff_margin_right = float(template.margin_right)
-            eff_margin_top = float(template.margin_top)
-            eff_margin_bottom = float(template.margin_bottom)
-    else:
-        eff_margin_left = float(template.margin_left)
-        eff_margin_right = float(template.margin_right)
-        eff_margin_top = float(template.margin_top)
-        eff_margin_bottom = float(template.margin_bottom)
+    layout = get_template_effective_margins(template)
+    sheet_w = layout["sheet_w"]
+    sheet_h = layout["sheet_h"]
+    bleed = layout["bleed"]
+    eff_margin_left = layout["margin_left"]
+    eff_margin_right = layout["margin_right"]
+    eff_margin_top = layout["margin_top"]
+    eff_margin_bottom = layout["margin_bottom"]
 
     # ── Run the core imposition ────────────────────────────────────────────
     imposed_buf = io.BytesIO()

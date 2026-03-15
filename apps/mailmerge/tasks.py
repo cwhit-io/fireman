@@ -117,72 +117,51 @@ def process_mail_merge_task(job_id: str) -> None:
         job.gangup_rows = rows
 
         gangup_buf = io.BytesIO()
-        build_artwork_gangup(
-            io.BytesIO(artwork_bytes),
-            cols,
-            rows,
-            sheet_w,
-            sheet_h,
-            gangup_buf,
-        )
+        if job.impose_template:
+            from apps.impose.services import impose_from_template
 
-        # ── Apply cutter barcode overlay if the template has print_barcode ─
-        if (
-            job.impose_template
-            and job.impose_template.print_barcode
-            and job.impose_template.cutter_program
-        ):
-            from pypdf import PdfReader, PdfWriter
-
-            from apps.impose.services import (
-                _barcode_tif_pdf_stream,
-                _make_overlay_page,
-                _resolve_barcode_tif,
-            )
-
-            cutter_prog = job.impose_template.cutter_program
-            barcode_value = cutter_prog.duplo_code
-            # Position: cutter program overrides template
-            eff_bc_x = (
-                float(cutter_prog.barcode_x)
-                if cutter_prog.barcode_x is not None
-                else (
-                    float(job.impose_template.barcode_x)
-                    if job.impose_template.barcode_x is not None
+            barcode_value = None
+            barcode_x = None
+            barcode_y = None
+            barcode_width = None
+            barcode_height = None
+            if job.impose_template.cutter_program:
+                cutter_prog = job.impose_template.cutter_program
+                barcode_value = cutter_prog.duplo_code or None
+                barcode_x = (
+                    float(cutter_prog.barcode_x)
+                    if cutter_prog.barcode_x is not None
                     else None
                 )
-            )
-            eff_bc_y = (
-                float(cutter_prog.barcode_y)
-                if cutter_prog.barcode_y is not None
-                else (
-                    float(job.impose_template.barcode_y)
-                    if job.impose_template.barcode_y is not None
+                barcode_y = (
+                    float(cutter_prog.barcode_y)
+                    if cutter_prog.barcode_y is not None
                     else None
                 )
-            )
-            eff_bc_w = float(cutter_prog.barcode_width)
-            eff_bc_h = float(cutter_prog.barcode_height)
+                barcode_width = float(cutter_prog.barcode_width)
+                barcode_height = float(cutter_prog.barcode_height)
 
-            if barcode_value and eff_bc_x is not None and eff_bc_y is not None:
-                tif_path = _resolve_barcode_tif(barcode_value)
-                if tif_path:
-                    overlay_stream = _barcode_tif_pdf_stream(
-                        tif_path, eff_bc_x, eff_bc_y, eff_bc_w, eff_bc_h
-                    )
-                    if overlay_stream:
-                        gangup_buf.seek(0)
-                        reader = PdfReader(gangup_buf)
-                        stamped = PdfWriter()
-                        for page in reader.pages:
-                            stamped.add_page(page)
-                        overlay_page = _make_overlay_page(
-                            sheet_w, sheet_h, overlay_stream
-                        )
-                        for page in stamped.pages:
-                            page.merge_page(overlay_page)
-                        gangup_buf = io.BytesIO()
-                        stamped.write(gangup_buf)
+            impose_from_template(
+                job.impose_template,
+                io.BytesIO(artwork_bytes),
+                gangup_buf,
+                pages_are_unique=True,
+                is_double_sided=True,
+                barcode_value=barcode_value,
+                barcode_x=barcode_x,
+                barcode_y=barcode_y,
+                barcode_width=barcode_width,
+                barcode_height=barcode_height,
+            )
+        else:
+            build_artwork_gangup(
+                io.BytesIO(artwork_bytes),
+                cols,
+                rows,
+                sheet_w,
+                sheet_h,
+                gangup_buf,
+            )
 
         gangup_buf.seek(0)
 
@@ -200,6 +179,24 @@ def process_mail_merge_task(job_id: str) -> None:
         eff_card_w = card_w or 432.0
         addr_x_pt = (eff_card_w - addr_x_in * 72.0) if addr_x_in is not None else None
         addr_y_pt = addr_y_in * 72.0 if addr_y_in is not None else None
+
+        # When the job uses an impose template, derive the same cell layout
+        # (margins + bleed) that impose_from_template used for the gangup so
+        # that address blocks land exactly on top of the correct card cells.
+        addr_margin_left = 0.0
+        addr_margin_right = 0.0
+        addr_margin_top = 0.0
+        addr_margin_bottom = 0.0
+        addr_bleed = 0.0
+        if job.impose_template:
+            from apps.impose.services import get_template_effective_margins
+
+            layout = get_template_effective_margins(job.impose_template)
+            addr_margin_left = layout["margin_left"]
+            addr_margin_right = layout["margin_right"]
+            addr_margin_top = layout["margin_top"]
+            addr_margin_bottom = layout["margin_bottom"]
+            addr_bleed = layout["bleed"]
 
         addr_buf = io.BytesIO()
         build_address_steprepeat(
@@ -228,6 +225,11 @@ def process_mail_merge_task(job_id: str) -> None:
             tray_y=cfg_tray_y_in * 72.0 if cfg_tray_y_in is not None else None,
             tray_font_size=cfg_tray_font_size,
             address_template=cfg_address_template,
+            margin_left=addr_margin_left,
+            margin_right=addr_margin_right,
+            margin_top=addr_margin_top,
+            margin_bottom=addr_margin_bottom,
+            bleed=addr_bleed,
         )
         addr_buf.seek(0)
 
