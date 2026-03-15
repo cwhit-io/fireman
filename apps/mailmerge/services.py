@@ -84,6 +84,7 @@ _DEFAULT_TEMPLATE: str = (
     "{encodedimbno}"
 )
 
+
 def _template_to_slot_lines(
     template: str,
     record: dict[str, str],
@@ -668,17 +669,23 @@ def build_address_steprepeat(
     tray_y: float | None = None,
     tray_font_size: float | None = None,
     address_template: str | None = None,
+    margin_left: float = 0.0,
+    margin_right: float = 0.0,
+    margin_top: float = 0.0,
+    margin_bottom: float = 0.0,
+    bleed: float = 0.0,
 ) -> int:
-    """Produce a step-and-repeat PDF containing only address blocks (no artwork).
+    r"""Produce a step-and-repeat PDF containing only address blocks (no artwork).
 
     Each output sheet holds *cols × rows* address blocks placed in the same
     grid positions as the corresponding artwork tiles in the gang-up sheet.
     The first sheet contains records 1…(cols*rows), the second sheet has the
     next batch, and so on.
 
-    The function does **not** scale the address blocks — they are written at
-    the same point size as in ``merge_postcards``, placed at the card-relative
-    position converted to sheet coordinates.
+    The *margin_\** and *bleed* parameters must match those used when building
+    the artwork gang-up so that address blocks land on the correct cards.
+    When using an impose template pass the values from
+    :func:`apps.impose.services.get_template_effective_margins`.
 
     Returns the number of records written.
     """
@@ -700,8 +707,13 @@ def build_address_steprepeat(
     tray_independent = tray_x is not None and tray_y is not None
 
     per_sheet = cols * rows
-    cell_w = sheet_w / cols
-    cell_h = sheet_h / rows
+    # Cell size must match the impose layout.  When margin / bleed values are
+    # supplied (from get_template_effective_margins) the cells are positioned
+    # identically to those in impose_from_template / impose_nup.
+    cell_w = (sheet_w - margin_left - margin_right) / cols
+    cell_h = (sheet_h - margin_top - margin_bottom) / rows
+    cell_trim_w = cell_w - 2 * bleed
+    cell_trim_h = cell_h - 2 * bleed
 
     writer = PdfWriter()
 
@@ -722,26 +734,34 @@ def build_address_steprepeat(
             col = idx % cols
             row = idx // cols
 
-            # Determine scale so card fits cell (same logic as _impose_nup_simple).
-            scale_n = (
-                min(cell_w / card_w, cell_h / card_h) if card_w and card_h else 1.0
-            )
-            scale_r = (
-                min(cell_w / card_h, cell_h / card_w) if card_w and card_h else 1.0
-            )
+            # Determine scale so card fits the trim area of the cell — mirrors
+            # the scale logic in impose_nup / impose_double_sided_nup.
+            _tw = cell_trim_w if cell_trim_w > 0 else cell_w
+            _th = cell_trim_h if cell_trim_h > 0 else cell_h
+            scale_n = min(_tw / card_w, _th / card_h) if card_w and card_h else 1.0
+            scale_r = min(_tw / card_h, _th / card_w) if card_w and card_h else 1.0
             rotated = scale_r > scale_n
             scale = scale_r if rotated else scale_n
 
-            cell_left = col * cell_w
-            cell_bottom = sheet_h - (row + 1) * cell_h
+            # Cell trim-area origin — matches impose_nup cell_trim_left/bottom.
+            cell_trim_left = margin_left + col * cell_w + bleed
+            cell_trim_bottom = sheet_h - margin_top - (row + 1) * cell_h + bleed
 
             if rotated:
                 placed_h = card_w * scale
-                center_y = (cell_h - placed_h) / 2
-                target_bottom = cell_bottom + center_y
+                center_y = (
+                    (cell_trim_h - placed_h) / 2
+                    if cell_trim_h > 0
+                    else (cell_h - placed_h) / 2
+                )
+                target_bottom = cell_trim_bottom + center_y
                 placed_w = card_h * scale
-                center_x = (cell_w - placed_w) / 2
-                target_left = cell_left + center_x
+                center_x = (
+                    (cell_trim_w - placed_w) / 2
+                    if cell_trim_w > 0
+                    else (cell_w - placed_w) / 2
+                )
+                target_left = cell_trim_left + center_x
                 sheet_addr_x = target_left + addr_y * scale
                 sheet_addr_y = (
                     target_bottom + (card_w - addr_x - effective_font_size) * scale
@@ -762,10 +782,18 @@ def build_address_steprepeat(
             else:
                 placed_w = card_w * scale
                 placed_h = card_h * scale
-                center_x = (cell_w - placed_w) / 2
-                center_y = (cell_h - placed_h) / 2
-                target_left = cell_left + center_x
-                target_bottom = cell_bottom + center_y
+                center_x = (
+                    (cell_trim_w - placed_w) / 2
+                    if cell_trim_w > 0
+                    else (cell_w - placed_w) / 2
+                )
+                center_y = (
+                    (cell_trim_h - placed_h) / 2
+                    if cell_trim_h > 0
+                    else (cell_h - placed_h) / 2
+                )
+                target_left = cell_trim_left + center_x
+                target_bottom = cell_trim_bottom + center_y
                 sheet_addr_x = target_left + addr_x * scale
                 sheet_addr_y = target_bottom + addr_y * scale
                 # Barcode position (card-relative, or fallback to addr)
