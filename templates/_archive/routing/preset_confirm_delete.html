@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Delete Preset: {{ object.name }}{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-8">
+  <div class="mb-4">
+    <a href="{% url 'routing:list' %}" class="link link-primary">← Back to Presets</a>
+  </div>
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <h1 class="card-title text-error">Delete Preset</h1>
+      <p class="text-base-content/70">
+        Are you sure you want to delete <strong>{{ object.name }}</strong>?
+        This action cannot be undone.
+      </p>
+      <form method="post">
+        {% csrf_token %}
+        <div class="card-actions justify-end">
+          <a href="{% url 'routing:list' %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-error">Yes, delete this preset</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

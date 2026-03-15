@@ -1,13 +1,18 @@
 from django.urls import path
+from django.views.generic.base import RedirectView
 
 from . import views
 
 app_name = "cutter"
 
 urlpatterns = [
-    path("", views.ProgramListView.as_view(), name="list"),
-    path("new/", views.ProgramCreateView.as_view(), name="create"),
-    path("<int:pk>/edit/", views.ProgramEditView.as_view(), name="edit"),
-    path("<int:pk>/delete/", views.ProgramDeleteView.as_view(), name="delete"),
+    path("", RedirectView.as_view(url="/", permanent=False), name="list"),
+    path("new/", RedirectView.as_view(url="/", permanent=False), name="create"),
+    path("<int:pk>/edit/", RedirectView.as_view(url="/", permanent=False), name="edit"),
+    path(
+        "<int:pk>/delete/",
+        RedirectView.as_view(url="/", permanent=False),
+        name="delete",
+    ),
     path("<int:pk>/barcode.png", views.ProgramBarcodeView.as_view(), name="barcode"),
 ]
