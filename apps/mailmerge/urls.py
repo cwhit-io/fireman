@@ -7,6 +7,7 @@ app_name = "mailmerge"
 urlpatterns = [
     path("", views.MailMergeJobListView.as_view(), name="list"),
     path("upload/", views.MailMergeJobUploadView.as_view(), name="upload"),
+    path("sample-csv/", views.MailMergeSampleCsvView.as_view(), name="sample_csv"),
     path(
         "inspect-artwork/",
         views.MailMergeArtworkInspectView.as_view(),

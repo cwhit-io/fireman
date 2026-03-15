@@ -6,14 +6,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.base import ContentFile
-from django.http import HttpResponse
 from django.db import models
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
+from apps.impose.image_utils import image_to_contentfile
 from apps.impose.models import ImpositionTemplate, ProductCategory
 
 from .models import PrintJob
@@ -115,6 +115,15 @@ class JobUploadView(LoginRequiredMixin, View):
 
     def post(self, request):
         file = request.FILES.get("file")
+        # Accept image uploads (JPG/PNG) and convert to single-page PDF
+        if file and not file.name.lower().endswith(".pdf"):
+            content_type = getattr(file, "content_type", "").lower()
+            if content_type in ("image/jpeg", "image/jpg", "image/png") or file.name.lower().endswith((".jpg", ".jpeg", ".png")):
+                try:
+                    file = image_to_contentfile(file, name=file.name.rsplit('.', 1)[0] + ".pdf")
+                except Exception:
+                    # fallback: keep original file and let validation report an error
+                    pass
         category_id = request.POST.get("category_id", "").strip() or None
         ctx = self._template_context(category_id)
         if not file:

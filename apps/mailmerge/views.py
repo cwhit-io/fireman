@@ -4,13 +4,17 @@ import logging
 import os
 import shutil
 import tempfile
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
+
+from apps.impose.image_utils import image_to_contentfile
 
 from .models import MailMergeJob
 from .services import inspect_artwork_pdf
@@ -62,6 +66,15 @@ class MailMergeArtworkInspectView(LoginRequiredMixin, View):
 
     def post(self, request):
         artwork = request.FILES.get("artwork_file")
+        # Accept image uploads (JPG/PNG) and convert to single-page PDF
+        if artwork and not artwork.name.lower().endswith(".pdf"):
+            content_type = getattr(artwork, "content_type", "").lower()
+            if content_type in ("image/jpeg", "image/jpg", "image/png") or artwork.name.lower().endswith((".jpg", ".jpeg", ".png")):
+                try:
+                    artwork = image_to_contentfile(artwork, name=artwork.name.rsplit('.', 1)[0] + ".pdf")
+                except Exception:
+                    # fallback: keep original file and let validation report an error
+                    pass
         if not artwork:
             return JsonResponse({"error": "No file uploaded."}, status=400)
         if not artwork.name.lower().endswith(".pdf"):
@@ -179,6 +192,17 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
         process_mail_merge_task.delay(str(job.pk))
         messages.success(request, "Mail-merge job submitted.")
         return redirect("mailmerge:detail", pk=job.pk)
+
+
+class MailMergeSampleCsvView(LoginRequiredMixin, View):
+    """Serve the project's sample CSV for download from the assets folder."""
+
+    def get(self, request):
+        sample_path = Path(getattr(settings, "ASSETS_DIR", settings.BASE_DIR)) / "sample.csv"
+        if not sample_path.exists():
+            raise Http404("Sample CSV not found")
+        # Stream as attachment
+        return FileResponse(open(sample_path, "rb"), as_attachment=True, filename="sample.csv")
 
 
 class MailMergeJobDeleteView(LoginRequiredMixin, DeleteView):

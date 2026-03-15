@@ -10,7 +10,6 @@ list / form.  Placement on imposed PDFs is handled entirely by
 
 from __future__ import annotations
 
-import io
 import logging
 from pathlib import Path
 

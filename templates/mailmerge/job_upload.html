@@ -59,7 +59,7 @@
           <label class="label" for="artwork_file">
             <span class="label-text font-medium">Artwork PDF <span class="text-error">*</span></span>
           </label>
-          <input type="file" name="artwork_file" id="artwork_file" accept=".pdf" required
+             <input type="file" name="artwork_file" id="artwork_file" accept=".pdf,.jpg,.jpeg,.png" required
                  class="file-input file-input-bordered w-full"
                  @change="onArtworkChange($event)">
           <label class="label">
@@ -119,9 +119,12 @@
           <label class="label" for="csv_file">
             <span class="label-text font-medium">Address CSV <span class="text-error">*</span></span>
           </label>
-          <input type="file" name="csv_file" id="csv_file" accept=".csv" required
+          <div class="flex items-center gap-3">
+            <input type="file" name="csv_file" id="csv_file" accept=".csv" required
                  class="file-input file-input-bordered w-full"
                  @change="onCsvChange($event)">
+            <a href="{% url 'mailmerge:sample_csv' %}" class="btn btn-ghost btn-sm ml-2" title="Download sample CSV">Download sample CSV</a>
+          </div>
           <label class="label">
             <span class="label-text-alt text-base-content/50">USPS Intelligent Mail CSV with name, address, and IMb columns.</span>
           </label>

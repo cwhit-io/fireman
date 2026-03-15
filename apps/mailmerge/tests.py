@@ -468,7 +468,6 @@ class TestBuildArtworkGangup:
 
 class TestBuildAddressSteprepeat:
     def test_basic(self):
-        from pypdf import PdfReader
 
         records = parse_usps_csv(io.BytesIO(_sample_csv_bytes()))
         out = io.BytesIO()
