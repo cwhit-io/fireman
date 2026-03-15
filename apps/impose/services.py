@@ -745,20 +745,25 @@ def impose_from_template(
     imposed_buf = io.BytesIO()
 
     if not pages_are_unique:
-        # Step-and-repeat: use only the first source page.  A multi-page
-        # source PDF is truncated so that customers who upload a 2-page file
-        # still get a single gang-up sheet rather than one sheet per page.
+        # Step-and-repeat: for single-sided jobs use only the first source
+        # page (guards against accidental multi-page uploads).  For
+        # double-sided jobs every source page becomes its own imposed sheet so
+        # that front and back are both gang'd up correctly.
         raw = input_pdf.read()
-        first_page_buf = io.BytesIO()
         reader_tmp = PdfReader(io.BytesIO(raw))
-        if reader_tmp.pages:
-            w_tmp = PdfWriter()
-            w_tmp.add_page(reader_tmp.pages[0])
-            w_tmp.write(first_page_buf)
-        first_page_buf.seek(0)
+        if is_double_sided and len(reader_tmp.pages) > 1:
+            src_buf = io.BytesIO(raw)
+        else:
+            first_page_buf = io.BytesIO()
+            if reader_tmp.pages:
+                w_tmp = PdfWriter()
+                w_tmp.add_page(reader_tmp.pages[0])
+                w_tmp.write(first_page_buf)
+            first_page_buf.seek(0)
+            src_buf = first_page_buf
 
         impose_step_repeat(
-            first_page_buf,
+            src_buf,
             imposed_buf,
             columns=template.columns,
             rows=template.rows,

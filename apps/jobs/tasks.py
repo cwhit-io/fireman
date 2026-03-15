@@ -58,6 +58,7 @@ def process_job_task(job_id: str) -> None:
                 buf_in,
                 buf_out,
                 pages_are_unique=job.pages_are_unique,
+                is_double_sided=job.is_double_sided,
                 barcode_value=bc["barcode_value"],
                 barcode_x=bc["barcode_x"],
                 barcode_y=bc["barcode_y"],
