@@ -31,31 +31,46 @@ def get_barcode_tif_preview(duplo_code: str) -> bytes | None:
     try:
         num = int(duplo_code)
     except (TypeError, ValueError):
-        logger.warning(
-            "duplo_code %r is not numeric; cannot load TIF preview", duplo_code
-        )
+        logger.warning("duplo_code %r is not numeric; cannot load TIF preview", duplo_code)
         return None
 
-        # Prefer new assets layout: assets/printer/barcodes/*.tif
-        assets_base = Path(getattr(settings, "ASSETS_DIR", settings.BASE_DIR))
-        tif_path = assets_base / "printer" / "barcodes" / f"{num:03d}.tif"
-        # Fallback to legacy project-root `barcodes/` for backward compatibility
-        if not tif_path.exists():
-            legacy = Path(settings.BASE_DIR) / "barcodes" / f"{num:03d}.tif"
-            if legacy.exists():
-                tif_path = legacy
-            else:
-                logger.warning("Barcode TIF not found: %s", tif_path)
-                return None
+    # Prefer new assets layout: assets/printer/barcodes/*.tif
+    assets_base = Path(getattr(settings, "ASSETS_DIR", settings.BASE_DIR))
+    tif_path = assets_base / "printer" / "barcodes" / f"{num:03d}.tif"
+    # Fallback to legacy project-root `barcodes/` for backward compatibility
+    if not tif_path.exists():
+        legacy = Path(settings.BASE_DIR) / "barcodes" / f"{num:03d}.tif"
+        if legacy.exists():
+            tif_path = legacy
+        else:
+            logger.warning("Barcode TIF not found: %s", tif_path)
+            return None
 
+    # Cached WebP preview path
+    webp_dir = assets_base / "printer" / "barcodes_webp"
+    webp_dir.mkdir(parents=True, exist_ok=True)
+    webp_path = webp_dir / f"{num:03d}.webp"
+
+    # If cached WebP exists, return it
+    if webp_path.exists():
+        try:
+            return webp_path.read_bytes()
+        except Exception:
+            logger.exception("Failed to read cached barcode preview %r", str(webp_path))
+
+    # Convert TIFF -> WebP (lossless) and cache
     try:
         from PIL import Image
 
-        img = Image.open(tif_path).convert("L")
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        buf.seek(0)
-        return buf.read()
+        img = Image.open(tif_path)
+        # Choose a safe convert mode
+        if img.mode in ("RGBA", "CMYK"):
+            img = img.convert("RGBA")
+        else:
+            img = img.convert("RGB")
+
+        img.save(webp_path, format="WEBP", lossless=True, quality=100)
+        return webp_path.read_bytes()
     except Exception:
-        logger.exception("Failed to read barcode TIF %r", str(tif_path))
+        logger.exception("Failed to convert/read barcode TIF %r", str(tif_path))
         return None
