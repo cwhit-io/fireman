@@ -22,7 +22,7 @@
        trayYIn:      {{ addr_config.tray_y_in|default:'null' }},
        trayFontPt:   {{ addr_config.tray_font_size|default:'null' }},
        addressTemplate: '{{ addr_config.address_template|escapejs }}',
-       csvFields:    {{ csv_fields_json|safe }}
+       csvFields:    {{ csv_fields_json }}
      })"
      @keydown.window="onKeyNav($event)">
 
