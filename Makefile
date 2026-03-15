@@ -119,3 +119,11 @@ docker-shell: ## Open a shell in the web container
 
 docker-manage: ## Run a manage.py command in the web container (usage: make docker-manage cmd="migrate")
 	docker compose exec web python manage.py $(cmd)
+
+organize-assets: ## Create assets/printer layout and copy barcodes, fonts, and PPD (no overwrite)
+	@echo "Creating assets/printer layout..."
+	mkdir -p assets/printer/barcodes assets/printer/fonts/trueType assets/printer/ppd
+	cp -n barcodes/*.tif assets/printer/barcodes/ 2>/dev/null || true
+	cp -n fonts/usps/trueType/*.ttf assets/printer/fonts/trueType/ 2>/dev/null || true
+	cp -n EF678921.PPD assets/printer/ppd/ 2>/dev/null || true
+	@echo "assets/printer prepared (existing files preserved)."

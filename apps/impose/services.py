@@ -134,10 +134,20 @@ def _resolve_barcode_tif(barcode_value: str) -> str | None:
         )
         return None
 
-    tif_path = Path(settings.BASE_DIR) / "barcodes" / f"{num:03d}.tif"
+    # Prefer new assets layout: assets/printer/barcodes/*.tif
+    assets_base = Path(getattr(settings, "ASSETS_DIR", settings.BASE_DIR))
+    tif_path = assets_base / "printer" / "barcodes" / f"{num:03d}.tif"
+    # Fallback to legacy project-root `barcodes/` for backward compatibility
     if not tif_path.exists():
-        logger.warning("Barcode TIF not found: %s", tif_path)
-        return None
+        legacy = Path(settings.BASE_DIR) / "barcodes" / f"{num:03d}.tif"
+        if legacy.exists():
+            tif_path = legacy
+        else:
+            logger.warning(
+                "Barcode TIF not found: %s (checked assets/printer and legacy barcodes)",
+                tif_path,
+            )
+            return None
 
     return str(tif_path)
 

@@ -120,7 +120,10 @@ STORAGES = {
 
 # Media files
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# Assets directory root (can be overridden via env in deployment)
+ASSETS_DIR = BASE_DIR / "assets"
+# Store uploaded media under assets/media for easier packaging/deploy
+MEDIA_ROOT = ASSETS_DIR / "media"
 
 # Fiery print queue username shown on the Fiery job list
 FIERY_PRINT_USER = env("FIERY_PRINT_USER", default="Ember")
