@@ -46,13 +46,13 @@ var _DEFAULT_CSV_FIELDS = [
 function _parseSimpleCsv(text) {
   var lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   if (lines.length < 2) return [];
-  var headers = _csvSplitLine(lines[0]).map(function(h) { return h.trim().toLowerCase(); });
+  var headers = _csvSplitLine(lines[0]).map(function (h) { return h.trim().toLowerCase(); });
   var records = [];
   for (var i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     var vals = _csvSplitLine(lines[i]);
     var rec = {};
-    headers.forEach(function(h, idx) { rec[h] = (vals[idx] || '').trim(); });
+    headers.forEach(function (h, idx) { rec[h] = (vals[idx] || '').trim(); });
     records.push(rec);
   }
   return records;
@@ -63,7 +63,7 @@ function _csvSplitLine(line) {
   for (var i = 0; i < line.length; i++) {
     var c = line[i];
     if (c === '"') {
-      if (inQuote && line[i+1] === '"') { current += '"'; i++; }
+      if (inQuote && line[i + 1] === '"') { current += '"'; i++; }
       else inQuote = !inQuote;
     } else if (c === ',' && !inQuote) {
       result.push(current); current = '';
@@ -117,10 +117,10 @@ function _resolveAllPositions(cfg, cardWPt, cardHPt) {
  */
 function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
   if (!rec) return;
-  var fontSizePt    = cfg.fontPt        != null ? cfg.fontPt        : 9;
-  var lineHeightPt  = cfg.lineHeightPt  != null ? cfg.lineHeightPt  : 13;
+  var fontSizePt = cfg.fontPt != null ? cfg.fontPt : 9;
+  var lineHeightPt = cfg.lineHeightPt != null ? cfg.lineHeightPt : 13;
   var barcodeFontPt = cfg.barcodeFontPt != null ? cfg.barcodeFontPt : 14;
-  var trayFontPt    = cfg.trayFontPt    != null ? cfg.trayFontPt    : fontSizePt;
+  var trayFontPt = cfg.trayFontPt != null ? cfg.trayFontPt : fontSizePt;
   var hasSeparateTray = pos.trayY != null;
 
   // Build address lines using the canonical template builder (top → bottom).
@@ -237,18 +237,18 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
     S.cardHPt = cardH * PT;
 
     var addrXR = sv('id_addr_x_in');
-    var addrY  = sv('id_addr_y_in');
+    var addrY = sv('id_addr_y_in');
     S.addrXPt = S.cardWPt - (addrXR !== '' ? parseFloat(addrXR) : 4.5) * PT;
     S.addrYPt = addrY !== '' ? parseFloat(addrY) * PT : 2.5 * PT;
 
     var barXR = sv('id_barcode_x_in');
-    var barY  = sv('id_barcode_y_in');
+    var barY = sv('id_barcode_y_in');
     S.barXPt = barXR !== '' ? S.cardWPt - parseFloat(barXR) * PT : S.addrXPt;
-    S.barYPt = barY  !== '' ? parseFloat(barY) * PT : S.addrYPt;
+    S.barYPt = barY !== '' ? parseFloat(barY) * PT : S.addrYPt;
     S.barFsPt = fv('id_barcode_font_size', 14);
 
     var trayXR = sv('id_tray_x_in');
-    var trayY  = sv('id_tray_y_in');
+    var trayY = sv('id_tray_y_in');
     S.hasTray = trayXR !== '' && trayY !== '';
     S.trayXPt = S.hasTray ? S.cardWPt - parseFloat(trayXR) * PT : 0;
     S.trayYPt = S.hasTray ? parseFloat(trayY) * PT : 0;
@@ -272,10 +272,10 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
     if (!canvas) return;
     readState();
     var wrap = canvas.parentElement;
-    var maxW  = (wrap ? wrap.clientWidth - 16 : 300);
-    var maxH  = 340;
+    var maxW = (wrap ? wrap.clientWidth - 16 : 300);
+    var maxH = 340;
     var scale = Math.min(maxW / S.cardWPt, maxH / S.cardHPt, 1);
-    canvas.width  = Math.round(S.cardWPt * scale);
+    canvas.width = Math.round(S.cardWPt * scale);
     canvas.height = Math.round(S.cardHPt * scale);
     S.scale = scale;
     var ctx = canvas.getContext('2d');
@@ -347,26 +347,26 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
   function drawBarcodeIndicator(ctx, scale) {
     var barH = S.barFsPt;
     var barW = S.addrBlockWPt;
-    var cx   = S.barXPt * scale;
-    var cy   = (S.cardHPt - S.barYPt - barH) * scale;
-    var cw   = barW * scale;
-    var ch   = Math.max(3, barH * scale);
+    var cx = S.barXPt * scale;
+    var cy = (S.cardHPt - S.barYPt - barH) * scale;
+    var cw = barW * scale;
+    var ch = Math.max(3, barH * scale);
 
     ctx.save();
-    ctx.fillStyle   = 'rgba(245,158,11,0.13)';
+    ctx.fillStyle = 'rgba(245,158,11,0.13)';
     ctx.fillRect(cx, cy, cw, ch);
     ctx.strokeStyle = 'rgba(245,158,11,0.85)';
-    ctx.lineWidth   = 1.5;
+    ctx.lineWidth = 1.5;
     ctx.setLineDash([4, 3]);
     ctx.strokeRect(cx, cy, cw, ch);
     ctx.setLineDash([]);
 
-    var barCount   = 12;
+    var barCount = 12;
     var barSpacing = cw / (barCount * 2 + 1);
     ctx.strokeStyle = 'rgba(180,110,0,0.55)';
-    ctx.lineWidth   = Math.max(1, barSpacing * 0.7);
+    ctx.lineWidth = Math.max(1, barSpacing * 0.7);
     for (var i = 0; i < barCount; i++) {
-      var bxi    = cx + barSpacing * (i * 2 + 1);
+      var bxi = cx + barSpacing * (i * 2 + 1);
       var barTop = (i % 3 === 0) ? cy : cy + ch * 0.25;
       var barBot = (i % 3 === 1) ? cy + ch * 0.75 : cy + ch;
       ctx.beginPath(); ctx.moveTo(bxi, barTop); ctx.lineTo(bxi, barBot); ctx.stroke();
@@ -379,7 +379,7 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
   }
 
   function drawTrayIndicator(ctx, scale) {
-    var lineH  = S.trayFsPt;
+    var lineH = S.trayFsPt;
     var approxW = lineH * 4.5;
     var cx = S.trayXPt * scale;
     var cy = (S.cardHPt - S.trayYPt - lineH) * scale;
@@ -387,10 +387,10 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
     var ch = Math.max(3, lineH * scale);
 
     ctx.save();
-    ctx.fillStyle   = 'rgba(34,197,94,0.13)';
+    ctx.fillStyle = 'rgba(34,197,94,0.13)';
     ctx.fillRect(cx, cy, cw, ch);
     ctx.strokeStyle = 'rgba(34,197,94,0.85)';
-    ctx.lineWidth   = 1.5;
+    ctx.lineWidth = 1.5;
     ctx.setLineDash([4, 3]);
     ctx.strokeRect(cx, cy, cw, ch);
     ctx.setLineDash([]);
@@ -405,9 +405,9 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
     var el = document.getElementById('mm-preview-label');
     if (!el) return;
     var addrXR = (S.cardWPt - S.addrXPt) / PT;
-    var addrY  = S.addrYPt / PT;
-    var barXR  = (S.cardWPt - S.barXPt) / PT;
-    var barY   = S.barYPt / PT;
+    var addrY = S.addrYPt / PT;
+    var barXR = (S.cardWPt - S.barXPt) / PT;
+    var barY = S.barYPt / PT;
     var f = function (v) { return v.toFixed(4).replace(/\.?0+$/, ''); };
     var parts = [
       'Addr x:' + f(addrXR) + '\u2033R  y:' + f(addrY) + '\u2033',
@@ -425,7 +425,7 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
     var bx = S.addrXPt * sc;
     var by = (S.cardHPt - S.addrYPt - S.addrBlockHPt) * sc;
     return cx >= bx && cx <= bx + S.addrBlockWPt * sc &&
-           cy >= by && cy <= by + S.addrBlockHPt * sc;
+      cy >= by && cy <= by + S.addrBlockHPt * sc;
   }
   function hitBarcode(cx, cy) {
     var sc = S.scale;
@@ -433,28 +433,28 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
     var bx = S.barXPt * sc;
     var by = (S.cardHPt - S.barYPt - barH) * sc;
     return cx >= bx && cx <= bx + S.addrBlockWPt * sc &&
-           cy >= by && cy <= by + Math.max(3, barH) * sc;
+      cy >= by && cy <= by + Math.max(3, barH) * sc;
   }
   function hitTray(cx, cy) {
     if (!S.hasTray) return false;
     var sc = S.scale;
-    var lineH  = S.trayFsPt;
+    var lineH = S.trayFsPt;
     var approxW = lineH * 4.5;
     var bx = S.trayXPt * sc;
     var by = (S.cardHPt - S.trayYPt - lineH) * sc;
     return cx >= bx && cx <= bx + approxW * sc &&
-           cy >= by && cy <= by + Math.max(3, lineH) * sc;
+      cy >= by && cy <= by + Math.max(3, lineH) * sc;
   }
 
   function evCoords(e) {
     var canvas = document.getElementById('mm-preview-canvas');
-    var rect   = canvas.getBoundingClientRect();
+    var rect = canvas.getBoundingClientRect();
     var scaleX = canvas.width / rect.width;
     var scaleY = canvas.height / rect.height;
-    var src    = (e.touches && e.touches.length) ? e.touches[0] : e;
+    var src = (e.touches && e.touches.length) ? e.touches[0] : e;
     return {
       x: (src.clientX - rect.left) * scaleX,
-      y: (src.clientY - rect.top)  * scaleY
+      y: (src.clientY - rect.top) * scaleY
     };
   }
 
@@ -484,15 +484,15 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
   function onMouseMove(e) {
     if (!S.dragging) return;
     e.preventDefault();
-    var c  = evCoords(e);
+    var c = evCoords(e);
     var sc = S.scale;
-    var newL   = (c.x - S.dragOX) / sc;
+    var newL = (c.x - S.dragOX) / sc;
     var newTop = (c.y - S.dragOY) / sc;
 
     if (S.dragging === 'addr') {
-      var ay  = S.cardHPt - newTop - S.addrBlockHPt;
-      var sx  = snapVal(newL, 0, S.cardWPt - S.addrBlockWPt);
-      var sy  = snapVal(ay,   0, S.cardHPt - S.addrBlockHPt);
+      var ay = S.cardHPt - newTop - S.addrBlockHPt;
+      var sx = snapVal(newL, 0, S.cardWPt - S.addrBlockWPt);
+      var sy = snapVal(ay, 0, S.cardHPt - S.addrBlockHPt);
       S.addrXPt = sx; S.addrYPt = sy;
       setInput('id_addr_x_in', fmt(S.cardWPt - sx));
       setInput('id_addr_y_in', fmt(sy));
@@ -500,17 +500,17 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
     } else if (S.dragging === 'barcode') {
       var by2 = S.cardHPt - newTop - S.barFsPt;
       var sx2 = snapVal(newL, 0, S.cardWPt - S.addrBlockWPt);
-      var sy2 = snapVal(by2,  0, S.cardHPt - S.barFsPt);
+      var sy2 = snapVal(by2, 0, S.cardHPt - S.barFsPt);
       S.barXPt = sx2; S.barYPt = sy2;
       setInput('id_barcode_x_in', fmt(S.cardWPt - sx2));
       setInput('id_barcode_y_in', fmt(sy2));
 
     } else if (S.dragging === 'tray') {
-      var lineH  = S.trayFsPt;
+      var lineH = S.trayFsPt;
       var approxW = lineH * 4.5;
       var ty2 = S.cardHPt - newTop - lineH;
       var sx3 = snapVal(newL, 0, S.cardWPt - approxW);
-      var sy3 = snapVal(ty2,  0, S.cardHPt - lineH);
+      var sy3 = snapVal(ty2, 0, S.cardHPt - lineH);
       S.trayXPt = sx3; S.trayYPt = sy3;
       setInput('id_tray_x_in', fmt(S.cardWPt - sx3));
       setInput('id_tray_y_in', fmt(sy3));
@@ -540,25 +540,25 @@ function _drawRecordOverlay(ctx, pos, scale, rec, cfg, imbFont) {
       ta.value = DEFAULT_TEMPLATE;
     }
 
-    canvas.addEventListener('mousedown',  onMouseDown);
-    canvas.addEventListener('mousemove',  onMouseMove);
-    canvas.addEventListener('mouseup',    onMouseUp);
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseup', onMouseUp);
     canvas.addEventListener('mouseleave', onMouseUp);
     canvas.addEventListener('touchstart', function (e) { e.preventDefault(); onMouseDown(e); }, { passive: false });
-    canvas.addEventListener('touchmove',  function (e) { e.preventDefault(); onMouseMove(e); }, { passive: false });
-    canvas.addEventListener('touchend',   function (e) { e.preventDefault(); onMouseUp();    }, { passive: false });
+    canvas.addEventListener('touchmove', function (e) { e.preventDefault(); onMouseMove(e); }, { passive: false });
+    canvas.addEventListener('touchend', function (e) { e.preventDefault(); onMouseUp(); }, { passive: false });
 
     var watchIds = [
       'id_preview_card_width_in', 'id_preview_card_height_in',
-      'id_addr_x_in',    'id_addr_y_in',
+      'id_addr_x_in', 'id_addr_y_in',
       'id_barcode_x_in', 'id_barcode_y_in', 'id_barcode_font_size',
-      'id_tray_x_in',    'id_tray_y_in',    'id_tray_font_size',
-      'id_font_size',    'id_line_height',   'id_addr_block_width_in',
+      'id_tray_x_in', 'id_tray_y_in', 'id_tray_font_size',
+      'id_font_size', 'id_line_height', 'id_addr_block_width_in',
       'id_address_template'
     ];
     watchIds.forEach(function (id) {
       var el = document.getElementById(id);
-      if (el) el.addEventListener('input',  redraw);
+      if (el) el.addEventListener('input', redraw);
       if (el) el.addEventListener('change', redraw);
     });
 
@@ -632,13 +632,13 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
         method: 'POST',
         body: formData,
       })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
           self.pdfInfo = data;
           self.mergePage = 1;
-          self.$nextTick(function() { self.renderPreview(); });
+          self.$nextTick(function () { self.renderPreview(); });
         })
-        .catch(function() { self.pdfInfo = null; });
+        .catch(function () { self.pdfInfo = null; });
     },
 
     onCsvChange(event) {
@@ -646,7 +646,7 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
       if (!file) { this.csvRecords = []; return; }
       var self = this;
       var reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = function (e) {
         var text = e.target.result;
         self.csvRecords = _parseSimpleCsv(text);
         self.recordIdx = 0;
@@ -666,7 +666,7 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
       var maxW = canvas.parentElement.clientWidth - 24;
       var maxH = 300;
       var scale = Math.min(maxW / pos.cardWPt, maxH / pos.cardHPt, 1);
-      canvas.width  = Math.round(pos.cardWPt * scale);
+      canvas.width = Math.round(pos.cardWPt * scale);
       canvas.height = Math.round(pos.cardHPt * scale);
 
       this._scale = scale;
@@ -680,16 +680,16 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
       if (this._artworkFile && typeof pdfjsLib !== 'undefined') {
         var pageIdx = Math.max(0, this.mergePage - 1);
 
-        var renderPage = function(doc) {
-          doc.getPage(pageIdx + 1).then(function(page) {
+        var renderPage = function (doc) {
+          doc.getPage(pageIdx + 1).then(function (page) {
             var viewport = page.getViewport({ scale: scale });
-            canvas.width  = viewport.width;
+            canvas.width = viewport.width;
             canvas.height = viewport.height;
-            page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
+            page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function () {
               self._cacheBg(canvas);
               self._drawAddressText(ctx, pos, scale);
             });
-          }).catch(function() {
+          }).catch(function () {
             self._drawPlaceholder(ctx, canvas.width, canvas.height, pos, scale);
           });
         };
@@ -698,12 +698,12 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
           renderPage(this._pdfDoc);
         } else {
           var reader = new FileReader();
-          reader.onload = function(e) {
+          reader.onload = function (e) {
             var typedarray = new Uint8Array(e.target.result);
-            pdfjsLib.getDocument({ data: typedarray }).promise.then(function(doc) {
+            pdfjsLib.getDocument({ data: typedarray }).promise.then(function (doc) {
               self._pdfDoc = doc;
               renderPage(doc);
-            }).catch(function() {
+            }).catch(function () {
               self._drawPlaceholder(ctx, canvas.width, canvas.height, pos, scale);
             });
           };
@@ -771,10 +771,10 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
         var fontUrl = window.MAILMERGE_IMB_FONT_URL || '';
         if (fontUrl) {
           var face = new FontFace('USPSIMBStandard', 'url(' + fontUrl + ')');
-          face.load().then(function(loaded) {
+          face.load().then(function (loaded) {
             document.fonts.add(loaded);
             self._imbFont = loaded;
-          }).catch(function() {});
+          }).catch(function () { });
         }
       }
     },
@@ -876,7 +876,7 @@ window.mailMergeEdit = function mailMergeEdit(cfg) {
       var maxW = (canvas.parentElement ? canvas.parentElement.clientWidth : 600) - 24;
       var maxH = 300;
       var scale = Math.min(maxW / pos.cardWPt, maxH / pos.cardHPt, 1);
-      canvas.width  = Math.round(pos.cardWPt * scale);
+      canvas.width = Math.round(pos.cardWPt * scale);
       canvas.height = Math.round(pos.cardHPt * scale);
       this._scale = scale;
       this._bgValid = false;
@@ -886,17 +886,17 @@ window.mailMergeEdit = function mailMergeEdit(cfg) {
       var pageIdx = Math.max(0, this.mergePage - 1);
 
       if (cfg.artworkUrl && typeof pdfjsLib !== 'undefined') {
-        var renderPage = function(doc) {
-          doc.getPage(pageIdx + 1).then(function(page) {
+        var renderPage = function (doc) {
+          doc.getPage(pageIdx + 1).then(function (page) {
             var viewport = page.getViewport({ scale: scale });
-            canvas.width  = viewport.width;
+            canvas.width = viewport.width;
             canvas.height = viewport.height;
-            page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
+            page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function () {
               self._cacheBg(canvas);
               self.canvasReady = true;
               _drawRecordOverlay(ctx, self._resolvePos(), self._scale, self.currentRecord, cfg, self._imbFont);
             });
-          }).catch(function() { self.canvasReady = false; });
+          }).catch(function () { self.canvasReady = false; });
         };
 
         if (this._pdfDoc) {
@@ -904,13 +904,13 @@ window.mailMergeEdit = function mailMergeEdit(cfg) {
         } else {
           // Fetch with credentials so authenticated Django sessions work correctly.
           fetch(cfg.artworkUrl, { credentials: 'same-origin' })
-            .then(function(r) { if (!r.ok) throw new Error('Artwork fetch failed: HTTP ' + r.status); return r.arrayBuffer(); })
-            .then(function(buf) { return pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise; })
-            .then(function(doc) {
+            .then(function (r) { if (!r.ok) throw new Error('Artwork fetch failed: HTTP ' + r.status); return r.arrayBuffer(); })
+            .then(function (buf) { return pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise; })
+            .then(function (doc) {
               self._pdfDoc = doc;
               renderPage(doc);
             })
-            .catch(function() { self.canvasReady = false; });
+            .catch(function () { self.canvasReady = false; });
         }
       } else {
         this._drawPlaceholder(ctx, canvas.width, canvas.height);
@@ -959,34 +959,34 @@ window.mailMergeEdit = function mailMergeEdit(cfg) {
         var fontUrl = window.MAILMERGE_IMB_FONT_URL || '';
         if (fontUrl) {
           var face = new FontFace('USPSIMBStandard', 'url(' + fontUrl + ')');
-          face.load().then(function(loaded) {
+          face.load().then(function (loaded) {
             document.fonts.add(loaded);
             self._imbFont = loaded;
             if (self.canvasReady) self._drawOverlay();
-          }).catch(function() {});
+          }).catch(function () { });
         }
       }
 
       // Load records from server if URL provided; then render preview.
       if (cfg.recordsUrl) {
         fetch(cfg.recordsUrl, { credentials: 'same-origin' })
-          .then(function(r) { if (!r.ok) throw new Error('records fetch failed'); return r.json(); })
-          .then(function(data) {
+          .then(function (r) { if (!r.ok) throw new Error('records fetch failed'); return r.json(); })
+          .then(function (data) {
             var list = Array.isArray(data) ? data : (Array.isArray(data.records) ? data.records : []);
             self.records = list;
             if (typeof self.$nextTick === 'function') {
-              self.$nextTick(function() { self.renderPreview(); });
+              self.$nextTick(function () { self.renderPreview(); });
             } else {
-              setTimeout(function() { self.renderPreview(); }, 0);
+              setTimeout(function () { self.renderPreview(); }, 0);
             }
           })
-          .catch(function(err) { console.debug('mailmerge: records fetch error', err); });
+          .catch(function (err) { console.debug('mailmerge: records fetch error', err); });
       } else {
         // No records URL — render artwork only.
         if (typeof self.$nextTick === 'function') {
-          self.$nextTick(function() { self.renderPreview(); });
+          self.$nextTick(function () { self.renderPreview(); });
         } else {
-          setTimeout(function() { self.renderPreview(); }, 0);
+          setTimeout(function () { self.renderPreview(); }, 0);
         }
       }
     },
