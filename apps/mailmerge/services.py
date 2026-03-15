@@ -40,6 +40,8 @@ import logging
 from pathlib import Path
 from typing import IO
 
+from django.conf import settings
+
 logger = logging.getLogger(__name__)
 
 # PDF geometry constants
@@ -135,13 +137,20 @@ def _template_to_slot_lines(
     return slot_lines, barcode_val, tray_val
 
 
-_BARCODE_FONT_PATH: str = str(
-    Path(__file__).resolve().parent.parent.parent
-    / "fonts"
-    / "usps"
-    / "trueType"
-    / "USPSIMBStandard.ttf"
-)
+# Prefer assets/printer/fonts/... and fallback to legacy fonts/ path
+_assets_base = Path(getattr(settings, "ASSETS_DIR", settings.BASE_DIR))
+_BARCODE_FONT_PATH: str | None = None
+candidate = _assets_base / "printer" / "fonts" / "trueType" / "USPSIMBStandard.ttf"
+if candidate.exists():
+    _BARCODE_FONT_PATH = str(candidate)
+else:
+    legacy_font = (
+        Path(settings.BASE_DIR) / "fonts" / "usps" / "trueType" / "USPSIMBStandard.ttf"
+    )
+    if legacy_font.exists():
+        _BARCODE_FONT_PATH = str(legacy_font)
+    else:
+        _BARCODE_FONT_PATH = None
 # Module-level cache to avoid re-registering the same reportlab font in a process
 _rl_registered_fonts: set[str] = set()
 

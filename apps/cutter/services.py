@@ -36,10 +36,17 @@ def get_barcode_tif_preview(duplo_code: str) -> bytes | None:
         )
         return None
 
-    tif_path = Path(settings.BASE_DIR) / "barcodes" / f"{num:03d}.tif"
-    if not tif_path.exists():
-        logger.warning("Barcode TIF not found: %s", tif_path)
-        return None
+        # Prefer new assets layout: assets/printer/barcodes/*.tif
+        assets_base = Path(getattr(settings, "ASSETS_DIR", settings.BASE_DIR))
+        tif_path = assets_base / "printer" / "barcodes" / f"{num:03d}.tif"
+        # Fallback to legacy project-root `barcodes/` for backward compatibility
+        if not tif_path.exists():
+            legacy = Path(settings.BASE_DIR) / "barcodes" / f"{num:03d}.tif"
+            if legacy.exists():
+                tif_path = legacy
+            else:
+                logger.warning("Barcode TIF not found: %s", tif_path)
+                return None
 
     try:
         from PIL import Image
