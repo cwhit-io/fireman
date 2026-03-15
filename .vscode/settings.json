@@ -1,0 +1,54 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cd /home/blackhawk/fireman && source \\.venv/bin/activate && python manage\\.py showmigrations routing 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    },
+  "files.exclude": {
+    // Python artifacts
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/*.pyo": true,
+    "**/*.pyd": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+
+    // Virtual environments
+    "**/.venv": true,
+    "**/venv": true,
+    "**/env": true,
+    "**/.env.local": false,   // keep .env files visible for reference
+
+    // Build / dist
+    "**/dist": true,
+    "**/build": true,
+    "**/*.egg-info": true,
+    "**/.eggs": true,
+
+    // Coverage & testing
+    "**/.coverage": true,
+    "**/htmlcov": true,
+    "**/coverage.xml": true,
+
+    // Node (if any frontend tooling)
+    "**/node_modules": true,
+
+    // Django / static files
+    "**/staticfiles": true,
+
+    // Project / CI config folders
+    "**/.vscode": true,
+    "**/.github": true,
+
+    // OS noise
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+
+    // Editor noise
+    "**/.idea": true,
+    "**/*.swp": true,
+    "**/*.swo": true
+}
+}
