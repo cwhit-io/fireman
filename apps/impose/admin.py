@@ -6,6 +6,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 
 from apps.jobs.models import PrintJob
+from core.admin_mixins import ImportExportAdminMixin
 
 from .models import POINTS_PER_INCH, ImpositionTemplate, PrintSize, ProductCategory
 
@@ -60,16 +61,74 @@ class RecentPrintJobInline(admin.TabularInline):
 
 
 @admin.register(ProductCategory)
-class ProductCategoryAdmin(admin.ModelAdmin):
+class ProductCategoryAdmin(ImportExportAdminMixin, admin.ModelAdmin):
     list_display = ["name", "description"]
     search_fields = ["name"]
+    import_label = "Product Categories"
+    export_filename = "product_categories.json"
+    export_key = "product_categories"
+
+    def obj_to_dict(self, obj):
+        return {"name": obj.name, "description": obj.description}
+
+    def dict_to_obj(self, d, overwrite):
+        name = (d.get("name") or "").strip()
+        if not name:
+            return ("error", "Skipped entry with missing name.")
+        existing = ProductCategory.objects.filter(name=name).first()
+        if existing:
+            if overwrite:
+                existing.description = d.get("description", "")
+                existing.save()
+                return ("updated", None)
+            return ("skipped", None)
+        ProductCategory.objects.create(name=name, description=d.get("description", ""))
+        return ("created", None)
+
+
+_PT = POINTS_PER_INCH
 
 
 @admin.register(PrintSize)
-class PrintSizeAdmin(admin.ModelAdmin):
+class PrintSizeAdmin(ImportExportAdminMixin, admin.ModelAdmin):
     list_display = ["name", "size_type", "width", "height"]
     list_filter = ["size_type"]
     search_fields = ["name"]
+    import_label = "Print Sizes"
+    export_filename = "print_sizes.json"
+    export_key = "print_sizes"
+
+    def obj_to_dict(self, obj):
+        return {
+            "name": obj.name,
+            "width": round(float(obj.width) / _PT, 6),
+            "height": round(float(obj.height) / _PT, 6),
+            "size_type": obj.size_type,
+        }
+
+    def dict_to_obj(self, d, overwrite):
+        name = (d.get("name") or "").strip()
+        if not name:
+            return ("error", "Skipped entry with missing name.")
+        try:
+            width_pts = round(float(d["width"]) * _PT, 3)
+            height_pts = round(float(d["height"]) * _PT, 3)
+        except (KeyError, TypeError, ValueError) as exc:
+            return ("error", f"Skipped '{name}': invalid width/height — {exc}")
+        size_type = d.get("size_type", "both")
+        existing = PrintSize.objects.filter(name=name).first()
+        if existing:
+            if overwrite:
+                existing.width = width_pts
+                existing.height = height_pts
+                existing.size_type = size_type
+                existing.save()
+                return ("updated", None)
+            return ("skipped", None)
+        PrintSize.objects.create(
+            name=name, width=width_pts, height=height_pts, size_type=size_type
+        )
+        return ("created", None)
 
 
 def _make_set_category_action(category):

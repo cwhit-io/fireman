@@ -1,0 +1,72 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+
+  {# ── Export All button ── #}
+  <li>
+    <form method="get" action="." style="display:inline;">
+      <input type="hidden" name="export_all_json" value="1">
+      <button type="submit"
+              class="button"
+              style="background:#417690;color:#fff;border:none;padding:6px 12px;
+                     border-radius:4px;cursor:pointer;font-size:13px;">
+        ↓ Export All JSON
+      </button>
+    </form>
+  </li>
+
+  {# ── Import JSON toggle ── #}
+  <li>
+    <button type="button"
+            onclick="var p=document.getElementById('admin-import-panel');
+                     p.style.display = p.style.display === 'none' ? 'block' : 'none';"
+            class="button"
+            style="background:#417690;color:#fff;border:none;padding:6px 12px;
+                   border-radius:4px;cursor:pointer;font-size:13px;">
+      ↑ Import JSON
+    </button>
+  </li>
+
+  {{ block.super }}
+{% endblock %}
+
+{% block content %}
+  {# ── Import panel (hidden by default) ── #}
+  <div id="admin-import-panel"
+       style="display:none;background:#f8f8f8;border:1px solid #ddd;
+              border-radius:4px;padding:16px;margin-bottom:16px;">
+    <h3 style="margin-top:0;">Import {{ import_label }} from JSON</h3>
+
+    {% if import_note %}
+      <p style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;
+                padding:8px 12px;margin-bottom:12px;font-size:13px;">
+        ⚠ {{ import_note }}
+      </p>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" action="">
+      {% csrf_token %}
+      <input type="hidden" name="import_json" value="1">
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px;">
+        <div>
+          <label for="import_file"
+                 style="display:block;font-weight:bold;margin-bottom:4px;">
+            JSON file <span style="color:#ba2121;">*</span>
+          </label>
+          <input id="import_file" name="import_file" type="file"
+                 accept=".json,application/json" required>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" name="overwrite_import">
+          <span>Overwrite existing entries with the same name</span>
+        </label>
+        <button type="submit" class="default button" style="padding:6px 16px;">
+          Import
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {{ block.super }}
+{% endblock %}

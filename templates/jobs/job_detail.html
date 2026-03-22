@@ -494,16 +494,23 @@
             const canvas = document.getElementById('pdf-preview-canvas');
             if (canvas) {
               const ctx = canvas.getContext('2d');
-              canvas.width = 400; canvas.height = 120;
-              ctx.fillStyle = 'oklch(var(--b2))';
+              canvas.width = 500; canvas.height = 120;
+              // Resolve DaisyUI v5 CSS variables via getComputedStyle
+              const cs = getComputedStyle(document.documentElement);
+              const bgColor  = cs.getPropertyValue('--color-base-200').trim()  || '#f3f4f6';
+              const errColor = cs.getPropertyValue('--color-error').trim()      || '#dc2626';
+              const subColor = cs.getPropertyValue('--color-base-content').trim() || '#6b7280';
+              ctx.fillStyle = bgColor;
               ctx.fillRect(0, 0, canvas.width, canvas.height);
-              ctx.fillStyle = 'oklch(var(--er))';
+              ctx.fillStyle = errColor;
               ctx.font = 'bold 14px sans-serif';
               ctx.textAlign = 'center';
-              ctx.fillText('Preview unavailable — file not found on disk.', canvas.width / 2, 55);
-              ctx.fillStyle = 'oklch(var(--bc) / 0.5)';
+              ctx.fillText('Preview unavailable — file not found on disk.', canvas.width / 2, 50);
+              ctx.fillStyle = subColor;
+              ctx.globalAlpha = 0.6;
               ctx.font = '12px sans-serif';
-              ctx.fillText('Re-process the job to regenerate the imposed PDF.', canvas.width / 2, 78);
+              ctx.fillText('Re-process the job to regenerate the imposed PDF.', canvas.width / 2, 75);
+              ctx.globalAlpha = 1.0;
             }
           }
         },
