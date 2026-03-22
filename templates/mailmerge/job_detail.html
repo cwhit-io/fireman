@@ -95,9 +95,16 @@
           <span class="text-base-content/60">Artwork PDF</span>
           <span class="font-medium truncate max-w-xs text-right">{{ job.artwork_file.name|cut:"mailmerge/artwork/" }}</span>
         </div>
-        <div class="py-2 flex justify-between text-sm">
+        <div class="py-2 flex justify-between text-sm items-center">
           <span class="text-base-content/60">Address CSV</span>
-          <span class="font-medium truncate max-w-xs text-right">{{ job.csv_file.name|cut:"mailmerge/csv/" }}</span>
+          <div class="flex items-center gap-3">
+            <span class="font-medium truncate max-w-xs text-right">{{ job.csv_file.name|cut:"mailmerge/csv/" }}</span>
+            <form method="post" action="{% url 'mailmerge:replace_csv' job.pk %}" enctype="multipart/form-data" class="flex items-center gap-2">
+              {% csrf_token %}
+              <input type="file" name="csv_file" accept=".csv" class="file-input file-input-sm" required>
+              <button type="submit" class="btn btn-ghost btn-sm">Replace</button>
+            </form>
+          </div>
         </div>
         {% if job.output_file %}
         <div class="py-2 flex justify-between text-sm">
@@ -118,8 +125,8 @@
         {% if job.address_pdf_file %}
         <div class="py-2 flex justify-between text-sm">
           <span class="text-base-content/60">Address Step-and-Repeat</span>
-          <a href="{% url 'mailmerge:download_addresses' job.pk %}" class="link link-primary font-medium truncate max-w-xs text-right">
-            {{ job.address_pdf_file.name|cut:"mailmerge/output/" }}
+          <a href="{% url 'mailmerge:download_addresses_print_preview' job.pk %}" class="link link-primary font-medium truncate max-w-xs text-right">
+            Preview as sent to printer
           </a>
         </div>
         {% endif %}

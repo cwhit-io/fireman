@@ -57,15 +57,7 @@ _FONT_SIZE: float = 9.0
 _LINE_HEIGHT: float = 13.0  # points between baselines
 
 # Default address field ordering (bottom → top)
-_DEFAULT_FIELDS: list[str] = [
-    "city-state-zip",
-    "primary street",
-    "sec-primary street",
-    "urbanization",
-    "company",
-    "name",
-    "imbno",
-]
+from .models import DEFAULT_CSV_FIELDS as _DEFAULT_FIELDS
 
 # Barcode
 _BARCODE_FIELD: str = "encodedimbno"
@@ -356,8 +348,12 @@ def _address_text_stream(
         text_slot_lines, _bval, _tray = _template_to_slot_lines(
             address_template, record, tray_separate=tray_separate
         )
-        if tray_separate and _tray:
-            tray_val = _tray
+        if tray_separate:
+            # Always pull tray directly from record when a separate position is
+            # configured — mirrors client preview.js which draws presorttrayid
+            # unconditionally from the record when hasSeparateTray=true,
+            # regardless of whether the template contains {presorttrayid}.
+            tray_val = _tray or record.get(_TRAY_FIELD, "").strip()
     else:
         # Legacy: iterate ordered fields list (bottom → top).
         # encodedimbno is always handled via a separate TrueType overlay.

@@ -44,6 +44,104 @@
         Print Jobs
       </a>
 
+      {# Calculator #}
+      <div class="relative" x-data="{
+        open: false,
+        display: '0',
+        pending: null,
+        op: null,
+        justCalc: false,
+        input(v) {
+          if (this.justCalc) { this.display = String(v); this.justCalc = false; return; }
+          this.display = this.display === '0' ? String(v) : this.display + v;
+        },
+        decimal() {
+          if (this.justCalc) { this.display = '0.'; this.justCalc = false; return; }
+          if (!this.display.includes('.')) this.display += '.';
+        },
+        setOp(o) {
+          this.pending = parseFloat(this.display);
+          this.op = o;
+          this.justCalc = true;
+        },
+        calc() {
+          if (!this.op || this.pending === null) return;
+          const cur = parseFloat(this.display);
+          let r;
+          if (this.op === '+') r = this.pending + cur;
+          else if (this.op === '-') r = this.pending - cur;
+          else if (this.op === '*') r = this.pending * cur;
+          else if (this.op === '/') r = cur !== 0 ? this.pending / cur : 'Error';
+          this.display = r === 'Error' ? 'Error' : String(parseFloat(r.toFixed(10)));
+          this.op = null; this.pending = null; this.justCalc = true;
+        },
+        clear() { this.display = '0'; this.pending = null; this.op = null; this.justCalc = false; },
+        backspace() { if (this.justCalc) return; this.display = this.display.length > 1 ? this.display.slice(0, -1) : '0'; },
+        negate() { this.display = this.display.startsWith('-') ? this.display.slice(1) : (this.display !== '0' ? '-' + this.display : '0'); },
+        pct() { this.display = String(parseFloat(this.display) / 100); }
+      }">
+        <button
+          @click="open = !open"
+          :aria-expanded="open.toString()"
+          class="btn btn-ghost btn-sm btn-square"
+          title="Calculator"
+          aria-label="Calculator"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008Zm0 2.25h.008v.008H8.25V13.5Zm0 2.25h.008v.008H8.25v-.008Zm0 2.25h.008v.008H8.25V18Zm2.498-6.75h.007v.008h-.007v-.008Zm0 2.25h.007v.008h-.007V13.5Zm0 2.25h.007v.008h-.007v-.008Zm0 2.25h.007v.008h-.007V18Zm2.504-6.75h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V13.5Zm0 2.25h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V18Zm2.498-6.75h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V13.5ZM8.25 6h7.5v2.25h-7.5V6ZM12 2.25c-1.892 0-3.758.11-5.593.322C5.307 2.7 4.5 3.613 4.5 4.733V19.5a2.25 2.25 0 0 0 2.25 2.25h10.5a2.25 2.25 0 0 0 2.25-2.25V4.733c0-1.12-.806-2.031-1.907-2.161A48.507 48.507 0 0 0 12 2.25Z" />
+          </svg>
+        </button>
+        <div
+          class="absolute right-0 top-full mt-1 z-50 bg-base-200 border border-base-300/70 rounded-2xl shadow-2xl p-3 w-80"
+          x-show="open"
+          x-transition:enter="transition ease-out duration-100"
+          x-transition:enter-start="opacity-0 scale-95"
+          x-transition:enter-end="opacity-100 scale-100"
+          x-transition:leave="transition ease-in duration-75"
+          x-transition:leave-start="opacity-100 scale-100"
+          x-transition:leave-end="opacity-0 scale-95"
+          @click.outside="open = false"
+        >
+          {# Display #}
+          <div class="bg-base-300 rounded-xl px-4 py-3 mb-3 text-right font-mono text-2xl font-medium truncate select-all min-h-[3rem] flex items-center justify-end" x-text="display"></div>
+          {# Buttons — flex rows, each button flex-1, no grid needed #}
+          <div class="flex flex-col gap-1.5">
+            <div class="flex gap-1.5">
+              <button @click="clear()"    style="flex:2" class="h-12 flex items-center justify-center text-sm font-semibold text-error bg-base-100 hover:bg-base-300 rounded-xl transition-colors">AC</button>
+              <button @click="negate()"   class="flex-1 h-12 flex items-center justify-center text-sm font-semibold bg-base-100 hover:bg-base-300 rounded-xl transition-colors">+/-</button>
+              <button @click="pct()"      class="flex-1 h-12 flex items-center justify-center text-sm font-semibold bg-base-100 hover:bg-base-300 rounded-xl transition-colors">%</button>
+            </div>
+            <div class="flex gap-1.5">
+              <button @click="input(7)"   class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">7</button>
+              <button @click="input(8)"   class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">8</button>
+              <button @click="input(9)"   class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">9</button>
+              <button @click="setOp('/')" class="flex-1 h-12 flex items-center justify-center text-base font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-xl transition-colors">÷</button>
+            </div>
+            <div class="flex gap-1.5">
+              <button @click="input(4)"   class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">4</button>
+              <button @click="input(5)"   class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">5</button>
+              <button @click="input(6)"   class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">6</button>
+              <button @click="setOp('*')" class="flex-1 h-12 flex items-center justify-center text-base font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-xl transition-colors">×</button>
+            </div>
+            <div class="flex gap-1.5">
+              <button @click="input(1)"   class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">1</button>
+              <button @click="input(2)"   class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">2</button>
+              <button @click="input(3)"   class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">3</button>
+              <button @click="setOp('-')" class="flex-1 h-12 flex items-center justify-center text-base font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-xl transition-colors">−</button>
+            </div>
+            <div class="flex gap-1.5">
+              <button @click="input(0)"    class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">0</button>
+              <button @click="backspace()" class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">⌫</button>
+              <button @click="decimal()"   class="flex-1 h-12 flex items-center justify-center text-base bg-base-100 hover:bg-base-300 rounded-xl transition-colors">.</button>
+              <button @click="setOp('+')"  class="flex-1 h-12 flex items-center justify-center text-base font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-xl transition-colors">+</button>
+            </div>
+            <div class="flex">
+              <button @click="calc()" class="flex-1 h-12 flex items-center justify-center text-base font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-xl transition-colors">=</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {# Divider #}
       <div class="w-px h-5 bg-base-300 mx-1"></div>
 
@@ -91,9 +189,14 @@
           <li class="divider m-0.5"></li>
           {% endif %}
           <li class="menu-title text-xs px-3 py-1 opacity-50">Theme</li>
-          <li><button data-set-theme="fireman"  class="text-sm py-1.5">Fireman</button></li>
-          <li><button data-set-theme="bumblebee" class="text-sm py-1.5">Bumblebee</button></li>
-          <li><button data-set-theme="dark"      class="text-sm py-1.5">Dark</button></li>
+          <li class="flex flex-col gap-1">
+            <button data-set-theme="fireman"  class="text-sm py-1.5 text-left">Fireman</button>
+            <button data-set-theme="bumblebee" class="text-sm py-1.5 text-left">Bumblebee</button>
+            <button data-set-theme="cupcake"   class="text-sm py-1.5 text-left">Cupcake</button>
+            <button data-set-theme="retro"     class="text-sm py-1.5 text-left">Retro</button>
+            <button data-set-theme="synthwave" class="text-sm py-1.5 text-left">Synthwave</button>
+            <button data-set-theme="dark"      class="text-sm py-1.5 text-left">Dark</button>
+          </li>
           <li class="divider m-0.5"></li>
           <li>
             <form method="post" action="{% url 'logout' %}">
@@ -117,9 +220,14 @@
           </li>
           <li class="divider m-0.5"></li>
           <li class="menu-title text-xs px-3 py-1 opacity-50">Theme</li>
-          <li><button data-set-theme="fireman"  class="text-sm py-1.5">Fireman</button></li>
-          <li><button data-set-theme="bumblebee" class="text-sm py-1.5">Bumblebee</button></li>
-          <li><button data-set-theme="dark"      class="text-sm py-1.5">Dark</button></li>
+          <li class="flex flex-col gap-1">
+            <button data-set-theme="fireman"  class="text-sm py-1.5 text-left">Fireman</button>
+            <button data-set-theme="bumblebee" class="text-sm py-1.5 text-left">Bumblebee</button>
+            <button data-set-theme="cupcake"   class="text-sm py-1.5 text-left">Cupcake</button>
+            <button data-set-theme="retro"     class="text-sm py-1.5 text-left">Retro</button>
+            <button data-set-theme="synthwave" class="text-sm py-1.5 text-left">Synthwave</button>
+            <button data-set-theme="dark"      class="text-sm py-1.5 text-left">Dark</button>
+          </li>
           {% endif %}
         </ul>
       </div>
@@ -165,4 +273,3 @@
 
   </div>
 </header>
-
