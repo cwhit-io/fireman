@@ -369,6 +369,94 @@ class MailMergeJobDownloadAddressPdfView(View):
         return _serve_job_file(job.address_pdf_file, "addresses.pdf")
 
 
+class MailMergeJobDownloadAddressesPrintPreviewView(View):
+    """Return the interleaved address PDF as it would be sent to the printer.
+
+    This does not modify stored files; it dynamically inserts blank pages
+    paired with each address sheet for duplex printing and streams the
+    resulting PDF to the client for preview.
+    """
+
+    def get(self, request, pk):
+        if request.user.is_staff:
+            job = get_object_or_404(MailMergeJob, pk=pk)
+        else:
+            job = get_object_or_404(MailMergeJob, pk=pk, owner=request.user)
+
+        if not job.address_pdf_file:
+            raise Http404("Address PDF not yet available.")
+
+        try:
+            from pypdf import PdfReader, PdfWriter
+
+            # Build a new PDF with blank pages interleaved for duplex printing.
+            with job.address_pdf_file.open("rb") as f:
+                reader = PdfReader(f)
+                writer = PdfWriter()
+                for page in reader.pages:
+                    mb = page.mediabox
+                    w, h = float(mb.width), float(mb.height)
+                    if job.merge_page == 1:
+                        # Address on front — blank goes on the back
+                        writer.add_page(page)
+                        writer.add_blank_page(width=w, height=h)
+                    else:
+                        # Address on back — blank goes on the front
+                        writer.add_blank_page(width=w, height=h)
+                        writer.add_page(page)
+
+                import io as _io
+
+                buf = _io.BytesIO()
+                writer.write(buf)
+                address_bytes = buf.getvalue()
+
+            response = HttpResponse(address_bytes, content_type="application/pdf")
+            response["Content-Disposition"] = 'attachment; filename="addresses_print_preview.pdf"'
+            return response
+        except Exception as exc:
+            raise Http404(f"Failed to build print-preview PDF: {exc}")
+
+
+class MailMergeJobReplaceCsvView(LoginRequiredMixin, View):
+    """Replace the CSV file for a mail-merge job and re-run processing.
+
+    Expects a multipart POST with `csv_file` set. Validates file extension
+    and then saves, marks the job pending, and enqueues processing.
+    """
+
+    def post(self, request, pk):
+        if request.user.is_staff:
+            job = get_object_or_404(MailMergeJob, pk=pk)
+        else:
+            job = get_object_or_404(MailMergeJob, pk=pk, owner=request.user)
+
+        csv_file = request.FILES.get("csv_file")
+        if not csv_file:
+            messages.error(request, "No CSV uploaded.")
+            return redirect("mailmerge:detail", pk=pk)
+        if not csv_file.name.lower().endswith(".csv"):
+            messages.error(request, "Uploaded file must be a CSV.")
+            return redirect("mailmerge:detail", pk=pk)
+
+        try:
+            # Replace stored file
+            if job.csv_file and getattr(job.csv_file, "name", None):
+                try:
+                    job.csv_file.delete(save=False)
+                except Exception:
+                    pass
+            job.csv_file.save(csv_file.name, csv_file, save=False)
+            job.status = MailMergeJob.Status.PENDING
+            job.save()
+            process_mail_merge_task.delay(str(job.pk))
+            messages.success(request, "CSV replaced and re-processing started.")
+        except Exception as exc:
+            messages.error(request, f"Failed to replace CSV: {exc}")
+
+        return redirect("mailmerge:detail", pk=pk)
+
+
 class MailMergeGenerateMergedView(LoginRequiredMixin, View):
     """Trigger on-demand generation of the full merged PDF."""
 
@@ -424,7 +512,22 @@ class MailMergeJobSendGangupToFieryView(LoginRequiredMixin, View):
                 tmp_path = tmp.name
 
             title = f"{job.name or str(job.pk)}_master"
-            send_to_fiery_lpr(tmp_path, preset, title=title)
+            # Send with a temporary preset override to create a master in slot 1
+            from types import SimpleNamespace
+
+            tmp_preset = SimpleNamespace(
+                printer_queue=preset.printer_queue,
+                copies=getattr(preset, "copies", 1),
+                fiery_options={**(preset.fiery_options or {}), "EFCreateMaster": "formC1"},
+                extra_lpr_options=preset.extra_lpr_options or "",
+                media_size=getattr(preset, "media_size", ""),
+                media_type=getattr(preset, "media_type", ""),
+                duplex=getattr(preset, "duplex", ""),
+                color_mode=getattr(preset, "color_mode", ""),
+                tray=getattr(preset, "tray", ""),
+            )
+
+            send_to_fiery_lpr(tmp_path, tmp_preset, title=title)
             messages.success(request, "Gang-up PDF sent to printer.")
         except Exception as exc:
             messages.error(request, f"Failed to send: {exc}")
@@ -501,7 +604,22 @@ class MailMergeJobSendAddressesToFieryView(LoginRequiredMixin, View):
                 tmp_path = tmp.name
 
             title = f"{job.name or str(job.pk)}_addresses"
-            send_to_fiery_lpr(tmp_path, preset, title=title)
+            # Send with a temporary preset override to use master in slot 1
+            from types import SimpleNamespace
+
+            tmp_preset = SimpleNamespace(
+                printer_queue=preset.printer_queue,
+                copies=getattr(preset, "copies", 1),
+                fiery_options={**(preset.fiery_options or {}), "EFUseMaster": "formC1"},
+                extra_lpr_options=preset.extra_lpr_options or "",
+                media_size=getattr(preset, "media_size", ""),
+                media_type=getattr(preset, "media_type", ""),
+                duplex=getattr(preset, "duplex", ""),
+                color_mode=getattr(preset, "color_mode", ""),
+                tray=getattr(preset, "tray", ""),
+            )
+
+            send_to_fiery_lpr(tmp_path, tmp_preset, title=title)
             messages.success(request, "Address PDF sent to printer.")
         except Exception as exc:
             messages.error(request, f"Failed to send: {exc}")

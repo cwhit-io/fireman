@@ -37,6 +37,11 @@ urlpatterns = [
         name="download_addresses",
     ),
     path(
+        "<uuid:pk>/download/addresses/print-preview/",
+        views.MailMergeJobDownloadAddressesPrintPreviewView.as_view(),
+        name="download_addresses_print_preview",
+    ),
+    path(
         "<uuid:pk>/generate-merged/",
         views.MailMergeGenerateMergedView.as_view(),
         name="generate_merged",
@@ -55,5 +60,10 @@ urlpatterns = [
         "<uuid:pk>/send-addresses/",
         views.MailMergeJobSendAddressesToFieryView.as_view(),
         name="send_addresses_to_fiery",
+    ),
+    path(
+        "<uuid:pk>/replace-csv/",
+        views.MailMergeJobReplaceCsvView.as_view(),
+        name="replace_csv",
     ),
 ]

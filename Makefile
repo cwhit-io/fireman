@@ -1,4 +1,4 @@
-.PHONY: help venv install env setup run dev worker tailwind test migrate makemigrations shell superuser wagtail-init collectstatic lint lint-fix format commit check clean reset pre-commit-install startapp docker-build docker-up docker-up-dev docker-down docker-logs docker-shell docker-manage
+.PHONY: help venv install env setup run dev worker tailwind test migrate makemigrations shell superuser wagtail-init collectstatic lint lint-fix format commit check clean reset pre-commit-install startapp docker-build docker-up docker-up-dev docker-down docker-logs docker-shell docker-manage stop reload
 
 VENV := .venv
 PYTHON := $(VENV)/bin/python
@@ -33,17 +33,95 @@ pre-commit-install: install ## Install pre-commit hooks
 
 setup: env pre-commit-install migrate collectstatic ## Bootstrap project from scratch (create .env, install deps, hooks, run migrations, collect static)
 
-run: venv ## Start Daphne, Celery worker, and Tailwind in parallel
-	$(MAKE) -j3 dev worker tailwind
+# ─── Production ────────────────────────────────────────────────────────────────
 
-dev: venv ## Start Daphne ASGI server
-	$(VENV)/bin/daphne -b $(HOST) -p $(PORT) config.asgi:application
+run: venv ## [PROD] Start Daphne + Celery (assets must already be built)
+	@mkdir -p logs
+	$(MAKE) -j2 _daphne _celery
 
-worker: venv ## Start Celery worker
-	$(VENV)/bin/celery -A config worker -l info
+_daphne:
+	$(VENV)/bin/daphne -b $(HOST) -p $(PORT) config.asgi:application > logs/daphne.log 2>&1 & \
+	echo $$! > logs/daphne.pid; \
+	echo "Daphne started (PID $$(cat logs/daphne.pid))"
 
-tailwind: ## Watch and rebuild Tailwind CSS
-	npm run tailwind:watch
+_celery:
+	$(VENV)/bin/celery -A config worker -l info > logs/celery.log 2>&1 & \
+	echo $$! > logs/celery.pid; \
+	echo "Celery started (PID $$(cat logs/celery.pid))"
+
+# ─── Development ───────────────────────────────────────────────────────────────
+
+dev: venv ## [DEV] Build assets, then start Daphne + Celery + Tailwind watch
+	@mkdir -p logs
+	@echo "Building assets..."
+	npm run tailwind:build
+	$(PYTHON) manage.py collectstatic --noinput
+	$(MAKE) -j3 _daphne _celery _tailwind
+
+_tailwind:
+	npm run tailwind:watch > logs/tailwind.log 2>&1 & \
+	NPM_PID=$$!; \
+	sleep 1; \
+	NODE_PID=$$(pgrep -P $$NPM_PID 2>/dev/null | head -1); \
+	if [ -n "$$NODE_PID" ]; then \
+		echo $$NODE_PID > logs/tailwind.pid; \
+		echo "Tailwind started (node PID $$NODE_PID, npm PID $$NPM_PID)"; \
+	else \
+		echo $$NPM_PID > logs/tailwind.pid; \
+		echo "Tailwind started (PID $$NPM_PID)"; \
+	fi
+
+# ─── Stop / Reload ─────────────────────────────────────────────────────────────
+
+stop: ## Stop all running services
+	@echo "Stopping services..."
+
+	@# Daphne
+	@if [ -f logs/daphne.pid ]; then \
+		PID=$$(cat logs/daphne.pid); \
+		if ps -p $$PID -o comm= 2>/dev/null | grep -q "daphne"; then \
+			kill $$PID 2>/dev/null && echo "Daphne stopped (PID $$PID)" || true; \
+		else \
+			echo "Daphne not running (stale PID $$PID)"; \
+		fi; \
+		rm -f logs/daphne.pid; \
+	else \
+		pgrep -f "daphne -b $(HOST) -p $(PORT)" | xargs -r kill 2>/dev/null || true; \
+	fi
+
+	@# Celery
+	@if [ -f logs/celery.pid ]; then \
+		PID=$$(cat logs/celery.pid); \
+		if ps -p $$PID -o comm= 2>/dev/null | grep -q "celery"; then \
+			kill $$PID 2>/dev/null && echo "Celery stopped (PID $$PID)" || true; \
+		else \
+			echo "Celery not running (stale PID $$PID)"; \
+		fi; \
+		rm -f logs/celery.pid; \
+	else \
+		pgrep -f "celery -A config worker" | xargs -r kill 2>/dev/null || true; \
+	fi
+
+	@# Tailwind — PID only, no pgrep fallback
+	@if [ -f logs/tailwind.pid ]; then \
+		PID=$$(cat logs/tailwind.pid); \
+		if ps -p $$PID > /dev/null 2>&1; then \
+			kill $$PID 2>/dev/null && echo "Tailwind stopped (PID $$PID)" || true; \
+		else \
+			echo "Tailwind not running (stale PID $$PID)"; \
+		fi; \
+		rm -f logs/tailwind.pid; \
+	fi
+
+	@echo "Stopped."
+
+reload: stop run ## Restart production services
+	@echo "Reloaded."
+
+reload-dev: stop dev ## Restart dev services (rebuilds assets)
+	@echo "Reloaded (dev)."
+
+# ─── Django ────────────────────────────────────────────────────────────────────
 
 test: venv ## Run tests with pytest + coverage report
 	$(VENV)/bin/pytest
@@ -51,7 +129,7 @@ test: venv ## Run tests with pytest + coverage report
 lint: venv ## Lint code with ruff
 	$(VENV)/bin/ruff check .
 
-lint-fix: venv ## Lint code with ruff
+lint-fix: venv ## Lint and auto-fix with ruff
 	$(VENV)/bin/ruff check . --fix
 
 format: venv ## Auto-format code with ruff
@@ -76,7 +154,6 @@ shell: venv ## Open Django shell
 superuser: venv ## Create a superuser
 	$(PYTHON) manage.py createsuperuser
 
-
 collectstatic: venv ## Collect static files
 	$(PYTHON) manage.py collectstatic --noinput
 
@@ -92,12 +169,16 @@ startapp: venv ## Scaffold a new app in apps/ (usage: make startapp name=myapp)
 	@echo "App created at apps/$(name)/"
 	@echo "Add 'apps.$(name)' to INSTALLED_APPS in config/settings/base.py"
 
+# ─── Maintenance ───────────────────────────────────────────────────────────────
+
 clean: ## Remove cache files, compiled Python, and the SQLite database
 	find . -type f -name "*.pyc" -delete
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	rm -f db.sqlite3
 
 reset: clean setup ## Full teardown and rebuild (clean + setup)
+
+# ─── Docker ────────────────────────────────────────────────────────────────────
 
 docker-build: ## Build Docker images
 	docker compose build
@@ -119,6 +200,8 @@ docker-shell: ## Open a shell in the web container
 
 docker-manage: ## Run a manage.py command in the web container (usage: make docker-manage cmd="migrate")
 	docker compose exec web python manage.py $(cmd)
+
+# ─── Assets ────────────────────────────────────────────────────────────────────
 
 organize-assets: ## Create assets/printer layout and copy barcodes, fonts, and PPD (no overwrite)
 	@echo "Creating assets/printer layout..."
