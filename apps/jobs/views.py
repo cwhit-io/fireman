@@ -333,8 +333,12 @@ class JobPreviewView(LoginRequiredMixin, View):
             )
         if not job.imposed_file:
             raise Http404("No imposed file available for this job.")
+        try:
+            fh = job.imposed_file.open("rb")
+        except FileNotFoundError:
+            raise Http404("Imposed PDF file not found on disk.")
         response = FileResponse(
-            job.imposed_file.open("rb"),
+            fh,
             as_attachment=False,
             filename=f"preview_{job.name}",
             content_type="application/pdf",
@@ -358,8 +362,12 @@ class JobSourcePreviewView(LoginRequiredMixin, View):
             )
         if not job.file:
             raise Http404("No source file available for this job.")
+        try:
+            fh = job.file.open("rb")
+        except FileNotFoundError:
+            raise Http404("Source PDF file not found on disk.")
         response = FileResponse(
-            job.file.open("rb"),
+            fh,
             as_attachment=False,
             filename=f"source_{job.name}",
             content_type="application/pdf",

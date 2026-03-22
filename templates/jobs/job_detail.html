@@ -147,86 +147,7 @@
     </div>
   </div>
 
-  {# ── Preflight Report (inline, collapsed by default, auto-expands if unacknowledged) ── #}
-  {% if job.preflight_status %}
-  <div class="collapse collapse-arrow border shadow mb-6
-    {% if job.preflight_status == 'ok' %}bg-success/5 border-success/30{% elif job.preflight_status == 'error' %}bg-error/5 border-error/30{% else %}bg-warning/5 border-warning/30{% endif %}"
-    x-data="{ open: showPreflightReport }" :class="open ? 'collapse-open' : ''">
-    <input type="checkbox" x-model="open">
-    <div class="collapse-title font-semibold flex items-center gap-2">
-      {% if job.preflight_status == 'ok' %}
-        <span class="text-success">✅</span>
-        <span class="text-success">Preflight Report — All Clear</span>
-      {% elif job.preflight_status == 'error' %}
-        <span class="text-error">🚨</span>
-        <span class="text-error">Preflight Report — Issues Found</span>
-      {% else %}
-        <span class="text-warning">⚠️</span>
-        <span class="text-warning">Preflight Report — Review Needed</span>
-      {% endif %}
-      {% if not job.preflight_acknowledged %}
-        <span class="badge badge-sm {% if job.preflight_status == 'ok' %}badge-success{% elif job.preflight_status == 'error' %}badge-error{% else %}badge-warning{% endif %} ml-auto">New</span>
-      {% endif %}
-    </div>
-    <div class="collapse-content">
-      {% if job.preflight_status == 'ok' %}
-      <div class="flex flex-col sm:flex-row items-center gap-6 py-4">
-        <img src="{% static 'preflight/medal.png' %}" alt="Preflight passed" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
-        <div class="flex-1">
-          <h3 class="font-bold text-xl text-success mb-2">Everything looks Pawwwfect! 🐾</h3>
-          <p class="text-base-content/70 text-sm mb-4">Ember ran a full preflight check and didn't find any issues. This file looks great — you're good to go!</p>
-          {% if job.preflight_message_pairs %}
-          <ul class="space-y-3">
-            {% for msg,img in job.preflight_message_pairs %}
-            <li class="flex gap-4 bg-success/10 rounded-xl px-4 py-3 items-start">
-              {% if img %}
-              <img src="{% static 'preflight/'|add:img %}" alt="" class="w-14 h-14 object-contain shrink-0">
-              {% endif %}
-              <p class="text-sm preflight-msg leading-relaxed">{{ msg }}</p>
-            </li>
-            {% endfor %}
-          </ul>
-          {% endif %}
-        </div>
-      </div>
-      {% else %}
-      <div class="flex flex-col sm:flex-row items-center gap-6 py-4 mb-4">
-        {% if job.preflight_status == 'error' %}
-        <img src="{% static 'preflight/caution_tape.png' %}" alt="Preflight issues" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
-        {% else %}
-        <img src="{% static 'preflight/yield.png' %}" alt="Preflight warning" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
-        {% endif %}
-        <div class="flex-1">
-          <h3 class="font-bold text-xl {% if job.preflight_status == 'error' %}text-error{% else %}text-warning{% endif %} mb-1">Preflight Report</h3>
-          <p class="text-base-content/60 text-sm">Ember checked your file and found a few things to review before printing.</p>
-        </div>
-      </div>
-      {% if job.preflight_message_pairs %}
-      <ul class="space-y-4 mb-4">
-        {% for msg,img in job.preflight_message_pairs %}
-        <li class="flex gap-4 bg-base-200 rounded-xl px-4 py-4 items-start">
-          {% if img %}
-          <img src="{% static 'preflight/'|add:img %}" alt="" class="w-16 h-16 object-contain shrink-0">
-          {% else %}
-          <span class="text-2xl shrink-0">⚠️</span>
-          {% endif %}
-          <p class="text-sm preflight-msg leading-relaxed">{{ msg }}</p>
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-      {% endif %}
-      {% if not job.preflight_acknowledged %}
-      <div class="flex justify-end pt-2 border-t border-base-300">
-        <form method="post" action="{% url 'jobs:preflight_acknowledge' job.pk %}">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-sm btn-primary">Got it — mark as reviewed</button>
-        </form>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
+
   {% if job.imposed_file %}
   <div class="card card-bordered shadow mb-6 overflow-hidden">
 
@@ -387,6 +308,87 @@
   </div>
   {% endif %}
 
+  {# ── Preflight Report (inline, collapsed by default, auto-expands if unacknowledged) ── #}
+  {% if job.preflight_status %}
+  <div class="collapse collapse-arrow border shadow mb-6
+    {% if job.preflight_status == 'ok' %}bg-success/5 border-success/30{% elif job.preflight_status == 'error' %}bg-error/5 border-error/30{% else %}bg-warning/5 border-warning/30{% endif %}"
+    x-data="{ open: showPreflightReport }" :class="open ? 'collapse-open' : ''">
+    <input type="checkbox" x-model="open">
+    <div class="collapse-title font-semibold flex items-center gap-2">
+      {% if job.preflight_status == 'ok' %}
+        <span class="text-success">✅</span>
+        <span class="text-success">Preflight Report — All Clear</span>
+      {% elif job.preflight_status == 'error' %}
+        <span class="text-error">🚨</span>
+        <span class="text-error">Preflight Report — Issues Found</span>
+      {% else %}
+        <span class="text-warning">⚠️</span>
+        <span class="text-warning">Preflight Report — Review Needed</span>
+      {% endif %}
+      {% if not job.preflight_acknowledged %}
+        <span class="badge badge-sm {% if job.preflight_status == 'ok' %}badge-success{% elif job.preflight_status == 'error' %}badge-error{% else %}badge-warning{% endif %} ml-auto">New</span>
+      {% endif %}
+    </div>
+    <div class="collapse-content">
+      {% if job.preflight_status == 'ok' %}
+      <div class="flex flex-col sm:flex-row items-center gap-6 py-4">
+        <img src="{% static 'preflight/medal.png' %}" alt="Preflight passed" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
+        <div class="flex-1">
+          <h3 class="font-bold text-xl text-success mb-2">Everything looks Pawwwfect! 🐾</h3>
+          <p class="text-base-content/70 text-sm mb-4">Ember ran a full preflight check and didn't find any issues. This file looks great — you're good to go!</p>
+          {% if job.preflight_message_pairs %}
+          <ul class="space-y-3">
+            {% for msg,img in job.preflight_message_pairs %}
+            <li class="flex gap-4 bg-success/10 rounded-xl px-4 py-3 items-start">
+              {% if img %}
+              <img src="{% static 'preflight/'|add:img %}" alt="" class="w-14 h-14 object-contain shrink-0">
+              {% endif %}
+              <p class="text-sm preflight-msg leading-relaxed">{{ msg }}</p>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <div class="flex flex-col sm:flex-row items-center gap-6 py-4 mb-4">
+        {% if job.preflight_status == 'error' %}
+        <img src="{% static 'preflight/caution_tape.png' %}" alt="Preflight issues" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
+        {% else %}
+        <img src="{% static 'preflight/yield.png' %}" alt="Preflight warning" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
+        {% endif %}
+        <div class="flex-1">
+          <h3 class="font-bold text-xl {% if job.preflight_status == 'error' %}text-error{% else %}text-warning{% endif %} mb-1">Preflight Report</h3>
+          <p class="text-base-content/60 text-sm">Ember checked your file and found a few things to review before printing.</p>
+        </div>
+      </div>
+      {% if job.preflight_message_pairs %}
+      <ul class="space-y-4 mb-4">
+        {% for msg,img in job.preflight_message_pairs %}
+        <li class="flex gap-4 bg-base-200 rounded-xl px-4 py-4 items-start">
+          {% if img %}
+          <img src="{% static 'preflight/'|add:img %}" alt="" class="w-16 h-16 object-contain shrink-0">
+          {% else %}
+          <span class="text-2xl shrink-0">⚠️</span>
+          {% endif %}
+          <p class="text-sm preflight-msg leading-relaxed">{{ msg }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% endif %}
+      {% if not job.preflight_acknowledged %}
+      <div class="flex justify-end pt-2 border-t border-base-300">
+        <form method="post" action="{% url 'jobs:preflight_acknowledge' job.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-primary">Got it — mark as reviewed</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   {# ── PDF Preview ── #}
   {% if job.imposed_file %}
   <div class="card card-bordered shadow mb-6 overflow-hidden" x-data="pdfPreview('{% url 'jobs:preview' job.pk %}')" @preview-next.window="nextPage()" @preview-prev.window="prevPage()" x-init="init()">
@@ -488,6 +490,21 @@
             await this.renderPage();
           } catch(e) {
             console.error('PDF preview error:', e);
+            // Show a friendly message in the canvas area instead of a blank box
+            const canvas = document.getElementById('pdf-preview-canvas');
+            if (canvas) {
+              const ctx = canvas.getContext('2d');
+              canvas.width = 400; canvas.height = 120;
+              ctx.fillStyle = 'oklch(var(--b2))';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.fillStyle = 'oklch(var(--er))';
+              ctx.font = 'bold 14px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('Preview unavailable — file not found on disk.', canvas.width / 2, 55);
+              ctx.fillStyle = 'oklch(var(--bc) / 0.5)';
+              ctx.font = '12px sans-serif';
+              ctx.fillText('Re-process the job to regenerate the imposed PDF.', canvas.width / 2, 78);
+            }
           }
         },
 
