@@ -28,10 +28,8 @@ env: install ## Create .env from .env.example if missing, with a generated SECRE
 		echo ".env already exists, skipping"; \
 	fi
 
-pre-commit-install: install ## Install pre-commit hooks
-	$(VENV)/bin/pre-commit install
 
-setup: env pre-commit-install migrate collectstatic ## Bootstrap project from scratch (create .env, install deps, hooks, run migrations, collect static)
+setup: env migrate collectstatic ## Bootstrap project from scratch (create .env, install deps, run migrations, collect static)
 
 # ─── Production ────────────────────────────────────────────────────────────────
 

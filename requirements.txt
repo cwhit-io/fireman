@@ -42,7 +42,7 @@ django-daisy==2.0.8
 # Dev
 django-browser-reload==1.21.0
 ruff==0.11.0
-pre-commit==4.2.0
+# pre-commit removed — managed outside project requirements
 
 # Testing
 pytest==9.0.2

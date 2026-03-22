@@ -8,14 +8,17 @@
 {% block content %}
 
 <style>
-  /* Tail points DOWN — used on drop zone and other pages where mascot is below the bubble */
-  .speech-bubble {
+  /* Theme-aware speech bubble — uses DaisyUI CSS variables so it follows the active theme */
+  .speech-bubble,
+  .speech-bubble-up {
     position: relative;
-    background: #f0f4ff;
-    border: 2px solid #c7d2fe;
+    background: var(--color-base-200);
+    border: 2px solid var(--color-base-300);
     border-radius: 1rem;
     padding: 0.75rem 1rem;
+    color: var(--color-base-content);
   }
+
   .speech-bubble::before {
     content: '';
     position: absolute;
@@ -23,7 +26,7 @@
     left: 1.95rem;
     border-width: 15px 11px 0 11px;
     border-style: solid;
-    border-color: #c7d2fe transparent transparent transparent;
+    border-color: var(--color-base-300) transparent transparent transparent;
   }
   .speech-bubble::after {
     content: '';
@@ -32,17 +35,9 @@
     left: 2rem;
     border-width: 14px 10px 0 10px;
     border-style: solid;
-    border-color: #f0f4ff transparent transparent transparent;
+    border-color: var(--color-base-200) transparent transparent transparent;
   }
 
-  /* Tail points UP — used when bubble sits below the image (§4 card) */
-  .speech-bubble-up {
-    position: relative;
-    background: #f0f4ff;
-    border: 2px solid #c7d2fe;
-    border-radius: 1rem;
-    padding: 0.75rem 1rem;
-  }
   .speech-bubble-up::before {
     content: '';
     position: absolute;
@@ -50,7 +45,7 @@
     left: 1.95rem;
     border-width: 0 11px 15px 11px;
     border-style: solid;
-    border-color: transparent transparent #c7d2fe transparent;
+    border-color: transparent transparent var(--color-base-300) transparent;
   }
   .speech-bubble-up::after {
     content: '';
@@ -59,7 +54,7 @@
     left: 2rem;
     border-width: 0 10px 14px 10px;
     border-style: solid;
-    border-color: transparent transparent #f0f4ff transparent;
+    border-color: transparent transparent var(--color-base-200) transparent;
   }
 </style>
 
