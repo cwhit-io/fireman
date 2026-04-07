@@ -1,10 +1,13 @@
 from django.urls import path
 from django.views.generic.base import RedirectView
 
+from . import views
+
 app_name = "impose"
 
 urlpatterns = [
-    path("", RedirectView.as_view(url="/", permanent=False), name="list"),
+    path("", views.print_templates, name="print_templates"),
+    path("<int:pk>/download/<str:orientation>/", views.print_size_template_pdf, name="template_pdf"),
     path("new/", RedirectView.as_view(url="/", permanent=False), name="create"),
     path(
         "export-all/", RedirectView.as_view(url="/", permanent=False), name="export_all"

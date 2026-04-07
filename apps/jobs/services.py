@@ -63,6 +63,24 @@ def run_preflight_for_job(job, pdf_bytes: bytes | None = None) -> None:
         logger.exception("Preflight failed for job %s: %s", job.pk, exc)
         return
 
+    # If preflight corrected the orientation, overwrite the source file so that
+    # the imposition task picks up the rotated version.
+    if result.corrected_bytes is not None:
+        try:
+            from django.core.files.base import ContentFile
+
+            fname = job.file.name.split("/")[-1] if job.file.name else "source.pdf"
+            job.file.delete(save=False)
+            job.file.save(fname, ContentFile(result.corrected_bytes), save=False)
+            job.save(update_fields=["file"])
+            logger.info(
+                "Replaced source file with orientation-corrected PDF for job %s", job.pk
+            )
+        except Exception as exc:
+            logger.warning(
+                "Could not save corrected PDF for job %s: %s", job.pk, exc
+            )
+
     job.preflight_status = result.status
     job.preflight_rules_triggered = result.rules_triggered
     job.preflight_messages = result.messages

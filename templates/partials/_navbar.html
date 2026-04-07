@@ -23,6 +23,16 @@
         Upload
       </a>
 
+      {# Templates — public #}
+      <a href="{% url 'impose:print_templates' %}"
+         class="btn btn-ghost btn-sm gap-1.5 font-medium text-sm"
+         title="Print Templates">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+        </svg>
+        Templates
+      </a>
+
       {# Mail Merge — only visible to users with permission or staff #}
       {% if user.is_authenticated and user.can_use_mail_merge or user.is_authenticated and user.is_staff %}
       <a href="{% url 'mailmerge:list' %}"
@@ -252,6 +262,7 @@
         @click.outside="open = false"
       >
         <a href="{% url 'jobs:upload' %}" class="btn btn-ghost btn-sm justify-start gap-2">Upload</a>
+        <a href="{% url 'impose:print_templates' %}" class="btn btn-ghost btn-sm justify-start gap-2">Templates</a>
         {% if user.is_authenticated and user.can_use_mail_merge or user.is_authenticated and user.is_staff %}
         <a href="{% url 'mailmerge:list' %}" class="btn btn-ghost btn-sm justify-start gap-2">Mail Merge</a>
         {% endif %}

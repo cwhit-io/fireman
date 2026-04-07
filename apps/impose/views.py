@@ -1,13 +1,130 @@
 import json
+import re
+from io import BytesIO
 
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import DeleteView, ListView
+from reportlab.lib.colors import HexColor, white
+from reportlab.pdfgen import canvas as rl_canvas
 
-from .models import POINTS_PER_INCH, ImpositionTemplate
+from .models import POINTS_PER_INCH, ImpositionTemplate, PrintSize, ProductCategory
+
+
+def print_templates(request):
+    """Public page listing all cut sizes grouped by category."""
+    sizes_qs = (
+        PrintSize.objects.filter(
+            size_type__in=[PrintSize.SizeType.CUT, PrintSize.SizeType.BOTH],
+            is_published=True,
+        )
+        .select_related("category")
+        .order_by("category__name", "name")
+    )
+
+    # Build a list of (category_name, [sizes]) groups.
+    # Sizes with no category are collected under None → displayed last as "Other".
+    groups: dict[str | None, list] = {}
+    for size in sizes_qs:
+        key = size.category.name if size.category_id else None
+        groups.setdefault(key, []).append(size)
+
+    # Sort: named categories first (alphabetical), uncategorised last
+    sorted_groups = sorted(
+        ((k, v) for k, v in groups.items() if k is not None), key=lambda t: t[0]
+    )
+    if None in groups:
+        sorted_groups.append((None, groups[None]))
+
+    return render(
+        request,
+        "impose/print_templates.html",
+        {"groups": sorted_groups},
+    )
+
+
+_BLEED_PT = 9.0  # 0.125 in
+
+
+def print_size_template_pdf(request, pk, orientation):
+    """Generate and download a PDF template with cut size + 0.125in bleed guides."""
+    if orientation not in ("portrait", "landscape"):
+        raise Http404
+
+    size = get_object_or_404(PrintSize, pk=pk)
+
+    cut_w = float(size.width)
+    cut_h = float(size.height)
+
+    if orientation == "landscape":
+        cut_w, cut_h = max(cut_w, cut_h), min(cut_w, cut_h)
+    else:
+        cut_w, cut_h = min(cut_w, cut_h), max(cut_w, cut_h)
+
+    bleed = _BLEED_PT
+    safe = _BLEED_PT  # 0.125 in safe zone inside cut line
+
+    page_w = cut_w + 2 * bleed
+    page_h = cut_h + 2 * bleed
+
+    buf = BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=(page_w, page_h))
+
+    # Bleed zone background
+    c.setFillColor(HexColor("#FFCCCC"))
+    c.rect(0, 0, page_w, page_h, fill=1, stroke=0)
+
+    # Cut area (white)
+    c.setFillColor(white)
+    c.rect(bleed, bleed, cut_w, cut_h, fill=1, stroke=0)
+
+    # Cut line — red dashed
+    c.setStrokeColor(HexColor("#FF0000"))
+    c.setLineWidth(0.5)
+    c.setDash([3, 2])
+    c.rect(bleed, bleed, cut_w, cut_h, fill=0, stroke=1)
+    c.setDash()
+
+    # Safe zone — blue dashed
+    c.setStrokeColor(HexColor("#0055FF"))
+    c.setLineWidth(0.4)
+    c.setDash([2, 3])
+    c.rect(bleed + safe, bleed + safe, cut_w - 2 * safe, cut_h - 2 * safe, fill=0, stroke=1)
+    c.setDash()
+
+    # Centre label
+    c.setFillColor(HexColor("#999999"))
+    c.setFont("Helvetica-Bold", 7)
+    c.drawCentredString(page_w / 2, page_h / 2 + 4, size.name)
+    c.setFont("Helvetica", 5.5)
+    c.drawCentredString(
+        page_w / 2,
+        page_h / 2 - 4,
+        '{w}" \u00d7 {h}"  +  0.125" bleed  \u2022  {o}'.format(
+            w=f"{cut_w / 72:g}", h=f"{cut_h / 72:g}", o=orientation
+        ),
+    )
+
+    # Legend — bottom-left, inside safe zone
+    c.setFont("Helvetica", 4)
+    c.setFillColor(HexColor("#FF0000"))
+    c.drawString(bleed + safe + 2, bleed + safe + 3, "- Cut line")
+    c.setFillColor(HexColor("#0055FF"))
+    c.drawString(bleed + safe + 2, bleed + safe + 9, "- Safe zone")
+
+    c.showPage()
+    c.save()
+
+    safe_name = re.sub(r"[^\w\-]", "_", size.name)
+    response = HttpResponse(buf.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = (
+        'attachment; filename="{n}_{o}_template.pdf"'.format(n=safe_name, o=orientation)
+    )
+    return response
+
 
 # ── JSON export / import helpers ─────────────────────────────────────────────
 

@@ -44,6 +44,29 @@ class PrintSize(models.Model):
         default=SizeType.BOTH,
         help_text="Whether this size is used for cut sizes, sheet sizes, or both",
     )
+    thumbnail = models.ImageField(
+        upload_to="print_sizes/thumbnails/",
+        blank=True,
+        null=True,
+        help_text="Optional preview image for this size (shown in upload UI)",
+    )
+    canva_template_url = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text="Canva template URL for this print size",
+    )
+    category = models.ForeignKey(
+        "impose.ProductCategory",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="print_sizes",
+        help_text="Group this size under a product category (e.g. Postcards, Business Cards)",
+    )
+    is_published = models.BooleanField(
+        default=True,
+        help_text="Published sizes appear on the public Templates page.",
+    )
 
     class Meta:
         ordering = ["name"]
@@ -182,6 +205,10 @@ class ImpositionTemplate(models.Model):
         help_text="Printer preset to use when routing jobs with this template.",
     )
     notes = models.TextField(blank=True)
+    is_published = models.BooleanField(
+        default=True,
+        help_text="Published templates are visible on the public Templates page.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

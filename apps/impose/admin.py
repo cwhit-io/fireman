@@ -11,6 +11,28 @@ from core.admin_mixins import ImportExportAdminMixin
 from .models import POINTS_PER_INCH, ImpositionTemplate, PrintSize, ProductCategory
 
 
+def _published_icon(published: bool) -> str:
+    if published:
+        return format_html(
+            '<span style="color:#16a34a;font-weight:600;">&#x2713; Published</span>'
+        )
+    return format_html(
+        '<span style="color:#9ca3af;">&#x2013; Draft</span>'
+    )
+
+
+@admin.action(description="Publish selected")
+def publish_selected(modeladmin, request, queryset):
+    updated = queryset.update(is_published=True)
+    modeladmin.message_user(request, f"{updated} item(s) published.", messages.SUCCESS)
+
+
+@admin.action(description="Unpublish selected")
+def unpublish_selected(modeladmin, request, queryset):
+    updated = queryset.update(is_published=False)
+    modeladmin.message_user(request, f"{updated} item(s) unpublished.", messages.SUCCESS)
+
+
 class RecentPrintJobInline(admin.TabularInline):
     """Shows up to 10 most-recent PrintJobs that used this template."""
 
@@ -91,12 +113,30 @@ _PT = POINTS_PER_INCH
 
 @admin.register(PrintSize)
 class PrintSizeAdmin(ImportExportAdminMixin, admin.ModelAdmin):
-    list_display = ["name", "size_type", "width", "height"]
-    list_filter = ["size_type"]
+    list_display = ["name", "category", "size_type", "width", "height", "published_status", "thumbnail_preview"]
+    list_filter = ["is_published", "size_type", "category"]
     search_fields = ["name"]
     import_label = "Print Sizes"
     export_filename = "print_sizes.json"
     export_key = "print_sizes"
+    actions = [publish_selected, unpublish_selected]
+    fieldsets = [
+        (None, {"fields": ["name", "category", "size_type", ("width", "height"), "is_published"]}),
+        ("Design Resources", {"fields": ["thumbnail", "canva_template_url"]}),
+    ]
+
+    @admin.display(description="Status")
+    def published_status(self, obj):
+        return _published_icon(obj.is_published)
+
+    @admin.display(description="Thumbnail")
+    def thumbnail_preview(self, obj):
+        if obj.thumbnail:
+            return format_html(
+                '<img src="{}" style="height:40px;width:auto;border-radius:3px;">',
+                obj.thumbnail.url,
+            )
+        return "—"
 
     def obj_to_dict(self, obj):
         return {
@@ -228,18 +268,19 @@ class ImpositionTemplateAdmin(admin.ModelAdmin):
         "duplo_code",
         "columns",
         "rows",
+        "published_status",
     ]
-    list_filter = ["product_category", "cut_size", "sheet_size"]
+    list_filter = ["is_published", "product_category", "cut_size", "sheet_size"]
     search_fields = ["name"]
     readonly_fields = ["created_at", "updated_at"]
     inlines = [RecentPrintJobInline]
     change_list_template = "admin/impose/impositiontemplate/change_list.html"
-    actions = [export_templates_as_json]
+    actions = [export_templates_as_json, publish_selected, unpublish_selected]
     fieldsets = [
         (
             None,
             {
-                "fields": ["name", "product_category", "notes"],
+                "fields": ["name", "product_category", "is_published", "notes"],
             },
         ),
         (
@@ -285,6 +326,10 @@ class ImpositionTemplateAdmin(admin.ModelAdmin):
             },
         ),
     ]
+
+    @admin.display(description="Status")
+    def published_status(self, obj):
+        return _published_icon(obj.is_published)
 
     @admin.display(description="Duplo Code")
     def duplo_code(self, obj):

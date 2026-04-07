@@ -211,7 +211,7 @@ class TestPreflight:
         assert result.status == "warn"
         # message/image pairing remains aligned
         assert len(result.images) == len(result.messages)
-        assert result.images[0] == "r1.png"
+        assert result.images[0] == "ruler.png"
 
     def test_clean_bleed_triggers_r2(self):
         """PDF with ~9pt bleed per side → R2 (clean bleed)."""
@@ -267,13 +267,28 @@ class TestPreflight:
         assert "R5" in result.rules_triggered
         assert result.status == "warn"
 
-    def test_wrong_size_ar_mismatch_triggers_r6(self):
-        """PDF at completely different AR → R6 (squished)."""
+    def test_orientation_flip_triggers_r5_rotated(self):
+        """PDF is the same card but portrait instead of landscape → R5_ROTATED."""
         from apps.jobs.preflight import run_preflight
 
         trim_w, trim_h = 252.0, 144.0
         result = run_preflight(
             self._make_pdf_bytes(trim_h, trim_w),  # portrait vs landscape
+            trim_w,
+            trim_h,
+        )
+        assert "R5_ROTATED" in result.rules_triggered
+        assert result.corrected_bytes is not None
+        assert result.status == "warn"
+
+    def test_wrong_size_ar_mismatch_triggers_r6(self):
+        """PDF with a genuinely different aspect ratio → R6 (squished)."""
+        from apps.jobs.preflight import run_preflight
+
+        # 8.5 × 11 in (letter) against a 3.5 × 2 in landscape card trim
+        trim_w, trim_h = 252.0, 144.0
+        result = run_preflight(
+            self._make_pdf_bytes(612.0, 792.0),
             trim_w,
             trim_h,
         )

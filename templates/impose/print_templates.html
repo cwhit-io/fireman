@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Print Templates — Ember{% endblock %}
+{% block meta_description %}Download Canva templates and view available print sizes for all finished products.{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-10">
+
+  <div class="mb-10">
+    <h1 class="text-3xl font-bold mb-2">Print Templates</h1>
+    <p class="text-base-content/60">
+      Download a Canva template to design your artwork at the correct size.
+      All templates are set up with bleed and safe-zone guides already in place.
+    </p>
+  </div>
+
+  {% if groups %}
+
+    {% for category_name, sizes in groups %}
+    <section class="mb-12">
+
+      {# Category heading #}
+      <div class="flex items-center gap-3 mb-5">
+        <h2 class="text-xl font-semibold">
+          {% if category_name %}{{ category_name }}{% else %}Other{% endif %}
+        </h2>
+        <div class="flex-1 border-t border-base-300"></div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        {% for size in sizes %}
+        <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow">
+
+          {# Thumbnail #}
+          <figure class="bg-base-200 h-36 flex items-center justify-center rounded-t-2xl">
+            {% if size.thumbnail %}
+              <img src="{{ size.thumbnail.url }}"
+                   alt="{{ size.name }}"
+                   class="max-h-full max-w-full object-contain p-3">
+            {% else %}
+              <div class="flex items-center justify-center w-full h-full">
+                {% if size.width_in and size.height_in %}
+                  {% widthratio size.height_in size.width_in 100 as aspect_pct %}
+                  <div style="
+                    width: {% widthratio size.width_in size.height_in 110 %}px;
+                    max-width: 75%;
+                    height: {{ aspect_pct }}px;
+                    max-height: 75%;
+                    background: oklch(var(--b3));
+                    border: 2px solid oklch(var(--bc)/0.15);
+                    border-radius: 3px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  ">
+                    <span class="text-xs text-base-content/35 font-mono">{{ size.width_in|floatformat:2 }}&thinsp;×&thinsp;{{ size.height_in|floatformat:2 }}"</span>
+                  </div>
+                {% endif %}
+              </div>
+            {% endif %}
+          </figure>
+
+          <div class="card-body p-4 gap-0.5">
+            <h3 class="text-sm font-semibold leading-tight">{{ size.name }}</h3>
+            <p class="text-xs text-base-content/45 mb-3">{{ size.label }}</p>
+
+            {# Actions row #}
+            <div class="flex items-center gap-2">
+
+              {# Canva button — grow to fill available space #}
+              {% if size.canva_template_url %}
+              <a href="{{ size.canva_template_url }}"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 class="btn btn-primary btn-xs flex-1 gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-3 1 1-3a4 4 0 01.828-1.414z"/>
+                </svg>
+                Open in Canva
+              </a>
+              {% else %}
+              <span class="flex-1"></span>
+              {% endif %}
+
+              {# PDF download dropdown #}
+              <div class="relative" x-data="{ open: false }">
+                <button @click="open = !open"
+                        @click.outside="open = false"
+                        class="btn btn-outline btn-xs gap-1"
+                        title="Download PDF template with bleed guides">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4"/>
+                  </svg>
+                  PDF
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </button>
+                <ul x-show="open"
+                    x-transition
+                    class="absolute right-0 top-full mt-1 z-20 bg-base-100 border border-base-300 rounded-lg shadow-lg w-40 py-1 text-sm">
+                  <li>
+                    <a href="{% url 'impose:template_pdf' pk=size.pk orientation='portrait' %}"
+                       class="flex items-center gap-2 px-3 py-2 hover:bg-base-200 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/50 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><rect x="6" y="2" width="12" height="20" rx="1.5" stroke="currentColor" fill="none"/></svg>
+                      Portrait
+                    </a>
+                  </li>
+                  <li>
+                    <a href="{% url 'impose:template_pdf' pk=size.pk orientation='landscape' %}"
+                       class="flex items-center gap-2 px-3 py-2 hover:bg-base-200 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/50 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><rect x="2" y="6" width="20" height="12" rx="1.5" stroke="currentColor" fill="none"/></svg>
+                      Landscape
+                    </a>
+                  </li>
+                </ul>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+        {% endfor %}
+      </div>
+
+    </section>
+    {% endfor %}
+
+  {% else %}
+  <div class="text-center py-20 text-base-content/40">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M5 8h14M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+    </svg>
+    <p class="text-lg font-medium">No print sizes configured yet.</p>
+    <p class="text-sm mt-1">Ask an admin to add sizes in the admin panel.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
