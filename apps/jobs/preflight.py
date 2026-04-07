@@ -53,7 +53,7 @@ PREFLIGHT_MESSAGES: dict[str, str] = {
         "target and I'm re-checking the bleed now."
     ),
     "R6": (
-        "Loud bark! The proportions don't match. I stretched it to fit, but "
+        "The proportions don't match! I stretched it to fit, but "
         "it might look squished. Please verify before we print!"
     ),
     "R7": (

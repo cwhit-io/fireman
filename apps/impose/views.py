@@ -332,14 +332,40 @@ def _build_preview_svg(data: dict) -> str:
 
     # Draw barcode marker if position is set
     # DC-646 Code 39 specs: configurable width × height (default 1.25" × 0.35")
+    # Detect barcode overlap with any cell's trim area.
+    # barcode_y is from the bottom of the sheet (PDF convention); convert to
+    # "from top" for consistent comparison with SVG/grid coordinates.
+    barcode_overlaps_trim = False
+    if has_barcode and barcode_x >= 0 and barcode_y >= 0:
+        bc_left = barcode_x
+        bc_right = barcode_x + barcode_w_in
+        bc_top = sheet_h - barcode_y - barcode_h_in   # from top of sheet
+        bc_bottom = sheet_h - barcode_y               # from top of sheet
+        for r in range(rows):
+            for c in range(cols):
+                cx = offset_x + c * cell_w
+                cy = offset_y + r * cell_h
+                trim_left = cx + bleed
+                trim_right = cx + cell_w - bleed
+                trim_top = cy + bleed
+                trim_bottom = cy + cell_h - bleed
+                if (bc_right > trim_left and bc_left < trim_right
+                        and bc_bottom > trim_top and bc_top < trim_bottom):
+                    barcode_overlaps_trim = True
+                    break
+            if barcode_overlaps_trim:
+                break
+
     if has_barcode and barcode_x >= 0 and barcode_y >= 0:
         bx = barcode_x * scale
         # SVG Y axis is top-down; barcode_y is from bottom of sheet
         by = (sheet_h - barcode_y - barcode_h_in) * scale
         bw = barcode_w_in * scale
         bh = barcode_h_in * scale
+        fill_color = "#ef4444" if barcode_overlaps_trim else "#f97316"
+        stroke_color = "#dc2626" if barcode_overlaps_trim else "#ea580c"
         lines.append(
-            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" fill="#f97316" fill-opacity="0.8" stroke="#ea580c" stroke-width="1"/>'
+            f'<rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{bh:.1f}" fill="{fill_color}" fill-opacity="0.8" stroke="{stroke_color}" stroke-width="1"/>'
         )
         # Vertical bars to suggest Code 39 pattern
         num_bars = 9
@@ -349,10 +375,10 @@ def _build_preview_svg(data: dict) -> str:
                 bar_x = bx + i * bar_gap * 2
                 bar_w = bar_gap if i % 3 else bar_gap * 1.5
                 lines.append(
-                    f'<rect x="{bar_x:.1f}" y="{by:.1f}" width="{bar_w:.1f}" height="{bh:.1f}" fill="#ea580c" fill-opacity="0.5"/>'
+                    f'<rect x="{bar_x:.1f}" y="{by:.1f}" width="{bar_w:.1f}" height="{bh:.1f}" fill="{stroke_color}" fill-opacity="0.5"/>'
                 )
         lines.append(
-            f'<text x="{bx + bw / 2:.1f}" y="{by - 3:.1f}" text-anchor="middle" font-size="8" fill="#ea580c">Code 39 (DC-646)</text>'
+            f'<text x="{bx + bw / 2:.1f}" y="{by - 3:.1f}" text-anchor="middle" font-size="8" fill="{stroke_color}">Code 39 (DC-646)</text>'
         )
 
     # Dimension labels
@@ -364,7 +390,19 @@ def _build_preview_svg(data: dict) -> str:
     )
 
     lines.append("</svg>")
-    return "\n".join(lines)
+    svg = "\n".join(lines)
+
+    if barcode_overlaps_trim:
+        warning = (
+            '<div style="margin-top:6px;padding:5px 8px;background:#fef2f2;border:1px solid #fca5a5;'
+            'border-radius:4px;font-size:11px;color:#b91c1c;line-height:1.4;">'
+            '&#9888; Barcode overlaps the trim area. Artwork may be obscured. '
+            'You can still save — uncheck <em>Print barcode</em> if this is intentional.'
+            '</div>'
+        )
+        return f'<div>{svg}{warning}</div>'
+
+    return svg
 
 
 class TemplateListView(ListView):
