@@ -62,6 +62,10 @@
              <input type="file" name="artwork_file" id="artwork_file" accept=".pdf,.jpg,.jpeg,.png" required
                  class="file-input file-input-bordered w-full"
                  @change="onArtworkChange($event)">
+          <div x-show="uploadingArtwork" x-cloak class="mt-2">
+            <progress class="progress progress-primary w-full"></progress>
+            <p class="text-sm text-base-content/60 mt-1">Processing PDF...</p>
+          </div>
           <label class="label">
             <span class="label-text-alt text-base-content/50">1- or 2-page PDF of the postcard design. Upload to preview and configure options below.</span>
           </label>
