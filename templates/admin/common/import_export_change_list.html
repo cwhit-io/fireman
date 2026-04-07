@@ -4,29 +4,20 @@
 {% block object-tools-items %}
 
   {# ── Export All button ── #}
-  <li>
-    <form method="get" action="." style="display:inline;">
-      <input type="hidden" name="export_all_json" value="1">
-      <button type="submit"
-              class="button"
-              style="background:#417690;color:#fff;border:none;padding:6px 12px;
-                     border-radius:4px;cursor:pointer;font-size:13px;">
-        ↓ Export All JSON
-      </button>
-    </form>
-  </li>
+  <div>
+    <a href="?export_all_json=1" class="btn btn-sm btn-secondary">
+      ↓ Export All JSON
+    </a>
+  </div>
 
   {# ── Import JSON toggle ── #}
-  <li>
-    <button type="button"
+  <div>
+    <button type="button" class="btn btn-sm btn-secondary"
             onclick="var p=document.getElementById('admin-import-panel');
-                     p.style.display = p.style.display === 'none' ? 'block' : 'none';"
-            class="button"
-            style="background:#417690;color:#fff;border:none;padding:6px 12px;
-                   border-radius:4px;cursor:pointer;font-size:13px;">
+                     p.style.display = p.style.display === 'none' ? 'block' : 'none';">
       ↑ Import JSON
     </button>
-  </li>
+  </div>
 
   {{ block.super }}
 {% endblock %}
@@ -61,7 +52,7 @@
           <input type="checkbox" name="overwrite_import">
           <span>Overwrite existing entries with the same name</span>
         </label>
-        <button type="submit" class="default button" style="padding:6px 16px;">
+        <button type="submit" class="btn btn-sm btn-primary">
           Import
         </button>
       </div>

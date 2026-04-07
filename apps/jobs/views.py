@@ -222,6 +222,8 @@ class JobUploadTemplatesView(LoginRequiredMixin, View):
                     label = escape(tmpl.name)
             else:
                 label = escape(tmpl.name)
+            if tmpl.notes:
+                label += ' - ' + escape(tmpl.notes)
             html += f'<option value="{tmpl.pk}">{label}</option>'
         return HttpResponse(html)
 

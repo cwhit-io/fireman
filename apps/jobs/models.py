@@ -150,3 +150,22 @@ class PrintJob(models.Model):
         if len(imgs) < len(msgs):
             imgs = imgs + [""] * (len(msgs) - len(imgs))
         return list(zip(msgs, imgs, strict=False))
+
+    @property
+    def preflight_header_image(self):
+        """Return a randomly selected image from the per-rule preflight images.
+
+        When multiple errors are present this picks a different image on each
+        render, giving the header some variety.  Falls back to the
+        status-based defaults when no per-rule images are available.
+        """
+        import random
+
+        imgs = [img for img in (self.preflight_images or []) if img]
+        if imgs:
+            return random.choice(imgs)
+        if self.preflight_status == "ok":
+            return "medal.png"
+        if self.preflight_status == "error":
+            return "caution_tape.png"
+        return "yield.png"

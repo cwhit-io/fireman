@@ -80,17 +80,17 @@ PREFLIGHT_MESSAGES: dict[str, str] = {
 
 # optional photo for each rule; templates resolve via static tag
 PREFLIGHT_IMAGES: dict[str, str] = {
-    "R1": "r1.png",
-    "R2": "r2.png",
-    "R3": "r3.png",
-    "R4": "r4.png",
-    "R5": "r5.png",
-    "R6": "r6.png",
-    "R7": "r7.png",
-    "R8": "r8.png",
-    "R9_MARGINAL": "r9_marginal.png",
-    "R9_CRITICAL": "r9_critical.png",
-    "R10": "r10.png",
+    "R1": "ruler.png",       # no bleed — edges stretched
+    "R2": "medal.png",       # clean bleed — all good
+    "R3": "wanted.png",      # canva crop marks found and removed
+    "R4": "ruler.png",       # oversized, unrecognised dimensions
+    "R5": "ruler.png",       # wrong size, aspect ratio matches — scaled
+    "R6": "caution_tape.png", # wrong size + aspect ratio mismatch — stretched
+    "R7": "ruler.png",       # bleedbox thinner than required
+    "R8": "neon.png",        # RGB colorspace detected
+    "R9_MARGINAL": "newspaper.png",  # images under 300 DPI
+    "R9_CRITICAL": "newspaper.png",  # images under 150 DPI
+    "R10": "artist.png",     # text near trim/safe zone
 }
 
 # ─────────────── Result dataclass ───────────────────────────────────────────
