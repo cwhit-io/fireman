@@ -406,6 +406,29 @@ class ImpositionTemplateAdmin(admin.ModelAdmin):
                 pass
         return super().changeform_view(request, object_id, form_url, extra_context)
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "cut_size":
+            kwargs["queryset"] = PrintSize.objects.filter(
+                size_type__in=[PrintSize.SizeType.CUT, PrintSize.SizeType.BOTH]
+            ).order_by("name")
+        elif db_field.name == "sheet_size":
+            kwargs["queryset"] = PrintSize.objects.filter(
+                size_type__in=[PrintSize.SizeType.SHEET, PrintSize.SizeType.BOTH]
+            ).order_by("name")
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        """Copy dimensions from the selected PrintSize FKs into the scalar fields."""
+        if obj.sheet_size_id:
+            ss = obj.sheet_size
+            obj.sheet_width = ss.width
+            obj.sheet_height = ss.height
+        if obj.cut_size_id:
+            cs = obj.cut_size
+            obj.cut_width = cs.width
+            obj.cut_height = cs.height
+        super().save_model(request, obj, form, change)
+
     def get_actions(self, request):
         actions = super().get_actions(request)
         for category in ProductCategory.objects.order_by("name"):

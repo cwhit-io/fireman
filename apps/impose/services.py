@@ -336,7 +336,6 @@ def impose_nup(
     margin_right: float = 0.0,
     margin_bottom: float = 0.0,
     margin_left: float = 0.0,
-    auto_rotate: bool = True,
 ) -> None:
     """
     Tile *columns × rows* source pages onto new press sheets and write to *output_pdf*.
@@ -350,12 +349,6 @@ def impose_nup(
     correct trim area is used for scaling — regardless of whether the uploaded
     file has bleed already baked into the MediaBox, stores it via an explicit
     TrimBox/BleedBox, or omits it entirely.
-
-    When *auto_rotate* is ``True`` (the default), each source page is
-    automatically rotated 90° to match the cell orientation — for example a
-    landscape postcard source will be rotated to portrait when the imposition
-    cells are portrait.  This removes the need to create separate templates for
-    landscape and portrait versions of the same product.
     """
     from pypdf import PageObject, PdfReader, PdfWriter, Transformation
 
@@ -403,61 +396,28 @@ def impose_nup(
                 src
             )
 
-            # Auto-rotate: if source orientation doesn't match cell orientation, rotate 90°.
-            rotated = False
-            if auto_rotate:
-                cell_is_portrait = cell_trim_h >= cell_trim_w
-                src_is_portrait = src_trim_h >= src_trim_w
-                if cell_is_portrait != src_is_portrait:
-                    rotated = True
-
             # Bottom-left corner of the cell's trim area on the sheet.
             cell_trim_left = margin_left + col * cell_w + bleed
             cell_trim_bottom = sheet_height - margin_top - (row + 1) * cell_h + bleed
 
-            if rotated:
-                # 90° CW rotation: (x, y) → (y, −x)
-                # After scaling by s: (x,y) → (s*y + tx, −s*x + ty)
-                # Effective dimensions after rotation: width=trim_h, height=trim_w
-                rot_trim_w = src_trim_h
-                rot_trim_h = src_trim_w
+            # Scale so the source trim fits the cell trim area (aspect-ratio preserved).
+            scale_x = cell_trim_w / src_trim_w if src_trim_w else 1.0
+            scale_y = cell_trim_h / src_trim_h if src_trim_h else 1.0
+            scale = min(scale_x, scale_y)
 
-                scale_x = cell_trim_w / rot_trim_w if rot_trim_w else 1.0
-                scale_y = cell_trim_h / rot_trim_h if rot_trim_h else 1.0
-                scale = min(scale_x, scale_y)
+            # Centre the scaled trim within the cell trim area.
+            center_x = (cell_trim_w - src_trim_w * scale) / 2
+            center_y = (cell_trim_h - src_trim_h * scale) / 2
 
-                center_x = (cell_trim_w - rot_trim_w * scale) / 2
-                center_y = (cell_trim_h - rot_trim_h * scale) / 2
+            # Desired position for the source trim's bottom-left corner on the sheet.
+            target_trim_left = cell_trim_left + center_x
+            target_trim_bottom = cell_trim_bottom + center_y
 
-                target_left = cell_trim_left + center_x
-                target_bottom = cell_trim_bottom + center_y
+            # Transformation: scale(s) then translate(tx, ty).
+            tx = target_trim_left - scale * src_trim_left
+            ty = target_trim_bottom - scale * src_trim_bottom
 
-                # After 90° CW scale+rotate: bottom-left of rotated content on sheet:
-                #   left  = s*src_trim_bottom + tx  → tx = target_left − s*src_trim_bottom
-                #   bottom = −s*(src_trim_left+src_trim_w) + ty → ty = target_bottom + s*(src_trim_left+src_trim_w)
-                tx = target_left - scale * src_trim_bottom
-                ty = target_bottom + scale * (src_trim_left + src_trim_w)
-                # Matrix: x′ = 0·x + s·y + tx,  y′ = −s·x + 0·y + ty
-                transform = Transformation(ctm=(0, -scale, scale, 0, tx, ty))
-            else:
-                # Scale so the source trim fits the cell trim area (aspect-ratio preserved).
-                scale_x = cell_trim_w / src_trim_w if src_trim_w else 1.0
-                scale_y = cell_trim_h / src_trim_h if src_trim_h else 1.0
-                scale = min(scale_x, scale_y)
-
-                # Centre the scaled trim within the cell trim area.
-                center_x = (cell_trim_w - src_trim_w * scale) / 2
-                center_y = (cell_trim_h - src_trim_h * scale) / 2
-
-                # Desired position for the source trim's bottom-left corner on the sheet.
-                target_trim_left = cell_trim_left + center_x
-                target_trim_bottom = cell_trim_bottom + center_y
-
-                # Transformation: scale(s) then translate(tx, ty).
-                tx = target_trim_left - scale * src_trim_left
-                ty = target_trim_bottom - scale * src_trim_bottom
-
-                transform = Transformation().scale(scale).translate(tx, ty)
+            transform = Transformation().scale(scale).translate(tx, ty)
 
             # Clip the source page to exactly trim + allowed bleed before merging.
             # This prevents oversized source bleed from overflowing into adjacent cells.
@@ -552,7 +512,6 @@ def impose_double_sided_nup(
     margin_right: float = 0.0,
     margin_bottom: float = 0.0,
     margin_left: float = 0.0,
-    auto_rotate: bool = True,
 ) -> None:
     """Impose a double-sided job: each source page fills one output sheet.
 
@@ -595,7 +554,6 @@ def impose_double_sided_nup(
             margin_right=margin_right,
             margin_bottom=margin_bottom,
             margin_left=margin_left,
-            auto_rotate=auto_rotate,
         )
         sheet_buf.seek(0)
         sheet_reader = PdfReader(sheet_buf)
@@ -652,6 +610,9 @@ def get_template_effective_margins(template) -> dict:
     cut_h = float(template.cut_height) if template.cut_height is not None else None
 
     if cut_w is not None and cut_h is not None:
+        # Cell size is always derived from the physical cut dimensions — these
+        # are the blade positions the cutter program expects, so they must never
+        # be recalculated from sheet / rows / cols even when the grid overflows.
         cell_w = cut_w + 2 * bleed
         cell_h = cut_h + 2 * bleed
         grid_w = cols * cell_w
@@ -662,12 +623,11 @@ def get_template_effective_margins(template) -> dict:
             margin_top = (sheet_h - grid_h) / 2
             margin_bottom = margin_top
         else:
-            margin_left = float(template.margin_left)
-            margin_right = float(template.margin_right)
-            margin_top = float(template.margin_top)
-            margin_bottom = float(template.margin_bottom)
-            cell_w = (sheet_w - margin_left - margin_right) / cols
-            cell_h = (sheet_h - margin_top - margin_bottom) / rows
+            # Grid overflows the sheet — anchor at origin with zero margins.
+            # The template data (columns/rows) needs to be corrected, but we
+            # still honour cut_w/cut_h so cut marks and artwork share the same
+            # cell orientation.
+            margin_left = margin_right = margin_top = margin_bottom = 0.0
     else:
         margin_left = float(template.margin_left)
         margin_right = float(template.margin_right)
@@ -699,7 +659,6 @@ def impose_from_template(
     output_pdf: IO[bytes],
     pages_are_unique: bool = True,
     is_double_sided: bool = False,
-    auto_rotate: bool = True,
     barcode_value: str | None = None,
     barcode_x: float | None = None,
     barcode_y: float | None = None,
@@ -798,7 +757,6 @@ def impose_from_template(
             margin_right=eff_margin_right,
             margin_bottom=eff_margin_bottom,
             margin_left=eff_margin_left,
-            auto_rotate=auto_rotate,
         )
     else:
         impose_nup(
@@ -813,7 +771,6 @@ def impose_from_template(
             margin_right=eff_margin_right,
             margin_bottom=eff_margin_bottom,
             margin_left=eff_margin_left,
-            auto_rotate=auto_rotate,
         )
 
     # ── Build overlays (barcode TIF + cut marks) ──────────────────────────
@@ -862,14 +819,14 @@ def impose_from_template(
             )
 
     if cut_marks:
-        # Re-derive cell trim positions using the same formulas as impose_nup.
-        cols = template.columns
-        num_rows = template.rows
-        cell_w = (sheet_w - eff_margin_left - eff_margin_right) / cols
-        cell_h = (sheet_h - eff_margin_top - eff_margin_bottom) / num_rows
+        # Use the cell dimensions already computed by get_template_effective_margins
+        # so that cut marks always reflect the physical cut size, not a re-derived
+        # value that can diverge from the template's cut_width/cut_height.
+        cell_w = layout["cell_w"]
+        cell_h = layout["cell_h"]
         cells = []
-        for r in range(num_rows):
-            for c in range(cols):
+        for r in range(template.rows):
+            for c in range(template.columns):
                 tl = eff_margin_left + c * cell_w + bleed
                 tb = sheet_h - eff_margin_top - (r + 1) * cell_h + bleed
                 tw = cell_w - 2 * bleed

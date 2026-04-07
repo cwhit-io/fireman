@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 POINTS_PER_INCH = 72.0
@@ -251,3 +252,52 @@ class ImpositionTemplate(models.Model):
         if w is not None and h is not None:
             return f"{w:g} × {h:g} in"
         return "—"
+
+    def clean(self):
+        """Validate that the cut-size grid fits within the sheet dimensions."""
+        # Resolve scalar dimensions — fall back to FK sizes if scalars are not set yet
+        # (e.g. when saving via the admin form that only exposes the PrintSize FKs).
+        cut_w = self.cut_width
+        cut_h = self.cut_height
+        sheet_w = self.sheet_width
+        sheet_h = self.sheet_height
+        if (cut_w is None or cut_h is None) and self.cut_size_id:
+            try:
+                cs = PrintSize.objects.get(pk=self.cut_size_id)
+                cut_w = cs.width
+                cut_h = cs.height
+            except PrintSize.DoesNotExist:
+                pass
+        if (sheet_w is None or sheet_h is None) and self.sheet_size_id:
+            try:
+                ss = PrintSize.objects.get(pk=self.sheet_size_id)
+                sheet_w = ss.width
+                sheet_h = ss.height
+            except PrintSize.DoesNotExist:
+                pass
+
+        if cut_w is not None and cut_h is not None and sheet_w is not None and sheet_h is not None:
+            bleed = float(self.bleed or 0)
+            cell_w = float(cut_w) + 2 * bleed
+            cell_h = float(cut_h) + 2 * bleed
+            grid_w = self.columns * cell_w
+            grid_h = self.rows * cell_h
+            sw = float(sheet_w)
+            sh = float(sheet_h)
+            errors = {}
+            if grid_w > sw:
+                cw_in = round(cell_w / POINTS_PER_INCH, 4)
+                sw_in = round(sw / POINTS_PER_INCH, 4)
+                errors["columns"] = (
+                    f"{self.columns} column(s) × {cw_in:g}\" cell = {self.columns * cw_in:g}\" "
+                    f"exceeds sheet width {sw_in:g}\""
+                )
+            if grid_h > sh:
+                ch_in = round(cell_h / POINTS_PER_INCH, 4)
+                sh_in = round(sh / POINTS_PER_INCH, 4)
+                errors["rows"] = (
+                    f"{self.rows} row(s) × {ch_in:g}\" cell = {self.rows * ch_in:g}\" "
+                    f"exceeds sheet height {sh_in:g}\""
+                )
+            if errors:
+                raise ValidationError(errors)

@@ -251,59 +251,6 @@ class TestImpositionTemplateModel:
         assert str(t) == "Test 2-Up"
 
 
-class TestAutoRotate:
-    """Test that auto-rotation works for landscape sources in portrait cells."""
-
-    def test_landscape_source_rotated_into_portrait_cell(self):
-        """A landscape source (6×4") should be auto-rotated to fit a portrait cell (4×6")."""
-        from pypdf import PdfReader
-
-        from apps.impose.services import impose_nup
-
-        # Landscape 4×6 = 432×288 pt
-        landscape_pdf = _make_pdf_with_mediabox(432.0, 288.0)
-        inp = io.BytesIO(landscape_pdf)
-        out = io.BytesIO()
-        # Sheet is portrait; cells are portrait (4×6 each + margins)
-        impose_nup(
-            inp,
-            out,
-            columns=2,
-            rows=1,
-            sheet_width=900.0,
-            sheet_height=450.0,
-            bleed=0.0,
-            auto_rotate=True,
-        )
-        out.seek(0)
-        reader = PdfReader(out)
-        assert len(reader.pages) == 1
-
-    def test_no_rotation_when_disabled(self):
-        """auto_rotate=False should not rotate the source page."""
-        from pypdf import PdfReader
-
-        from apps.impose.services import impose_nup
-
-        # Landscape 432×288 pt
-        landscape_pdf = _make_pdf_with_mediabox(432.0, 288.0)
-        inp = io.BytesIO(landscape_pdf)
-        out = io.BytesIO()
-        impose_nup(
-            inp,
-            out,
-            columns=2,
-            rows=1,
-            sheet_width=900.0,
-            sheet_height=450.0,
-            bleed=0.0,
-            auto_rotate=False,
-        )
-        out.seek(0)
-        reader = PdfReader(out)
-        assert len(reader.pages) == 1
-
-
 class TestImposeFromTemplateOptions:
     """Test that pages_are_unique flag drives step-repeat vs n-up."""
 
@@ -623,3 +570,43 @@ class TestCutMarks:
         assert len(PdfReader(io.BytesIO(out_no_marks.getvalue())).pages) == 1
         assert len(PdfReader(io.BytesIO(out_marks.getvalue())).pages) == 1
         assert len(out_marks.getvalue()) > len(out_no_marks.getvalue())
+
+    def test_cut_marks_use_cut_dimensions_when_grid_overflows(self):
+        """Cut mark cells must match cut_width/cut_height even when the grid overflows the sheet.
+
+        Previously, get_template_effective_margins() fell back to dividing the
+        sheet evenly by columns/rows when the grid overflowed, which could flip
+        the cell orientation and produce cut marks at wrong dimensions.
+        """
+        from apps.impose.models import ImpositionTemplate
+        from apps.impose.services import get_template_effective_margins
+
+        PT = 72.0  # points per inch
+
+        # 4×5.5" cards, 2 cols × 4 rows on a 13×19" sheet.
+        # Grid height = 4 × 5.5" = 22" > 19" — overflows.
+        # Fallback used to produce 4.75"-tall cells (landscape); correct is 5.5" (portrait).
+        tmpl = ImpositionTemplate(
+            name="Overflow cut marks test",
+            sheet_width=13 * PT,
+            sheet_height=19 * PT,
+            cut_width=4.25 * PT,
+            cut_height=5.5 * PT,
+            bleed=0.125 * PT,
+            columns=2,
+            rows=4,
+        )
+
+        layout = get_template_effective_margins(tmpl)
+
+        expected_cell_w = round((4.25 + 2 * 0.125) * PT, 6)
+        expected_cell_h = round((5.5 + 2 * 0.125) * PT, 6)
+
+        assert abs(layout["cell_w"] - expected_cell_w) < 0.01, (
+            f"cell_w should be {expected_cell_w:.2f} pt ({4.5}\" incl bleed) "
+            f"but got {layout['cell_w']:.2f}"
+        )
+        assert abs(layout["cell_h"] - expected_cell_h) < 0.01, (
+            f"cell_h should be {expected_cell_h:.2f} pt ({5.75}\" incl bleed) "
+            f"but got {layout['cell_h']:.2f}"
+        )
