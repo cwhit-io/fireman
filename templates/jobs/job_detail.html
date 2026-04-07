@@ -352,11 +352,7 @@
       </div>
       {% else %}
       <div class="flex flex-col sm:flex-row items-center gap-6 py-4 mb-4">
-        {% if job.preflight_status == 'error' %}
-        <img src="{% static 'preflight/caution_tape.png' %}" alt="Preflight issues" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
-        {% else %}
-        <img src="{% static 'preflight/yield.png' %}" alt="Preflight warning" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
-        {% endif %}
+        <img src="{% static 'preflight/'|add:job.preflight_header_image %}" alt="Preflight issues" class="w-40 h-40 object-contain drop-shadow-lg shrink-0">
         <div class="flex-1">
           <h3 class="font-bold text-xl {% if job.preflight_status == 'error' %}text-error{% else %}text-warning{% endif %} mb-1">Preflight Report</h3>
           <p class="text-base-content/60 text-sm">Ember checked your file and found a few things to review before printing.</p>

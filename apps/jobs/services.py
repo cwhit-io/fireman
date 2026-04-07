@@ -75,6 +75,7 @@ def run_preflight_for_job(job, pdf_bytes: bytes | None = None) -> None:
             "preflight_status",
             "preflight_rules_triggered",
             "preflight_messages",
+            "preflight_images",
             "preflight_notes",
             "preflight_acknowledged",
         ]
