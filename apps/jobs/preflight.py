@@ -76,6 +76,10 @@ PREFLIGHT_MESSAGES: dict[str, str] = {
         "Watch your paws! Some text is sitting too close to the edge. Move "
         "anything important 0.125\" inside so it doesn't get clipped."
     ),
+    "R5_ROTATED": (
+        "Your file was sideways! I rotated it 90° to match the target "
+        "orientation. Give it a quick look to make sure it's right-side up."
+    ),
 }
 
 # optional photo for each rule; templates resolve via static tag
@@ -91,6 +95,7 @@ PREFLIGHT_IMAGES: dict[str, str] = {
     "R9_MARGINAL": "newspaper.png",  # images under 300 DPI
     "R9_CRITICAL": "newspaper.png",  # images under 150 DPI
     "R10": "artist.png",     # text near trim/safe zone
+    "R5_ROTATED": "ruler.png",  # wrong orientation — rotated 90° to match trim
 }
 
 # ─────────────── Result dataclass ───────────────────────────────────────────
@@ -106,6 +111,7 @@ class PreflightResult:
     original_size: tuple[float, float] = (0.0, 0.0)
     output_size: tuple[float, float] = (0.0, 0.0)
     notes: list[str] = field(default_factory=list)
+    corrected_bytes: bytes | None = field(default=None, repr=False, compare=False)
 
     _STATUS_RANK: dict[str, int] = field(
         default_factory=lambda: {"ok": 0, "info": 0, "warn": 1, "error": 2},
@@ -159,6 +165,54 @@ def _cfg_bool(name: str, default: bool) -> bool:
 
 
 # ─────────────── Helpers ────────────────────────────────────────────────────
+
+
+def _rotate_pdf_pages(pdf_bytes: bytes, angle: int) -> bytes | None:
+    """Burn rotation into content streams and update page geometry.
+
+    Unlike page.rotate() which only sets /Rotate metadata, this physically
+    transforms the content stream so that the mediabox dimensions reflect the
+    new orientation — required for imposition (which reads mediabox directly)
+    and pdf.js preview.
+    """
+    try:
+        from pypdf import PdfReader, PdfWriter, Transformation
+        from pypdf.generic import NameObject, RectangleObject
+
+        reader = PdfReader(BytesIO(pdf_bytes), strict=False)
+        writer = PdfWriter()
+        for page in reader.pages:
+            w = float(page.mediabox.width)
+            h = float(page.mediabox.height)
+
+            if angle == 90:
+                # 90° CW content transform: (x,y) → (y, w−x)
+                # CTM = (a,b,c,d,e,f) where x'=ax+cy+e, y'=bx+dy+f
+                # → a=0, b=−1, c=1, d=0, e=0, f=w
+                # New page dimensions: h wide × w tall
+                page.add_transformation(Transformation(ctm=(0, -1, 1, 0, 0, w)))
+                page.mediabox = RectangleObject([0, 0, h, w])
+            else:
+                writer.add_page(page)
+                continue
+
+            # Remove box overrides so detect_source_trim re-infers from the
+            # new mediabox rather than stale pre-rotation coordinates.
+            for key in ("/TrimBox", "/BleedBox", "/CropBox", "/ArtBox"):
+                if NameObject(key) in page:
+                    del page[NameObject(key)]
+            # Clear any /Rotate flag to avoid double-rotation in viewers.
+            if NameObject("/Rotate") in page:
+                del page[NameObject("/Rotate")]
+
+            writer.add_page(page)
+
+        buf = BytesIO()
+        writer.write(buf)
+        return buf.getvalue()
+    except Exception as exc:
+        logger.warning("PDF rotation failed: %s", exc)
+        return None
 
 
 def _ar_delta_pct(w1: float, h1: float, w2: float, h2: float) -> float:
@@ -448,6 +502,31 @@ def run_preflight(
             # Pretend file is now at trim size for bleed evaluation
             file_w, file_h = trim_w_pt, trim_h_pt
             excess_w = excess_h = 0.0
+        elif _ar_delta_pct(file_w, file_h, trim_h_pt, trim_w_pt) <= ar_tol_pct:
+            # Orientation flip: file AR matches the *inverted* trim → rotate 90° CW
+            rotated = _rotate_pdf_pages(pdf_bytes, 90)
+            if rotated is not None:
+                result.add(
+                    "R5_ROTATED",
+                    status="warn",
+                    note=f"Rotated 90° CW to match trim orientation ({trim_w_pt:.1f}×{trim_h_pt:.1f}pt).",
+                )
+                result.modified = True
+                result.corrected_bytes = rotated
+                # After rotation the page is now file_h wide × file_w tall
+                file_w, file_h = file_h, file_w
+                excess_w = file_w - trim_w_pt
+                excess_h = file_h - trim_h_pt
+            else:
+                # Rotation failed — fall through to R6
+                result.add(
+                    "R6",
+                    status="warn",
+                    note=f"AR mismatch {ar_delta:.2f}% > {ar_tol_pct}%. Scaled to fill.",
+                )
+                result.modified = True
+                result.output_size = (trim_w_pt, trim_h_pt)
+                return result
         else:
             # Rule 6: wrong size, AR mismatch
             result.add(

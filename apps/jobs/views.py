@@ -191,9 +191,10 @@ class JobUploadView(LoginRequiredMixin, View):
             job.delete()
             return render(request, self.template_name, ctx, status=400)
 
-        process_job_task.delay(str(job.pk))
-        # Run preflight against the template's trim dimensions
+        # Run preflight first — it may correct the file orientation and overwrite
+        # job.file on disk/DB before the task reads it.
         run_preflight_for_job(job, pdf_bytes=repaired_bytes)
+        process_job_task.delay(str(job.pk))
         messages.success(request, f"Job '{job.name}' submitted successfully.")
         return redirect("jobs:detail", pk=job.pk)
 
