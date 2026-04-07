@@ -3,7 +3,7 @@ import json
 from django.contrib import admin, messages
 from django.http import HttpResponse
 from django.urls import path, reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 
 from apps.jobs.models import PrintJob
 from core.admin_mixins import ImportExportAdminMixin
@@ -11,12 +11,12 @@ from core.admin_mixins import ImportExportAdminMixin
 from .models import POINTS_PER_INCH, ImpositionTemplate, PrintSize, ProductCategory
 
 
-def _published_icon(published: bool) -> str:
+def _published_icon(published: bool):
     if published:
-        return format_html(
+        return mark_safe(
             '<span style="color:#16a34a;font-weight:600;">&#x2713; Published</span>'
         )
-    return format_html(
+    return mark_safe(
         '<span style="color:#9ca3af;">&#x2013; Draft</span>'
     )
 
