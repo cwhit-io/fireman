@@ -572,6 +572,7 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
   return {
     pdfInfo: null,
     mergePage: 1,
+    uploadingArtwork: false,
     _artworkFile: null,
     _pdfDoc: null,
     _scale: 1,
@@ -618,6 +619,7 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
       this._artworkFile = file;
       this._pdfDoc = null;
       this._bgValid = false;
+      this.uploadingArtwork = true;
 
       var self = this;
       var formData = new FormData();
@@ -633,9 +635,10 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
         .then(function (data) {
           self.pdfInfo = data;
           self.mergePage = 1;
+          self.uploadingArtwork = false;
           self.$nextTick(function () { self.renderPreview(); });
         })
-        .catch(function () { self.pdfInfo = null; });
+        .catch(function () { self.pdfInfo = null; self.uploadingArtwork = false; });
     },
 
     onCsvChange(event) {

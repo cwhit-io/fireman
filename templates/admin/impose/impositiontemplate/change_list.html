@@ -31,7 +31,7 @@
   <div id="admin-import-panel"
        style="display:none;background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:16px;margin-bottom:16px;">
     <h3 style="margin-top:0;">Import Imposition Templates from JSON</h3>
-    <form method="post" enctype="multipart/form-data" action="">
+    <form method="post" enctype="multipart/form-data" action="" onsubmit="document.getElementById('import-loading').style.display='block';">
       {% csrf_token %}
       <input type="hidden" name="import_json" value="1">
       <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px;">
@@ -50,6 +50,9 @@
                 style="padding:6px 16px;">
           Import
         </button>
+      </div>
+      <div style="margin-top:10px;">
+        <progress class="progress progress-primary w-full" id="import-loading" style="display:none;"></progress>
       </div>
     </form>
   </div>

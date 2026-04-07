@@ -224,6 +224,8 @@ class ImpositionTemplateAdmin(admin.ModelAdmin):
         "product_category",
         "cut_size",
         "sheet_size",
+        "cutter_program",
+        "duplo_code",
         "columns",
         "rows",
     ]
@@ -283,6 +285,10 @@ class ImpositionTemplateAdmin(admin.ModelAdmin):
             },
         ),
     ]
+
+    @admin.display(description="Duplo Code")
+    def duplo_code(self, obj):
+        return obj.cutter_program.duplo_code if obj.cutter_program else None
 
     def get_urls(self):
         custom = [
