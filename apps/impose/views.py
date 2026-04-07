@@ -13,6 +13,18 @@ from reportlab.pdfgen import canvas as rl_canvas
 
 from .models import POINTS_PER_INCH, ImpositionTemplate, PrintSize, ProductCategory
 
+# Muted background colours cycled per category
+_GROUP_COLORS = [
+    "#e0e7ff",  # indigo-100
+    "#fce7f3",  # pink-100
+    "#d1fae5",  # emerald-100
+    "#fef3c7",  # amber-100
+    "#e0f2fe",  # sky-100
+    "#f3e8ff",  # purple-100
+    "#fee2e2",  # red-100
+    "#ecfccb",  # lime-100
+]
+
 
 def print_templates(request):
     """Public page listing all cut sizes grouped by category."""
@@ -33,11 +45,17 @@ def print_templates(request):
         groups.setdefault(key, []).append(size)
 
     # Sort: named categories first (alphabetical), uncategorised last
-    sorted_groups = sorted(
+    named = sorted(
         ((k, v) for k, v in groups.items() if k is not None), key=lambda t: t[0]
     )
     if None in groups:
-        sorted_groups.append((None, groups[None]))
+        named.append((None, groups[None]))
+
+    # Attach a background colour to each group
+    sorted_groups = [
+        (name, sizes, _GROUP_COLORS[i % len(_GROUP_COLORS)])
+        for i, (name, sizes) in enumerate(named)
+    ]
 
     return render(
         request,

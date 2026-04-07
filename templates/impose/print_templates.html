@@ -17,7 +17,7 @@
 
   {% if groups %}
 
-    {% for category_name, sizes in groups %}
+    {% for category_name, sizes, bg_color in groups %}
     <section class="mb-12">
 
       {# Category heading #}
@@ -33,31 +33,20 @@
         <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow">
 
           {# Thumbnail #}
-          <figure class="bg-base-200 h-36 flex items-center justify-center rounded-t-2xl">
+          <figure class="h-36 flex items-center justify-center rounded-t-2xl" style="background:{{ bg_color }}">
             {% if size.thumbnail %}
               <img src="{{ size.thumbnail.url }}"
                    alt="{{ size.name }}"
                    class="max-h-full max-w-full object-contain p-3">
-            {% else %}
-              <div class="flex items-center justify-center w-full h-full">
-                {% if size.width_in and size.height_in %}
-                  {% widthratio size.height_in size.width_in 100 as aspect_pct %}
-                  <div style="
-                    width: {% widthratio size.width_in size.height_in 110 %}px;
-                    max-width: 75%;
-                    height: {{ aspect_pct }}px;
-                    max-height: 75%;
-                    background: oklch(var(--b3));
-                    border: 2px solid oklch(var(--bc)/0.15);
-                    border-radius: 3px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                  ">
-                    <span class="text-xs text-base-content/35 font-mono">{{ size.width_in|floatformat:2 }}&thinsp;×&thinsp;{{ size.height_in|floatformat:2 }}"</span>
-                  </div>
-                {% endif %}
-              </div>
+            {% elif size.width_in and size.height_in %}
+              <div style="
+                aspect-ratio: {{ size.width_in|floatformat:-3 }} / {{ size.height_in|floatformat:-3 }};
+                max-width: 62%;
+                max-height: 62%;
+                background: white;
+                border-radius: 3px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+              "></div>
             {% endif %}
           </figure>
 
