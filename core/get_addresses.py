@@ -11,8 +11,10 @@ The module can be used from the CLI or imported by the Flask app.
 
 from __future__ import annotations
 
+import calendar
 import csv
 import io
+import re
 import requests
 from datetime import datetime
 from typing import List, Tuple, Dict, Any, Optional
@@ -29,7 +31,7 @@ FIELDS = [
     "GISPublished.sde.AssessorSalesBuildingsParcelInfo.Buyer2Name",
 ]
 
-# Output column order — matches your mail presort layout exactly
+# Output column order — matches mail presort layout exactly
 CSV_HEADERS = [
     "no",
     "name",
@@ -59,28 +61,96 @@ FIELD_MAP = {
     "GISPublished.sde.AssessorSalesBuildingsParcelInfo.Buyer2Name": "Buyer 2",
 }
 
+# ---------------------------------------------------------------------------
+# Org detection — two-tier approach to minimize false positives on surnames
+# ---------------------------------------------------------------------------
+
+# Unambiguous substrings: safe to match anywhere in the string
+_ORG_SUBSTRING_INDICATORS = [
+    'LLC', 'L.L.C', 'INC', 'CORP', 'CO.', 'COMPANY', 'TRUST', 'BANK',
+    'ASSOCIATES', 'HOLDINGS', 'LP', 'L.P.', 'LLP', 'L.L.P', 'PLLC',
+    'P.L.L.C', 'C/O', 'PARTNERSHIP', 'PARTNERS', 'REALTY', 'REALTORS',
+    'PROPERTIES', 'PROPERTY', 'INVESTMENTS', 'INVESTMENT', 'VENTURES',
+    'VENTURE', 'DEVELOPMENT', 'DEVELOPERS', 'ACQUISITIONS', 'CONSTRUCTION',
+    'REAL ESTATE', 'MANAGEMENT', 'ENTERPRISES', 'MORTGAGE', 'FINANCIAL',
+    'AUTHORITY', 'COMMISSION', 'CITY OF', 'STATE OF', 'DEPARTMENT',
+    'HABITAT', 'CHURCH', 'AKA', 'A.K.A', 'ALSO KNOWN', 'IRREVOCABLE',
+    'REVOCABLE', 'LIVING TRUST', 'ESTATE OF', 'HEIRS OF',
+]
+
+# Ambiguous short words: only match on whole-word boundaries to avoid
+# false-positiving on surnames (e.g. "JOHN LAND", "SARAH HOMES").
+# Note: LAND is intentionally excluded — too common as a surname.
+_ORG_WHOLE_WORD_INDICATORS = {
+    'CO', 'GROUP', 'FUND', 'HOMES', 'HOUSING', 'CAPITAL', 'ASSETS',
+    'SERVICES', 'SOLUTIONS', 'BUILDERS', 'FUNDING', 'COUNTY',
+}
+
+
+def _is_organization_name(name: str) -> bool:
+    """Return True if the name appears to be a business, trust, or entity.
+
+    Uses substring matching for unambiguous terms and whole-word matching
+    for short/common words that could also be surnames.
+    """
+    if not name:
+        return False
+    n = name.upper()
+
+    if any(ind in n for ind in _ORG_SUBSTRING_INDICATORS):
+        return True
+
+    tokens = set(re.findall(r'\b\w+\b', n))
+    if tokens & _ORG_WHOLE_WORD_INDICATORS:
+        return True
+
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Date helpers
+# ---------------------------------------------------------------------------
+
+def _to_date_str(month: int, day: int, year: int) -> str:
+    """Convert a date to YYYY-MM-DD format for SQL queries.
+
+    The ArcGIS REST API requires DATE literals in the where clause when
+    comparing date fields using CAST.
+    """
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def convert_timestamp(timestamp_ms: Optional[int]) -> str:
+    """Convert epoch milliseconds to YYYY-MM-DD (returns empty string for falsy input)."""
+    if not timestamp_ms:
+        return ""
+    return datetime.fromtimestamp(timestamp_ms / 1000).strftime("%Y-%m-%d")
+
+
+# ---------------------------------------------------------------------------
+# API fetch
+# ---------------------------------------------------------------------------
 
 def get_sales_data(month: int, year: int, batch_size: int = 1000) -> List[Dict[str, Any]]:
-    """Fetch sales records from the GIS API for the given month/year.
+    """Fetch residential sales records from the GIS API for the given month/year.
 
+    Paginates automatically using resultOffset until all records are retrieved.
     Returns the raw feature list (may be empty).
     """
-    start_date = f"{month}/1/{year}"
     if month == 12:
-        end_month = 1
-        end_year = year + 1
+        end_month, end_year = 1, year + 1
     else:
-        end_month = month + 1
-        end_year = year
-    end_date = f"{end_month}/1/{end_year}"
+        end_month, end_year = month + 1, year
+
+    start_date = _to_date_str(month, 1, year)
+    end_date   = _to_date_str(end_month, 1, end_year)
 
     where_clause = (
-        "GISPublished.SDE.Parcel_Point.OBJECTID > 0 "
-        "and GISPublished.sde.AssessorSalesBuildingsParcelInfo.Valid = 1 "
-        "and (GISPublished.sde.AssessorSalesBuildingsParcelInfo.ClassGroupDescription = 'Res Unimproved' "
-        "or GISPublished.sde.AssessorSalesBuildingsParcelInfo.ClassGroupDescription = 'Res Improved') "
-        f"and GISPublished.sde.AssessorSalesBuildingsParcelInfo.SaleDate > date '{start_date}' "
-        f"AND GISPublished.sde.AssessorSalesBuildingsParcelInfo.SaleDate < date '{end_date}'"
+        "GISPublished.sde.AssessorSalesBuildingsParcelInfo.Valid = 1 "
+        "AND (GISPublished.sde.AssessorSalesBuildingsParcelInfo.ClassGroupDescription = 'Res Unimproved' "
+        "OR GISPublished.sde.AssessorSalesBuildingsParcelInfo.ClassGroupDescription = 'Res Improved') "
+        f"AND CAST(GISPublished.sde.AssessorSalesBuildingsParcelInfo.SaleDate AS DATE) >= DATE '{start_date}' "
+        f"AND CAST(GISPublished.sde.AssessorSalesBuildingsParcelInfo.SaleDate AS DATE) < DATE '{end_date}'"
     )
 
     all_records: List[Dict[str, Any]] = []
@@ -115,32 +185,14 @@ def get_sales_data(month: int, year: int, batch_size: int = 1000) -> List[Dict[s
     return all_records
 
 
-def convert_timestamp(timestamp_ms: Optional[int]) -> str:
-    """Convert epoch milliseconds to YYYY-MM-DD (returns empty string for falsy input)."""
-    if not timestamp_ms:
-        return ""
-    return datetime.fromtimestamp(timestamp_ms / 1000).strftime("%Y-%m-%d")
-
-
-def _is_organization_name(name: str) -> bool:
-    if not name:
-        return False
-    n = name.upper()
-    org_indicators = [
-        'LLC', 'INC', 'CORP', 'CO', 'COMPANY', 'TRUST', 'BANK', 'ASSOCIATES', 'HOLDINGS',
-        'LP', 'L.P.', 'LLP', 'C/O'
-    ]
-    if any(tok in n for tok in org_indicators):
-        return True
-    if 'AKA' in n or 'A.K.A' in n or 'ALSO KNOWN' in n:
-        return True
-    return False
-
+# ---------------------------------------------------------------------------
+# Name formatting
+# ---------------------------------------------------------------------------
 
 def _split_person_name(name: str) -> tuple[str, str]:
     """Return (given-part, last-name) for a likely person name.
 
-    Handles "Last, First" and removes common suffixes (Jr, Sr, II, III).
+    Handles "Last, First" and strips common suffixes (Jr, Sr, II, III, IV).
     """
     if not name:
         return '', ''
@@ -159,10 +211,10 @@ def _split_person_name(name: str) -> tuple[str, str]:
 def format_recipient(buyer1: str | None, buyer2: str | None) -> str:
     """Return a single recipient string combining buyer1 and buyer2 intelligently.
 
-    - If both look like people and share a last name -> "Given1 & Given2 Last"
-    - Otherwise join full names with ` & `.
-    - Empty values are ignored.
-    - Treat names containing LLC/INC/aka as organizations/complex and avoid parsing.
+    - Both people, same last name  -> "Given1 & Given2 Last"
+    - Both people, different names -> "Full1 & Full2"
+    - Either is an org/entity      -> "Name1 & Name2" (no parsing)
+    - Only one name present        -> that name as-is
     """
     b1 = (buyer1 or '').strip()
     b2 = (buyer2 or '').strip()
@@ -186,13 +238,20 @@ def format_recipient(buyer1: str | None, buyer2: str | None) -> str:
     return f"{b1} & {b2}"
 
 
+# ---------------------------------------------------------------------------
+# CSV serialization
+# ---------------------------------------------------------------------------
+
 def _build_city_state_zip(city: str, state: str, zip_code: str) -> str:
-    """Format the combined city-state-zip field, e.g. 'SPRINGFIELD IN 46801-1234'."""
+    """Format the combined city-state-zip field, e.g. 'FORT WAYNE IN 46801'."""
     parts = [p for p in [city, state, zip_code] if p]
     return " ".join(parts)
 
 
-def records_to_csv_bytes(records: List[Dict[str, Any]]) -> bytes:
+def records_to_csv_bytes(
+    records: List[Dict[str, Any]],
+    skip_org_buyers: bool = True,
+) -> bytes:
     """Serialize API records to the mail presort CSV format and return UTF-8 bytes.
 
     Populated columns:  name, primary street, city-state-zip,
@@ -200,23 +259,35 @@ def records_to_csv_bytes(records: List[Dict[str, Any]]) -> bytes:
     Blank columns:      no, contactid, company, urbanization,
                         sec-primary street, ase, oel, presorttrayid,
                         presortdate, imbno, encodedimbno
+
+    Args:
+        records:          Raw feature list from get_sales_data().
+        skip_org_buyers:  If True (default), skip records where Buyer1 is an
+                          organization, LLC, trust, etc. Buyer2 org names are
+                          preserved — they're usually co-signers on a person's sale.
     """
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=CSV_HEADERS)
     writer.writeheader()
+    skipped = 0
 
     for record in records:
         attrs = record.get("attributes", {})
 
-        # --- pull raw values ---
         def get(api_field: str) -> str:
             val = attrs.get(api_field)
             return "" if val is None else str(val).strip()
 
+        raw_buyer1 = get("GISPublished.sde.AssessorSalesBuildingsParcelInfo.Buyer1Name").upper()
+
+        # Skip records where the primary buyer is a business/entity
+        if skip_org_buyers and _is_organization_name(raw_buyer1):
+            skipped += 1
+            continue
+
         raw_address = get("GISPublished.sde.AssessorSalesBuildingsParcelInfo.PropAddress").upper()
         raw_city    = get("GISPublished.sde.AssessorSalesBuildingsParcelInfo.City").upper()
         raw_zip     = get("GISPublished.sde.AssessorSalesBuildingsParcelInfo.ZipCode")
-        raw_buyer1  = get("GISPublished.sde.AssessorSalesBuildingsParcelInfo.Buyer1Name").upper()
         raw_buyer2  = get("GISPublished.sde.AssessorSalesBuildingsParcelInfo.Buyer2Name").upper()
 
         state = "IN"  # all Allen County records are Indiana
@@ -225,24 +296,27 @@ def records_to_csv_bytes(records: List[Dict[str, Any]]) -> bytes:
         recipient = format_recipient(raw_buyer1, raw_buyer2).upper()
 
         writer.writerow({
-            "no":                  "",
-            "name":                recipient,
-            "contactid":           "",
-            "company":             "",
-            "urbanization":        "",
-            "sec-primary street":  "",
-            "primary street":      raw_address,
-            "city-state-zip":      city_state_zip,
-            "ase":                 "",
-            "oel":                 "",
-            "presorttrayid":       "",
-            "presortdate":         "",
-            "imbno":               "",
-            "encodedimbno":        "",
-            "primary city":        raw_city,
-            "primary state":       state,
-            "primary zip":         raw_zip,
+            "no":                 "",
+            "name":               recipient,
+            "contactid":          "",
+            "company":            "",
+            "urbanization":       "",
+            "sec-primary street": "",
+            "primary street":     raw_address,
+            "city-state-zip":     city_state_zip,
+            "ase":                "",
+            "oel":                "",
+            "presorttrayid":      "",
+            "presortdate":        "",
+            "imbno":              "",
+            "encodedimbno":       "",
+            "primary city":       raw_city,
+            "primary state":      state,
+            "primary zip":        raw_zip,
         })
+
+    if skipped:
+        print(f"  Skipped {skipped} org/entity buyer record(s)")
 
     return output.getvalue().encode("utf-8")
 
@@ -255,13 +329,13 @@ def save_to_csv(records: List[Dict[str, Any]], filename: str) -> None:
     data = records_to_csv_bytes(records)
     with open(filename, "wb") as f:
         f.write(data)
-    print(f"\nData saved to: {filename}")
+    print(f"Data saved to: {filename}")
 
 
 def generate_csv_for_period(month: int, year: int) -> Tuple[str, bytes]:
     """Fetch records for month/year and return (filename, csv_bytes).
 
-    This is the helper used by the Flask app.
+    This is the primary helper used by the Flask app.
     """
     records = get_sales_data(month, year)
     month_name = datetime(year, month, 1).strftime("%B")
@@ -270,19 +344,23 @@ def generate_csv_for_period(month: int, year: int) -> Tuple[str, bytes]:
     return filename, csv_bytes
 
 
+# ---------------------------------------------------------------------------
+# CLI entrypoint
+# ---------------------------------------------------------------------------
+
 def main() -> None:
     """Simple CLI entrypoint."""
     import argparse
 
     parser = argparse.ArgumentParser(description="Allen County property sales CSV exporter")
     parser.add_argument("month", type=int, nargs="?", help="Month (1-12)")
-    parser.add_argument("year", type=int, nargs="?", help="Year (e.g. 2026)")
+    parser.add_argument("year",  type=int, nargs="?", help="Year (e.g. 2026)")
     parser.add_argument("-o", "--output", help="Output CSV filename")
     args = parser.parse_args()
 
     if args.month and args.year:
         month = args.month
-        year = args.year
+        year  = args.year
     else:
         while True:
             try:
