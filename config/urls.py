@@ -36,6 +36,7 @@ urlpatterns = [
     path("presets/", include("apps.routing.urls", namespace="routing")),
     path("cutters/", include("apps.cutter.urls", namespace="cutter")),
     path("mailmerge/", include("apps.mailmerge.urls", namespace="mailmerge")),
+    path("qr/", include("apps.qrcode.urls", namespace="qr")),
 ]
 
 if settings.DEBUG:

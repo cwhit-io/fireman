@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.cutter",
     "apps.routing",
     "apps.mailmerge",
+    "apps.qrcode",
 ]
 
 AUTH_USER_MODEL = "core.User"

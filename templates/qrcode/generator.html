@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}QR Code Generator — Ember{% endblock %}
+{% block meta_description %}Generate customized QR codes with your colors and logo. Download print-ready PNG, SVG, and PDF files.{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-16">
+
+  {# Page heading #}
+  <div class="mb-10">
+    <h1 class="text-3xl font-bold mb-3">QR Code Generator</h1>
+    <p class="text-base-content/60">
+      Enter a URL or text, choose your colors, optionally add a logo, then download a
+      print‑ready PNG, SVG, or PDF.
+    </p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
+
+    {# ── Left: form ───────────────────────────────────── #}
+    <div>
+      <form
+        id="qr-form"
+        hx-post="{% url 'qr:preview' %}"
+        hx-target="#qr-preview"
+        hx-swap="innerHTML"
+        hx-encoding="multipart/form-data"
+        hx-indicator="#qr-spinner"
+        class="flex flex-col gap-5"
+      >
+        {% csrf_token %}
+
+        {# Preserve logo temp id across re-submits #}
+        <input type="hidden" name="logo_id" id="logo-id-field" value="">
+
+        {# Text / URL #}
+        <div class="form-control">
+          <label class="label" for="id_text">
+            <span class="label-text font-medium">Text or URL</span>
+          </label>
+          <input
+            id="id_text"
+            type="text"
+            name="text"
+            placeholder="https://example.com"
+            class="input input-bordered w-full"
+            required
+            autocomplete="off"
+          >
+        </div>
+
+        {# Colors #}
+        <div class="grid grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label" for="id_fg_color">
+              <span class="label-text font-medium">Foreground</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <input
+                id="id_fg_color"
+                type="color"
+                name="fg_color"
+                value="#000000"
+                class="w-10 h-10 rounded-lg border border-base-300 cursor-pointer p-0.5 bg-base-100"
+              >
+              <span
+                class="text-sm font-mono text-base-content/60"
+                x-data
+                x-text="document.getElementById('id_fg_color')?.value || '#000000'"
+                @input.window="$el.textContent = document.getElementById('id_fg_color')?.value"
+              >#000000</span>
+            </div>
+          </div>
+
+          <div class="form-control">
+            <label class="label" for="id_bg_color">
+              <span class="label-text font-medium">Background</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <input
+                id="id_bg_color"
+                type="color"
+                name="bg_color"
+                value="#ffffff"
+                class="w-10 h-10 rounded-lg border border-base-300 cursor-pointer p-0.5 bg-base-100"
+              >
+              <span
+                class="text-sm font-mono text-base-content/60"
+                x-data
+                x-text="document.getElementById('id_bg_color')?.value || '#ffffff'"
+                @input.window="$el.textContent = document.getElementById('id_bg_color')?.value"
+              >#ffffff</span>
+            </div>
+          </div>
+        </div>
+
+        {# Logo upload #}
+        <div class="form-control">
+          <label class="label" for="id_logo">
+            <span class="label-text font-medium">Logo <span class="text-base-content/40 font-normal">(optional)</span></span>
+          </label>
+          <input
+            id="id_logo"
+            type="file"
+            name="logo"
+            accept="image/*"
+            class="file-input file-input-bordered w-full"
+          >
+          <label class="label">
+            <span class="label-text-alt text-base-content/40">PNG or SVG with transparency works best. Logo is centered automatically.</span>
+          </label>
+        </div>
+
+        {# Generate button #}
+        <button type="submit" class="btn btn-primary gap-2">
+          <span id="qr-spinner" class="htmx-indicator loading loading-spinner loading-xs"></span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6.364 1.636l-.707.707M20 12h-1M17.657 17.657l-.707-.707M12 20v-1m-4.95-2.343l-.707.707M4 12H3M6.343 6.343l-.707-.707M9 12a3 3 0 106 0 3 3 0 00-6 0z"/>
+          </svg>
+          Generate QR Code
+        </button>
+      </form>
+    </div>
+
+    {# ── Right: preview ───────────────────────────────── #}
+    <div
+      id="qr-preview"
+      class="flex flex-col items-center justify-center min-h-[18rem] bg-base-200/50 border border-base-300 rounded-2xl p-6"
+    >
+      {# Placeholder shown before first generation #}
+      <div class="flex flex-col items-center gap-3 text-base-content/30">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6.364 1.636l-.707.707M20 12h-1M17.657 17.657l-.707-.707M12 20v-1m-4.95-2.343l-.707.707M4 12H3M6.343 6.343l-.707-.707M9 12a3 3 0 106 0 3 3 0 00-6 0z"/>
+        </svg>
+        <p class="text-sm">Your QR code will appear here</p>
+      </div>
+    </div>
+
+  </div>
+
+  {# Tips #}
+  <div class="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-6">
+    <div class="bg-base-200/60 rounded-xl p-5">
+      <h3 class="font-semibold mb-1">High contrast</h3>
+      <p class="text-sm text-base-content/60">Use a dark foreground on a light background for the most reliable scanning.</p>
+    </div>
+    <div class="bg-base-200/60 rounded-xl p-5">
+      <h3 class="font-semibold mb-1">Logo size</h3>
+      <p class="text-sm text-base-content/60">Logos are automatically sized to ~22 % of the code and placed with high error-correction.</p>
+    </div>
+    <div class="bg-base-200/60 rounded-xl p-5">
+      <h3 class="font-semibold mb-1">Print quality</h3>
+      <p class="text-sm text-base-content/60">PNG and PDF exports are rendered at 300 DPI — sharp enough for commercial print at 3 × 3 in.</p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // After htmx swaps in the preview, capture the returned logo_id
+  // into the hidden field so subsequent color/text changes keep the logo.
+  document.addEventListener("htmx:afterSwap", function (e) {
+    if (e.detail.target.id === "qr-preview") {
+      var logoIdEl = e.detail.target.querySelector("[data-logo-id]");
+      if (logoIdEl) {
+        document.getElementById("logo-id-field").value = logoIdEl.dataset.logoId;
+        // Clear the file input so the user is not forced to re-upload
+        var fileInput = document.getElementById("id_logo");
+        if (fileInput) fileInput.value = "";
+      }
+    }
+  });
+</script>
+{% endblock %}

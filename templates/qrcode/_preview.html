@@ -1,0 +1,67 @@
+{# htmx partial — QR preview + download controls #}
+
+{# Hidden element carrying the logo temp-id back to the main page JS #}
+<span data-logo-id="{{ logo_id }}" class="hidden"></span>
+
+<div class="flex flex-col items-center gap-6">
+
+  {# SVG preview — sized to fill the preview box #}
+  <div class="bg-base-200 rounded-2xl p-4 shadow-inner flex items-center justify-center w-64 h-64 [&>svg]:w-full [&>svg]:h-full">
+    {{ svg_data|safe }}
+  </div>
+
+  {# Download buttons #}
+  <div class="flex flex-wrap gap-3 justify-center">
+
+    {# PNG #}
+    <form method="post" action="{% url 'qr:download' %}">
+      {% csrf_token %}
+      <input type="hidden" name="text"     value="{{ text }}">
+      <input type="hidden" name="fg_color" value="{{ fg_color }}">
+      <input type="hidden" name="bg_color" value="{{ bg_color }}">
+      <input type="hidden" name="logo_id"  value="{{ logo_id }}">
+      <input type="hidden" name="fmt"      value="png">
+      <button type="submit" class="btn btn-sm btn-outline gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M7 10l5 5 5-5M12 4v11"/>
+        </svg>
+        PNG
+      </button>
+    </form>
+
+    {# SVG #}
+    <form method="post" action="{% url 'qr:download' %}">
+      {% csrf_token %}
+      <input type="hidden" name="text"     value="{{ text }}">
+      <input type="hidden" name="fg_color" value="{{ fg_color }}">
+      <input type="hidden" name="bg_color" value="{{ bg_color }}">
+      <input type="hidden" name="logo_id"  value="{{ logo_id }}">
+      <input type="hidden" name="fmt"      value="svg">
+      <button type="submit" class="btn btn-sm btn-outline gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M7 10l5 5 5-5M12 4v11"/>
+        </svg>
+        SVG
+      </button>
+    </form>
+
+    {# PDF #}
+    <form method="post" action="{% url 'qr:download' %}">
+      {% csrf_token %}
+      <input type="hidden" name="text"     value="{{ text }}">
+      <input type="hidden" name="fg_color" value="{{ fg_color }}">
+      <input type="hidden" name="bg_color" value="{{ bg_color }}">
+      <input type="hidden" name="logo_id"  value="{{ logo_id }}">
+      <input type="hidden" name="fmt"      value="pdf">
+      <button type="submit" class="btn btn-sm btn-primary gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M7 10l5 5 5-5M12 4v11"/>
+        </svg>
+        PDF (print‑ready)
+      </button>
+    </form>
+
+  </div>
+
+  <p class="text-xs text-base-content/40">PNG &amp; PDF rendered at 300 DPI · 3 × 3 in</p>
+</div>
