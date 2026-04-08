@@ -222,6 +222,33 @@ FIERY_OPTION_SECTIONS = [
                     ("True", "On"),
                 ],
             ),
+            (
+                "EFHPBlack",
+                "Black Detection",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
+                ],
+            ),
+            (
+                "EFSubstColors",
+                "Substitute Colors",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFMltClrPrntMap",
+                "2-Color Print Mapping",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
         ],
     ),
     (
@@ -317,6 +344,34 @@ FIERY_OPTION_SECTIONS = [
                     ("True", "With Border"),
                 ],
             ),
+            (
+                "EFImageFlag",
+                "Image Shift",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFImageAlign",
+                "Align Front & Back Images",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFImageUnit",
+                "Image Shift Units",
+                [
+                    ("", "— printer default —"),
+                    ("Inches", "Inches"),
+                    ("MM", "Millimeters"),
+                    ("Points", "Points"),
+                ],
+            ),
         ],
     ),
     (
@@ -369,6 +424,15 @@ FIERY_OPTION_SECTIONS = [
                     ("False", "Off"),
                     ("Sets", "Between Sets"),
                     ("Jobs", "Between Jobs"),
+                ],
+            ),
+            (
+                "EFLimitlessOutputOpt",
+                "Limitless Finisher Tray",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
                 ],
             ),
         ],
@@ -647,6 +711,29 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
+                "EFBrightness",
+                "Brightness",
+                [
+                    ("", "— printer default —"),
+                    ("0.24", "+24% (Lightest)"),
+                    ("0.16", "+16% (Lighter)"),
+                    ("0.08", "+8% (Light)"),
+                    ("00.00", "0% (Normal)"),
+                    ("-0.08", "-8% (Dark)"),
+                    ("-0.16", "-16% (Darker)"),
+                    ("-0.24", "-24% (Darkest)"),
+                ],
+            ),
+            (
+                "EFGlossAdjustment",
+                "Gloss Adjustment",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
                 "EFImageSmooth",
                 "Image Smoothing",
                 [
@@ -728,6 +815,284 @@ FIERY_OPTION_SECTIONS = [
                     ("BeforeJob", "Before Job"),
                     ("AfterJob", "After Job"),
                     ("BeforeAndAfter", "Before and After"),
+                ],
+            ),
+        ],
+    ),
+    (
+        "Color — Profiles & Rendering",
+        [
+            (
+                "EFRGBOverride",
+                "RGB Source Profile",
+                [
+                    ("", "— printer default —"),
+                    ("EFRGBOverrideDEF", "Fiery Default"),
+                    ("SRGB", "sRGB"),
+                    ("ADOBERGB", "Adobe RGB"),
+                    ("ECIRGB", "ECI RGB"),
+                    ("APPLE13", "Apple RGB"),
+                    ("FIERYRGB", "Fiery RGB"),
+                    ("EFIRGB", "EFI RGB"),
+                ],
+            ),
+            (
+                "EFEmbeddedRGB",
+                "Use RGB Embedded Profiles",
+                [
+                    ("", "— printer default —"),
+                    ("EFEmbeddedRGBDEF", "Fiery Default"),
+                    ("ON", "On"),
+                    ("OFF", "Off"),
+                ],
+            ),
+            (
+                "EFColorRendDict",
+                "RGB Rendering Intent",
+                [
+                    ("", "— printer default —"),
+                    ("EFColorRendDictDEF", "Fiery Default"),
+                    ("PHOTOGRAPHIC", "Photographic"),
+                    ("PRESENTATION", "Presentation"),
+                    ("RELATIVE", "Relative Colorimetric"),
+                    ("ABSOLUTE", "Absolute Colorimetric"),
+                ],
+            ),
+            (
+                "EFRGBSep",
+                "Separate RGB/Lab to CMYK",
+                [
+                    ("", "— printer default —"),
+                    ("EFRGBSepDEF", "Fiery Default"),
+                    ("SEPSIM", "Simulation"),
+                    ("SEPOUT", "Output Profile"),
+                ],
+            ),
+            (
+                "EFKOnlyGrayRGB",
+                "Print RGB Gray Using Black Only",
+                [
+                    ("", "— printer default —"),
+                    ("EFKOnlyGrayRGBDEF", "Fiery Default"),
+                    ("OFF", "Off"),
+                    ("TEXTGRAPHICS", "Text & Graphics"),
+                    ("TEXTGRAPHICSIMAG", "Text, Graphics & Images"),
+                ],
+            ),
+            (
+                "EFEmbeddedCMYK",
+                "Use CMYK Embedded Profiles",
+                [
+                    ("", "— printer default —"),
+                    ("EFEmbeddedCMYKDEF", "Fiery Default"),
+                    ("ON", "On"),
+                    ("OFF", "Off"),
+                ],
+            ),
+            (
+                "EFCMYKColorRendDict",
+                "CMYK Rendering Intent",
+                [
+                    ("", "— printer default —"),
+                    ("PHOTOGRAPHIC", "Photographic"),
+                    ("PRESENTATION", "Presentation"),
+                    ("RELATIVE", "Relative Colorimetric"),
+                    ("ABSOLUTE", "Absolute Colorimetric"),
+                    ("XGAM", "Pure Gamut"),
+                ],
+            ),
+            (
+                "EFBlackPointCompCMYK",
+                "Black Point Compensation",
+                [
+                    ("", "— printer default —"),
+                    ("EFBlackPointCompCMYKDEF", "Fiery Default"),
+                    ("OFF", "Off"),
+                    ("ON", "On"),
+                ],
+            ),
+            (
+                "EFKOnlyGrayCMYK",
+                "Print CMYK Gray Using Black Only",
+                [
+                    ("", "— printer default —"),
+                    ("EFKOnlyGrayCMYKDEF", "Fiery Default"),
+                    ("OFF", "Off"),
+                    ("TEXTGRAPHICS", "Text & Graphics"),
+                    ("TEXTGRAPHICSIMAG", "Text, Graphics & Images"),
+                ],
+            ),
+            (
+                "EFGrayOverride",
+                "Grayscale Source Profile",
+                [
+                    ("", "— printer default —"),
+                    ("EFGrayOverrideDEF", "Fiery Default"),
+                    ("dotgain10", "Dot Gain 10%"),
+                    ("dotgain15", "Dot Gain 15%"),
+                    ("dotgain20", "Dot Gain 20%"),
+                    ("dotgain25", "Dot Gain 25%"),
+                    ("dotgain30", "Dot Gain 30%"),
+                    ("graygamma18", "Gray Gamma 1.8"),
+                    ("graygamma22", "Gray Gamma 2.2"),
+                ],
+            ),
+            (
+                "EFEmbeddedGray",
+                "Use Gray Embedded Profiles",
+                [
+                    ("", "— printer default —"),
+                    ("ON", "On"),
+                    ("OFF", "Off"),
+                ],
+            ),
+            (
+                "EFGrayColorRendDict",
+                "Grayscale Rendering Intent",
+                [
+                    ("", "— printer default —"),
+                    ("PHOTOGRAPHIC", "Photographic"),
+                    ("PRESENTATION", "Presentation"),
+                    ("RELATIVE", "Relative Colorimetric"),
+                    ("ABSOLUTE", "Absolute Colorimetric"),
+                ],
+            ),
+            (
+                "EFKOnlyGray",
+                "Print Gray Using Black Only",
+                [
+                    ("", "— printer default —"),
+                    ("EFKOnlyGrayDEF", "Fiery Default"),
+                    ("OFF", "Off"),
+                    ("TEXTGRAPHICS", "Text & Graphics"),
+                    ("TEXTGRAPHICSIMAG", "Text, Graphics & Images"),
+                ],
+            ),
+        ],
+    ),
+    (
+        "Color — Separations",
+        [
+            (
+                "EFSeparations",
+                "Combine Separations",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFColorSelectC",
+                "Cyan (C)",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
+                ],
+            ),
+            (
+                "EFColorSelectM",
+                "Magenta (M)",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
+                ],
+            ),
+            (
+                "EFColorSelectY",
+                "Yellow (Y)",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
+                ],
+            ),
+            (
+                "EFColorSelectK",
+                "Black (K)",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
+                ],
+            ),
+        ],
+    ),
+    (
+        "Image Enhancement",
+        [
+            (
+                "EFImageWiseRange",
+                "Apply Image Enhancement",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFImageWise_RangeType",
+                "Image Enhance Range",
+                [
+                    ("", "— printer default —"),
+                    ("AllPages", "All Pages"),
+                    ("Pages", "Selected Pages"),
+                    ("Sheets", "Selected Sheets"),
+                ],
+            ),
+        ],
+    ),
+    (
+        "Control & Diagnostics",
+        [
+            (
+                "EFPostFlight",
+                "Postflight",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("ReportConcise", "Report (Concise)"),
+                    ("TestPage", "Test Page"),
+                    ("ColorCodedJob", "Color Coded Job"),
+                    ("All", "All"),
+                ],
+            ),
+            (
+                "EFControlBar",
+                "Control Bar",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("Default", "Default"),
+                ],
+            ),
+            (
+                "EFEngTabShift",
+                "Tab Shift",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFTrayAlignment",
+                "Tray Alignment",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
+                ],
+            ),
+            (
+                "EFSubsetFinishingInUse",
+                "Subset Finishing",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
                 ],
             ),
         ],
