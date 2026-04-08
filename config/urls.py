@@ -22,13 +22,15 @@ from django.http import HttpResponse
 from django.urls import include, path
 
 from config.api import api
-from core.views import homepage
+from core.views import homepage, qr_page, qr_image
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", api.urls),
     path("ping/", lambda r: HttpResponse("pong"), name="ping"),
     path("demo/", include("core.urls", namespace="core")),
+    path("qr/", qr_page, name="qr_page"),
+    path("qr/image/", qr_image, name="qr_image"),
     path("accounts/", include("django.contrib.auth.urls")),
     path("", homepage, name="homepage"),
     path("jobs/", include("apps.jobs.urls", namespace="jobs")),

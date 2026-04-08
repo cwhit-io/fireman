@@ -33,6 +33,18 @@
         Templates
       </a>
 
+      {# QR generator — public #}
+      <a href="{% url 'qr_page' %}"
+         class="btn btn-ghost btn-sm gap-1.5 font-medium text-sm"
+         title="QR Code Generator">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <rect x="3" y="3" width="8" height="8" rx="1"/>
+          <rect x="13" y="3" width="8" height="8" rx="1"/>
+          <rect x="3" y="13" width="8" height="8" rx="1"/>
+        </svg>
+        QR
+      </a>
+
       {# Mail Merge — only visible to users with permission or staff #}
       {% if user.is_authenticated and user.can_use_mail_merge or user.is_authenticated and user.is_staff %}
       <a href="{% url 'mailmerge:list' %}"
@@ -267,6 +279,7 @@
         <a href="{% url 'mailmerge:list' %}" class="btn btn-ghost btn-sm justify-start gap-2">Mail Merge</a>
         {% endif %}
         <a href="{% url 'jobs:list' %}"   class="btn btn-primary btn-sm justify-start gap-2">Print Jobs</a>
+        <a href="{% url 'qr_page' %}" class="btn btn-ghost btn-sm justify-start gap-2">QR</a>
         <div class="divider my-1"></div>
         {% if user.is_authenticated %}
         {% if user.is_staff %}
