@@ -6,9 +6,40 @@ Each option is a tuple of (ppd_key, display_label, choices_list).
 Each choice is a tuple of (ppd_value, display_label).
 
 An empty string value "" means "don't send this option" (use printer default).
+
+These definitions are sourced directly from the fiery_hold CUPS PPD
+as reported by: lpoptions -p fiery_hold -l
 """
 
+# Reused tray list (InputSlot / EFBookCoverTray / EFPadBackCoverTray)
+_TRAY_CHOICES = [
+    ("", "— printer default —"),
+    ("AutoSelect", "Auto Select"),
+    ("Tray1", "Tray 1"),
+    ("Tray2", "Tray 2"),
+    ("HighCapacityInputBin1", "High Capacity Input Bin 1"),
+    ("PaperFeedUnit1", "Paper Feed Unit 1"),
+    ("PaperFeedUnit2", "Paper Feed Unit 2"),
+    ("Tray3", "Tray 3"),
+    ("Tray4", "Tray 4"),
+    ("Tray5", "Tray 5"),
+    ("ManualFeed", "Manual Feed"),
+    ("PostFuserTray", "Post Fuser Tray"),
+    ("PostFuserTray2", "Post Fuser Tray 2"),
+    ("PBTray", "PB Tray"),
+    ("Tray6", "Tray 6"),
+    ("Tray7", "Tray 7"),
+    ("Tray8", "Tray 8"),
+    ("Tray9", "Tray 9"),
+    ("Tray10", "Tray 10"),
+    ("Tray11", "Tray 11"),
+]
+
+# EFPadBackCoverTray excludes AutoSelect
+_PAD_COVER_TRAY_CHOICES = [c for c in _TRAY_CHOICES if c[0] != "AutoSelect"]
+
 FIERY_OPTION_SECTIONS = [
+    # ── Media ────────────────────────────────────────────────────────────────
     (
         "Media",
         [
@@ -19,23 +50,37 @@ FIERY_OPTION_SECTIONS = [
                     ("", "— printer default —"),
                     ("SameAsPageSize", "Same as Document"),
                     ("Letter", "Letter (8.5×11)"),
+                    ("LetterR", "Letter Rotated"),
                     ("A4", "A4"),
-                    ("Tabloid", "Tabloid (11×17)"),
-                    ("TabloidExtra", "Tabloid Extra (12×18)"),
-                    ("Legal", "Legal (8.5×14)"),
-                    ("Statement", "Statement (5.5×8.5)"),
-                    ("Executive", "Executive"),
+                    ("A4R", "A4 Rotated"),
                     ("A3", "A3"),
                     ("A5", "A5"),
+                    ("A5R", "A5 Rotated"),
+                    ("A6R", "A6 Rotated"),
+                    ("Legal", "Legal (8.5×14)"),
+                    ("Tabloid", "Tabloid (11×17)"),
+                    ("TabloidExtra", "Tabloid Extra (12×18)"),
+                    ("StatementR", "Statement Rotated"),
                     ("B4", "B4"),
                     ("B5", "B5"),
+                    ("B5R", "B5 Rotated"),
+                    ("B6R", "B6 Rotated"),
+                    ("K8", "K8"),
                     ("SRA3", "SRA3"),
                     ("SRA4", "SRA4"),
+                    ("SRA4R", "SRA4 Rotated"),
+                    ("M16KSpecial", "M16K Special"),
+                    ("M16KSpecialRotated", "M16K Special Rotated"),
                     ("13x19", "13×19"),
-                    ("13x19.2R", "13×19.2"),
-                    ("12.6x19.2", "12.6×19.2"),
-                    ("12.6x18.5", "12.6×18.5"),
-                    ("13x18", "13×18"),
+                    ("8x13", "8×13"),
+                    ("9x11", "9×11"),
+                    ("A4Tab", "A4 Tab"),
+                    ("A4TabThreeEightsInch", "A4 Tab 3/8\""),
+                    ("ISOB4", "ISO B4"),
+                    ("ISOB5", "ISO B5"),
+                    ("ISOB5R", "ISO B5 Rotated"),
+                    ("ISOB6", "ISO B6"),
+                    ("9.06x11", "9.06×11"),
                     ("CustomPrintSize", "Custom"),
                 ],
             ),
@@ -44,26 +89,15 @@ FIERY_OPTION_SECTIONS = [
                 "Paper Type",
                 [
                     ("", "— printer default —"),
+                    ("EFMediaTypeDEF", "Fiery Default"),
+                    ("Any", "Any"),
                     ("Plain", "Plain"),
-                    ("Recycled", "Recycled"),
-                    ("Glossy", "Glossy"),
+                    ("Color", "Color"),
+                    ("HighQuality", "High Quality"),
                     ("CoatedGlossOffset", "Coated Gloss Offset"),
                     ("CoatedMatteOffset", "Coated Matte Offset"),
-                    ("CoatedGlossLaser", "Coated Gloss"),
-                    ("CoatedMatteLaser", "Coated Matte"),
                     ("Envelope", "Envelope"),
                     ("Embossed2", "Embossed"),
-                    ("HighQuality", "High Quality"),
-                    ("Letterhead", "Letterhead"),
-                    ("Metallic", "Metallic"),
-                    ("NCR", "NCR"),
-                    ("Parcel", "Parcel"),
-                    ("Preprinted", "Preprinted"),
-                    ("Prepunched", "Prepunched"),
-                    ("Tabstock", "Tabstock"),
-                    ("Transparency", "Transparency"),
-                    ("Translucent", "Translucent"),
-                    ("White", "White"),
                 ],
             ),
             (
@@ -71,6 +105,7 @@ FIERY_OPTION_SECTIONS = [
                 "Paper Color",
                 [
                     ("", "— printer default —"),
+                    ("EFMediaColorDEF", "Fiery Default"),
                     ("Any", "Any"),
                     ("White", "White"),
                     ("Cream", "Cream"),
@@ -88,9 +123,10 @@ FIERY_OPTION_SECTIONS = [
             ),
             (
                 "EFMediaHoleType",
-                "Paper Hole Type",
+                "Punched Paper",
                 [
                     ("", "— printer default —"),
+                    ("EFMediaHoleTypeDEF", "Fiery Default"),
                     ("Any", "Any"),
                     ("None", "None"),
                     ("S-generic", "S-generic"),
@@ -98,49 +134,33 @@ FIERY_OPTION_SECTIONS = [
             ),
             (
                 "EFMediaWeight",
-                "Paper Weight (gsm)",
+                "Paper Weight",
                 [
                     ("", "— printer default —"),
-                    ("1_300", "All (1–300)"),
-                    ("52_65", "52–65"),
-                    ("66_80", "66–80"),
-                    ("81_100", "81–100"),
-                    ("101_127", "101–127"),
-                    ("127_150", "127–150"),
-                    ("150_216", "150–216"),
-                    ("216_256", "216–256"),
-                    ("256_300", "256–300"),
-                    ("300_360", "300–360"),
+                    ("EFMediaWeightDEF", "Fiery Default"),
+                    ("Any", "Any"),
+                    ("62_74", "62–74 gsm"),
+                    ("75_80", "75–80 gsm"),
+                    ("81_91", "81–91 gsm"),
+                    ("92_105", "92–105 gsm"),
+                    ("106_135", "106–135 gsm"),
+                    ("136_176", "136–176 gsm"),
+                    ("177_216", "177–216 gsm"),
+                    ("217_256", "217–256 gsm"),
+                    ("257_300", "257–300 gsm"),
+                    ("301_350", "301–350 gsm"),
+                    ("351_360", "351–360 gsm"),
                 ],
             ),
             (
                 "InputSlot",
                 "Input Tray",
-                [
-                    ("", "— printer default —"),
-                    ("AutoSelect", "Auto Select"),
-                    ("Tray1", "Tray 1"),
-                    ("Tray2", "Tray 2"),
-                    ("HighCapacityInputBin1", "High Capacity Input Bin 1"),
-                    ("PaperFeedUnit1", "Paper Feed Unit 1"),
-                    ("PaperFeedUnit2", "Paper Feed Unit 2"),
-                    ("Tray3", "Tray 3"),
-                    ("Tray4", "Tray 4"),
-                    ("Tray5", "Tray 5"),
-                    ("ManualFeed", "Manual Feed"),
-                    ("PostFuserTray", "Post Fuser Tray"),
-                    ("PostFuserTray2", "Post Fuser Tray 2"),
-                    ("PBTray", "PB Tray"),
-                    ("Tray6", "Tray 6"),
-                    ("Tray7", "Tray 7"),
-                    ("Tray8", "Tray 8"),
-                    ("Tray9", "Tray 9"),
-                    ("Tray10", "Tray 10"),
-                    ("Tray11", "Tray 11"),
-                ],
+                _TRAY_CHOICES[:],
             ),
         ],
     ),
+
+    # ── Print Queue Action ────────────────────────────────────────────────────
     (
         "Print Queue Action",
         [
@@ -150,15 +170,33 @@ FIERY_OPTION_SECTIONS = [
                 [
                     ("", "— printer default —"),
                     ("False", "Normal (Print)"),
-                    ("Hold", "Hold"),
                     ("True", "Process and Hold"),
                     ("RipNHold", "RIP and Hold"),
+                    ("Hold", "Hold"),
                     ("PrintNDelete", "Print and Delete"),
                 ],
             ),
             (
-                "EFDocServer",
-                "Document Server",
+                "EFDisplayJobTracking",
+                "Enable Job Tracking",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFAccountSetting",
+                "Account Settings",
+                [
+                    ("", "— printer default —"),
+                    ("AlwaysEnter", "Always Enter"),
+                    ("AlwaysUseLast", "Always Use Last"),
+                ],
+            ),
+            (
+                "EFAccountShowLast",
+                "Show Last Account Info",
                 [
                     ("", "— printer default —"),
                     ("False", "Off"),
@@ -167,6 +205,8 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
+
+    # ── Color ─────────────────────────────────────────────────────────────────
     (
         "Color",
         [
@@ -208,6 +248,11 @@ FIERY_OPTION_SECTIONS = [
                     ("OUT3", "Output 3"),
                     ("OUT4", "Output 4"),
                     ("OUT5", "Output 5"),
+                    ("OUT6", "Output 6"),
+                    ("OUT7", "Output 7"),
+                    ("OUT8", "Output 8"),
+                    ("OUT9", "Output 9"),
+                    ("OUT10", "Output 10"),
                 ],
             ),
             (
@@ -233,6 +278,15 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
+                "EFHPBlack",
+                "Black Detection",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
+                ],
+            ),
+            (
                 "EFSpotColors",
                 "Spot Color Matching",
                 [
@@ -240,6 +294,33 @@ FIERY_OPTION_SECTIONS = [
                     ("EFSpotColorsDEF", "Fiery Default"),
                     ("ON", "On"),
                     ("OFF", "Off"),
+                ],
+            ),
+            (
+                "EFSpotPriority",
+                "Spot Color Group",
+                [
+                    ("", "— printer default —"),
+                    ("Default", "Default"),
+                ],
+            ),
+            (
+                "EFSpotOvpStrategy",
+                "Spot Color Overprint",
+                [
+                    ("", "— printer default —"),
+                    ("CMYK", "CMYK"),
+                    ("RGB", "RGB"),
+                    ("Lab", "Lab"),
+                ],
+            ),
+            (
+                "EFCurveAdjSpotBypass",
+                "Preserve Spot Colors",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
                 ],
             ),
             (
@@ -253,21 +334,22 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
+                "EFTrappingCutback",
+                "Cutback Trapping",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("BlackSep", "Black Separation"),
+                    ("AllSeps", "All Separations"),
+                ],
+            ),
+            (
                 "EFCompOverprint",
                 "Composite Overprint",
                 [
                     ("", "— printer default —"),
                     ("False", "Off"),
                     ("True", "On"),
-                ],
-            ),
-            (
-                "EFHPBlack",
-                "Black Detection",
-                [
-                    ("", "— printer default —"),
-                    ("True", "On"),
-                    ("False", "Off"),
                 ],
             ),
             (
@@ -290,6 +372,8 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
+
+    # ── Layout ────────────────────────────────────────────────────────────────
     (
         "Layout",
         [
@@ -313,23 +397,68 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
-                "EFScaleToFit",
-                "Scale to Fit",
-                [
-                    ("", "— printer default —"),
-                    ("OFF", "Off"),
-                    ("ScaleToPaperSize", "Scale to Paper Size"),
-                    ("ScaleToImageableArea", "Scale to Imageable Area"),
-                ],
-            ),
-            (
                 "EFAutoScaling",
-                "Auto Scaling",
+                "Scale to Fit",
                 [
                     ("", "— printer default —"),
                     ("False", "Off"),
                     ("True", "On"),
                     ("ScaleToPaperSize", "Scale to Paper Size"),
+                ],
+            ),
+            (
+                "EFDrvMirror",
+                "Mirror Print",
+                [
+                    ("", "— printer default —"),
+                    ("False", "No"),
+                    ("True", "Yes"),
+                ],
+            ),
+            (
+                "EFUserRotate180",
+                "Rotate 180°",
+                [
+                    ("", "— printer default —"),
+                    ("False", "No"),
+                    ("True", "Yes"),
+                ],
+            ),
+            (
+                "EFNUpOption",
+                "N-Up Layout",
+                [
+                    ("", "— printer default —"),
+                    ("1UP", "1-Up (Normal)"),
+                    ("2ULH", "2-Up Landscape (H)"),
+                    ("2URV", "2-Up Portrait (V)"),
+                    ("2ULV", "2-Up Portrait (V2)"),
+                    ("2URH", "2-Up Rotated (H)"),
+                    ("4ULH", "4-Up Landscape (H)"),
+                    ("4ULV", "4-Up Portrait (V)"),
+                    ("4URH", "4-Up Rotated (H)"),
+                    ("4URV", "4-Up Rotated (V)"),
+                    ("6ULH", "6-Up Landscape (H)"),
+                    ("6ULV", "6-Up Portrait (V)"),
+                    ("6URH", "6-Up Rotated (H)"),
+                    ("6URV", "6-Up Rotated (V)"),
+                    ("9ULH", "9-Up Landscape (H)"),
+                    ("9ULV", "9-Up Portrait (V)"),
+                    ("9URH", "9-Up Rotated (H)"),
+                    ("9URV", "9-Up Rotated (V)"),
+                    ("16ULH", "16-Up Landscape (H)"),
+                    ("16ULV", "16-Up Portrait (V)"),
+                    ("16URH", "16-Up Rotated (H)"),
+                    ("16URV", "16-Up Rotated (V)"),
+                ],
+            ),
+            (
+                "EFNUpBoundingBox",
+                "N-Up Border",
+                [
+                    ("", "— printer default —"),
+                    ("False", "No Border"),
+                    ("True", "With Border"),
                 ],
             ),
             (
@@ -381,94 +510,6 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
-                "EFImageOffsetOutput",
-                "Apply Offset To",
-                [
-                    ("", "— printer default —"),
-                    ("FrontOnly", "Front Only"),
-                    ("FrontAndBack", "Front and Back"),
-                ],
-            ),
-            (
-                "EFImageUnitOutput",
-                "Image Units",
-                [
-                    ("", "— printer default —"),
-                    ("MM", "Millimeters"),
-                    ("Inches", "Inches"),
-                ],
-            ),
-            (
-                "EFUserRotate180",
-                "Rotate 180°",
-                [
-                    ("", "— printer default —"),
-                    ("False", "No"),
-                    ("True", "Yes"),
-                ],
-            ),
-            (
-                "EFMarginZero",
-                "Full Bleed Printing",
-                [
-                    ("", "— printer default —"),
-                    ("False", "No"),
-                    ("True", "Yes"),
-                ],
-            ),
-            (
-                "EFBorderlessPrint",
-                "Print to Max Printable Area",
-                [
-                    ("", "— printer default —"),
-                    ("False", "No"),
-                    ("True", "Yes"),
-                ],
-            ),
-            (
-                "EFEngRotate180",
-                "Rotate 180°",
-                [
-                    ("", "— printer default —"),
-                    ("False", "No"),
-                    ("True", "Yes"),
-                    ("LargePaperOnly", "Large Paper Only"),
-                    ("SmallPaperOnly", "Small Paper Only"),
-                ],
-            ),
-            (
-                "EFDrvMirror",
-                "Mirror Print",
-                [
-                    ("", "— printer default —"),
-                    ("False", "No"),
-                    ("True", "Yes"),
-                ],
-            ),
-            (
-                "EFNUpOption",
-                "N-Up Layout",
-                [
-                    ("", "— printer default —"),
-                    ("1UP", "1-Up (Normal)"),
-                    ("2ULH", "2-Up Landscape (H)"),
-                    ("2URV", "2-Up Portrait (V)"),
-                    ("4ULH", "4-Up Landscape (H)"),
-                    ("4ULV", "4-Up Portrait (V)"),
-                    ("4URH", "4-Up Rotated (H)"),
-                    ("4URV", "4-Up Rotated (V)"),
-                ],
-            ),
-            (
-                "EFNUpBoundingBox",
-                "N-Up Border",
-                [
-                    ("", "— printer default —"),
-                    ("False", "No Border"),
-                    ("True", "With Border"),
-                ],
-            ),
-            (
                 "EFImageFlag",
                 "Image Shift",
                 [
@@ -478,12 +519,30 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
+                "EFImageOffsetOutput",
+                "Apply Offset To",
+                [
+                    ("", "— printer default —"),
+                    ("FrontOnly", "Front Only"),
+                    ("FrontAndBack", "Front and Back"),
+                ],
+            ),
+            (
                 "EFImageAlign",
                 "Align Front & Back Images",
                 [
                     ("", "— printer default —"),
                     ("False", "Off"),
                     ("True", "On"),
+                ],
+            ),
+            (
+                "EFImageUnitOutput",
+                "Image Offset Units",
+                [
+                    ("", "— printer default —"),
+                    ("MM", "Millimeters"),
+                    ("Inches", "Inches"),
                 ],
             ),
             (
@@ -498,41 +557,11 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
+
+    # ── Output & Delivery ─────────────────────────────────────────────────────
     (
         "Output & Delivery",
         [
-            (
-                "EFPaperDeckOpt",
-                "Optional Feeder",
-                [
-                    ("", "— printer default —"),
-                    ("Bypass", "Bypass"),
-                    ("Option2", "Option 2"),
-                    ("Option5", "Option 5"),
-                    ("Option6", "Option 6"),
-                    ("Option7", "Option 7"),
-                    ("Option8", "Option 8"),
-                    ("Option9", "Option 9"),
-                    ("Option10", "Option 10"),
-                    ("Option11", "Option 11"),
-                    ("Option12", "Option 12"),
-                    ("Option13", "Option 13"),
-                    ("BypassLargeCapTray", "Bypass Large Capacity Tray"),
-                ],
-            ),
-            (
-                "EFStacker",
-                "Stacker",
-                [
-                    ("", "— printer default —"),
-                    ("False", "Off"),
-                    ("LargeCapacityStacker", "Large Capacity Stacker"),
-                    ("Dual", "Dual"),
-                    ("True", "On"),
-                    ("Option3", "Option 3"),
-                    ("Option4", "Option 4"),
-                ],
-            ),
             (
                 "EFOutputBin",
                 "Output Tray",
@@ -564,16 +593,16 @@ FIERY_OPTION_SECTIONS = [
             ),
             (
                 "EFSort",
-                "Collate",
+                "Sort / Group",
                 [
                     ("", "— printer default —"),
                     ("Sort", "Sort (Collated)"),
-                    ("False", "Uncollated"),
+                    ("Group", "Group (Uncollated)"),
                 ],
             ),
             (
                 "EFPageDelivery",
-                "Page Delivery Order",
+                "Page Face",
                 [
                     ("", "— printer default —"),
                     ("SameOrderFaceDown", "Same Order Face Down"),
@@ -583,27 +612,98 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
-                "EFOffsetJobs",
-                "Job Offset / Shift",
+                "EFOffsetWithinJob",
+                "Offset Within Job",
                 [
                     ("", "— printer default —"),
-                    ("EngineDefault", "Engine Default"),
                     ("False", "Off"),
-                    ("Sets", "Between Sets"),
-                    ("Jobs", "Between Jobs"),
+                    ("True", "On"),
                 ],
             ),
             (
-                "EFLimitlessOutputOpt",
-                "Limitless Finisher Tray",
+                "EFOffsetBoundary",
+                "Offset Boundary",
                 [
                     ("", "— printer default —"),
-                    ("True", "On"),
+                    ("Sheets", "Sheets"),
+                    ("Copies", "Copies"),
+                    ("Sets", "Sets"),
+                ],
+            ),
+            (
+                "EFChangeOffsetPosition",
+                "Offset Jobs",
+                [
+                    ("", "— printer default —"),
                     ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFJobStacking",
+                "Allow Job Stacking",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                    ("This", "This Job"),
+                    ("Next", "Next Job"),
+                ],
+            ),
+            (
+                "EFPaperDeckOpt",
+                "Optional Feeder",
+                [
+                    ("", "— printer default —"),
+                    ("Bypass", "Bypass"),
+                    ("BypassLargeCapTray", "Bypass Large Capacity Tray"),
+                    ("Option2", "Option 2"),
+                    ("Option5", "Option 5"),
+                    ("Option6", "Option 6"),
+                    ("Option7", "Option 7"),
+                    ("Option8", "Option 8"),
+                    ("Option9", "Option 9"),
+                    ("Option10", "Option 10"),
+                    ("Option11", "Option 11"),
+                    ("Option12", "Option 12"),
+                    ("Option13", "Option 13"),
+                ],
+            ),
+            (
+                "EFStacker",
+                "Stacker",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("LargeCapacityStacker", "Large Capacity Stacker"),
+                    ("Dual", "Dual"),
+                    ("True", "On"),
+                    ("Option3", "Option 3"),
+                    ("Option4", "Option 4"),
+                ],
+            ),
+            (
+                "EFEngineWait",
+                "Wait",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFExternalFinishing",
+                "External Finishing",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
                 ],
             ),
         ],
     ),
+
+    # ── Finishing ────────────────────────────────────────────────────────────
     (
         "Finishing",
         [
@@ -613,27 +713,24 @@ FIERY_OPTION_SECTIONS = [
                 [
                     ("", "— printer default —"),
                     ("False", "None"),
-                    ("1LeftA", "1 Staple — Top Left"),
-                    ("1RightA", "1 Staple — Top Right"),
-                    ("1UpLeftH", "1 Staple — Left Horizontal"),
                     ("1UpLeftS", "1 Staple — Left Skewed"),
-                    ("1UpLeftV", "1 Staple — Left Vertical"),
-                    ("1UpRightH", "1 Staple — Right Horizontal"),
                     ("1UpRightS", "1 Staple — Right Skewed"),
-                    ("1UpRightV", "1 Staple — Right Vertical"),
                     ("2Left", "2 Staples — Left Edge"),
                     ("2Right", "2 Staples — Right Edge"),
                     ("2Up", "2 Staples — Top Edge"),
                     ("Center", "Center"),
+                    ("4Center", "4 Center"),
                 ],
             ),
             (
-                "StapleLocation",
-                "Core Stapler",
+                "EFStaplePitch",
+                "Staple Pitch",
                 [
                     ("", "— printer default —"),
                     ("None", "None"),
-                    ("SinglePortrait", "Single Portrait"),
+                    ("Narrow", "Narrow"),
+                    ("Middle1", "Middle"),
+                    ("Wide", "Wide"),
                 ],
             ),
             (
@@ -668,19 +765,18 @@ FIERY_OPTION_SECTIONS = [
                     ("False", "None"),
                     ("HalfFold", "Half Fold"),
                     ("HalfZFold", "Half Z-Fold"),
-                    ("HalfZFoldLargeMedia", "Half Z-Fold (Large Media)"),
                     ("TriFold", "Tri-Fold"),
                     ("Zfold", "Z-Fold"),
                     ("DoubleHalfFold", "Double Half Fold"),
                     ("GateFold", "Gate Fold"),
                     ("CollateHalfFold", "Collate Half Fold"),
-                    ("CollateZfold", "Collate Z-Fold"),
                     ("CollateTriFold", "Collate Tri-Fold"),
+                    ("SpineHalfFold", "Spine Half Fold"),
                 ],
             ),
             (
                 "EFFoldOrder",
-                "Fold Order",
+                "Fold Print Side",
                 [
                     ("", "— printer default —"),
                     ("In", "In"),
@@ -688,8 +784,79 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
+                "EFCrease",
+                "Crease",
+                [
+                    ("", "— printer default —"),
+                    ("False", "None"),
+                    ("CollateTriFold", "Collate Tri-Fold"),
+                    ("Perfect", "Perfect"),
+                    ("Saddle", "Saddle"),
+                ],
+            ),
+            (
+                "EFCreaseType",
+                "Crease Type",
+                [
+                    ("", "— printer default —"),
+                    ("False", "None"),
+                    ("SpineGutter", "Spine Gutter"),
+                    ("Gutter", "Gutter"),
+                    ("Spine", "Spine"),
+                ],
+            ),
+            (
+                "EFSlit",
+                "2-Side Slit",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("All", "All"),
+                    ("Cover", "Cover"),
+                ],
+            ),
+            (
+                "EFSlitUnit",
+                "Slit Units",
+                [
+                    ("", "— printer default —"),
+                    ("MM", "Millimeters"),
+                    ("Inches", "Inches"),
+                ],
+            ),
+            (
                 "EFTrimmer",
-                "Trim",
+                "Fore-edge Trim",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFPBTrimMode",
+                "Cover Trim",
+                [
+                    ("", "— printer default —"),
+                    ("1Way", "1 Way"),
+                    ("Off", "Off"),
+                ],
+            ),
+            (
+                "EFPressAdjustment",
+                "Spine Corner Forming Strength",
+                [
+                    ("", "— printer default —"),
+                    ("-2", "-2"),
+                    ("-1", "-1"),
+                    ("0", "0 (Default)"),
+                    ("1", "+1"),
+                    ("2", "+2"),
+                ],
+            ),
+            (
+                "EFPadCover",
+                "Add Pad Back Cover",
                 [
                     ("", "— printer default —"),
                     ("False", "No"),
@@ -697,25 +864,32 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
-                "EFSquareFold",
-                "Book Fold (Square Spine)",
+                "EFPadPrinting",
+                "Enable Pad Printing",
                 [
                     ("", "— printer default —"),
-                    ("False", "No"),
-                    ("True", "Yes"),
+                    ("False", "Off"),
+                    ("True", "On"),
                 ],
             ),
             (
-                "EFWireBind",
-                "Twin Loop Bind",
+                "EFPadBackCoverTray",
+                "Pad Back Cover Source",
+                _PAD_COVER_TRAY_CHOICES[:],
+            ),
+            (
+                "EFSubsetFinishingInUse",
+                "Subset Finishing",
                 [
                     ("", "— printer default —"),
-                    ("False", "No"),
-                    ("True", "Yes"),
+                    ("False", "Off"),
+                    ("True", "On"),
                 ],
             ),
         ],
     ),
+
+    # ── Booklet ───────────────────────────────────────────────────────────────
     (
         "Booklet",
         [
@@ -727,15 +901,18 @@ FIERY_OPTION_SECTIONS = [
                     ("False", "None"),
                     ("TwoUp", "2-Up Saddle"),
                     ("TwoUpRight", "2-Up Saddle (Right Binding)"),
+                    ("TwoUpTop", "2-Up Top"),
                     ("Perfect", "Perfect Binding"),
                     ("PerfectRight", "Perfect Binding (Right)"),
+                    ("PerfectTop", "Perfect Top"),
                     ("NestSaddleL", "Nested Saddle Left"),
                     ("NestSaddleR", "Nested Saddle Right"),
+                    ("NestSaddleT", "Nested Saddle Top"),
                     ("Speed", "Speed"),
                     ("Double", "Double"),
-                    ("NestSaddleT", "Nested Saddle Top"),
-                    ("PerfectTop", "Perfect Top"),
-                    ("TwoUpTop", "2-Up Top"),
+                    ("WrapCoverBookL", "Wrap Cover Book Left"),
+                    ("WrapCoverBookR", "Wrap Cover Book Right"),
+                    ("WrapCoverBookT", "Wrap Cover Book Top"),
                 ],
             ),
             (
@@ -772,6 +949,22 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
+                "EFBookCoverTray",
+                "Booklet Cover Source",
+                _TRAY_CHOICES[:],
+            ),
+            (
+                "EFBookCoverInType",
+                "Cover Input Type",
+                [
+                    ("", "— printer default —"),
+                    ("TwoPageSpread", "Two Page Spread"),
+                    ("MultiPageNoSpine", "Multi Page No Spine"),
+                    ("PrePrinted", "Pre-Printed"),
+                    ("SinglePageSpread", "Single Page Spread"),
+                ],
+            ),
+            (
                 "EFBookletCreep",
                 "Creep Adjustment",
                 [
@@ -788,44 +981,155 @@ FIERY_OPTION_SECTIONS = [
                     ("", "— printer default —"),
                     ("True", "Yes"),
                     ("False", "No"),
-                    ("UseImageable", "Use Imageable Area"),
                 ],
             ),
             (
                 "EFBookNumSheetPerSubset",
                 "Sheets per Subset (Saddle)",
-                [
-                    ("", "— printer default —"),
-                ]
+                [("", "— printer default —")]
                 + [(str(n), str(n)) for n in range(2, 21)],
             ),
             (
                 "EFBookCentering",
-                "Centering Adjustment",
+                "Align Pages",
                 [
                     ("", "— printer default —"),
                     ("Bottom", "Bottom"),
                     ("Middle", "Middle"),
                 ],
             ),
+            (
+                "EFBookSpineContentType",
+                "Spine Content",
+                [
+                    ("", "— printer default —"),
+                    ("None", "None"),
+                    ("DocPage", "Document Page"),
+                ],
+            ),
+            (
+                "EFBookScaling",
+                "Booklet Scaling",
+                [
+                    ("", "— printer default —"),
+                    ("None", "None"),
+                    ("ShrinkToBody", "Shrink to Body"),
+                ],
+            ),
+            (
+                "EFEngageTU510",
+                "Use Inline Trimmer",
+                [
+                    ("", "— printer default —"),
+                    ("True", "Yes"),
+                    ("False", "No"),
+                ],
+            ),
         ],
     ),
+
+    # ── Slip Sheet ────────────────────────────────────────────────────────────
+    (
+        "Slip Sheet",
+        [
+            (
+                "EFSlipsheet",
+                "Slip Sheet",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFSlipSheetBoundary",
+                "Slip Sheet Between",
+                [
+                    ("", "— printer default —"),
+                    ("Sheets", "Sheets"),
+                    ("Copies", "Copies"),
+                    ("Sets", "Sets"),
+                ],
+            ),
+            (
+                "EFSlipSheetPaperCatalog",
+                "Slip Sheet Media",
+                [
+                    ("", "— printer default —"),
+                    ("SameAsJob", "Same As Job"),
+                    ("_Custom", "Custom"),
+                ],
+            ),
+        ],
+    ),
+
+    # ── Banner & Cover Page ───────────────────────────────────────────────────
+    (
+        "Banner & Cover Page",
+        [
+            (
+                "EFBannerPage",
+                "Banner Page",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFBannerPageCount",
+                "Banner Pages Count",
+                [
+                    ("", "— printer default —"),
+                    ("1", "1"),
+                    ("2", "2"),
+                    ("3", "3"),
+                    ("4", "4"),
+                    ("5", "5"),
+                ],
+            ),
+            (
+                "EFBannerSource",
+                "Banner Source",
+                [
+                    ("", "— printer default —"),
+                    ("Templates", "Templates"),
+                    ("Document", "Document"),
+                ],
+            ),
+            (
+                "EFPrintCover",
+                "Banner Page Position",
+                [
+                    ("", "— printer default —"),
+                    ("BeforeJob", "Before Job"),
+                    ("AfterJob", "After Job"),
+                    ("BeforeAndAfter", "Before and After"),
+                ],
+            ),
+            (
+                "EFCoverPagePaperCatalog",
+                "Cover Page Media",
+                [
+                    ("", "— printer default —"),
+                    ("SameAsJob", "Same As Job"),
+                    ("_Custom", "Custom"),
+                ],
+            ),
+        ],
+    ),
+
+    # ── Print Quality ─────────────────────────────────────────────────────────
     (
         "Print Quality",
         [
             (
-                "EFCopierMode",
-                "Halftone Mode",
+                "EFResolution",
+                "Resolution",
                 [
                     ("", "— printer default —"),
-                    ("Pattern1", "Pattern 1"),
-                    ("Pattern2", "Pattern 2"),
-                    ("Pattern3", "Pattern 3 (Default)"),
-                    ("Pattern4", "Pattern 4"),
-                    ("Pattern5", "Pattern 5"),
-                    ("Pattern6", "Pattern 6"),
-                    ("Pattern7", "Pattern 7"),
-                    ("VeryFine", "Very Fine"),
+                    ("1200x1200dpi", "1200×1200 dpi"),
+                    ("600x600dpi", "600×600 dpi"),
                 ],
             ),
             (
@@ -842,6 +1146,43 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
+                "EFIQHTScreen",
+                "Image Halftone Screen",
+                [
+                    ("", "— printer default —"),
+                    ("Line1", "Line 1"),
+                    ("Line2", "Line 2"),
+                    ("Stochastic", "Stochastic"),
+                ],
+            ),
+            (
+                "EFIQTxGrfxHTScreen",
+                "Text/Graphics Halftone Screen",
+                [
+                    ("", "— printer default —"),
+                    ("SameAsImage", "Same as Image"),
+                    ("Line1", "Line 1"),
+                    ("Line2", "Line 2"),
+                ],
+            ),
+            (
+                "EFJobExpertRule",
+                "JobExpert Rule",
+                [
+                    ("", "— printer default —"),
+                    ("ServerDefault", "Server Default"),
+                ],
+            ),
+            (
+                "EFMinStrokeWidth",
+                "Minimum Stroke Width",
+                [
+                    ("", "— printer default —"),
+                    ("1", "1"),
+                    ("2", "2"),
+                ],
+            ),
+            (
                 "EFCompression",
                 "Image Quality",
                 [
@@ -855,17 +1196,19 @@ FIERY_OPTION_SECTIONS = [
                 "Text / Graphics Quality",
                 [
                     ("", "— printer default —"),
-                    ("Normal", "Normal"),
+                    ("EFTextGfxQualDEF", "Fiery Default"),
                     ("Best", "Best"),
+                    ("Normal", "Normal"),
                 ],
             ),
             (
-                "EFTonerReduce",
+                "EFIQTonerReduce",
                 "Toner Reduction",
                 [
                     ("", "— printer default —"),
-                    ("False", "Off"),
-                    ("True", "On"),
+                    ("Off", "Off"),
+                    ("On", "On"),
+                    ("Draft", "Draft"),
                 ],
             ),
             (
@@ -892,8 +1235,8 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
-                "EFGlossAdjustment",
-                "Gloss Adjustment",
+                "EFGlossAdjust",
+                "Glossy",
                 [
                     ("", "— printer default —"),
                     ("False", "Off"),
@@ -910,21 +1253,8 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
-                "EFResolution",
-                "Resolution",
-                [
-                    ("", "— printer default —"),
-                    ("1200x1200dpi", "1200×1200 dpi"),
-                ],
-            ),
-        ],
-    ),
-    (
-        "Slip Sheet",
-        [
-            (
-                "EFSlipsheet",
-                "Slip Sheet",
+                "EFIQHTTxEnhance",
+                "Halftone Text Enhancement",
                 [
                     ("", "— printer default —"),
                     ("False", "Off"),
@@ -932,60 +1262,45 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
-                "EFSlipSheetBoundary",
-                "Insert Between",
+                "EFIQApplyEnhanceTo",
+                "Apply Enhancements To",
                 [
                     ("", "— printer default —"),
-                    ("Sheets", "Sheets"),
-                    ("Copies", "Copies"),
-                    ("Sets", "Sets"),
-                    ("BeforeJob", "Before Job"),
-                    ("AfterJob", "After Job"),
-                    ("BeforeAndAfter", "Before and After"),
+                    ("TEXTGRAPHICS", "Text & Graphics"),
+                    ("TEXTGRAPHICSIMAG", "Text, Graphics & Images"),
                 ],
             ),
             (
-                "EFInterlvMedia",
-                "Slip Sheet Paper Type",
+                "EFIQTxSmoothEnhance",
+                "Text Smoothing",
                 [
                     ("", "— printer default —"),
-                    ("Plain", "Plain"),
-                    ("Glossy", "Glossy"),
-                    ("CoatedGlossLaser", "Coated Gloss"),
-                    ("CoatedMatteLaser", "Coated Matte"),
-                    ("Tabstock", "Tabstock"),
+                    ("False", "Off"),
+                    ("True", "On"),
                 ],
             ),
             (
-                "EFInterlvTray",
-                "Slip Sheet Paper Source",
+                "EFPreventTextBlur",
+                "Color Text Blur Prevention",
                 [
                     ("", "— printer default —"),
-                    ("AutoSelect", "Auto Select"),
-                    ("Tray1", "Tray 1"),
-                    ("Tray2", "Tray 2"),
-                    ("Tray3", "Tray 3"),
-                    ("ManualFeed", "Manual Feed"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFIQTxThinning",
+                "Text Thinning",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
                 ],
             ),
         ],
     ),
-    (
-        "Cover Page",
-        [
-            (
-                "EFPrintCover",
-                "Separator / Cover Page",
-                [
-                    ("", "— printer default —"),
-                    ("False", "None"),
-                    ("BeforeJob", "Before Job"),
-                    ("AfterJob", "After Job"),
-                    ("BeforeAndAfter", "Before and After"),
-                ],
-            ),
-        ],
-    ),
+
+    # ── Color — Profiles & Rendering ─────────────────────────────────────────
     (
         "Color — Profiles & Rendering",
         [
@@ -1095,6 +1410,7 @@ FIERY_OPTION_SECTIONS = [
                 [
                     ("", "— printer default —"),
                     ("EFGrayOverrideDEF", "Fiery Default"),
+                    ("SIMNONE", "None"),
                     ("dotgain10", "Dot Gain 10%"),
                     ("dotgain15", "Dot Gain 15%"),
                     ("dotgain20", "Dot Gain 20%"),
@@ -1137,6 +1453,8 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
+
+    # ── Color — Separations ───────────────────────────────────────────────────
     (
         "Color — Separations",
         [
@@ -1187,6 +1505,8 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
+
+    # ── Image Enhancement ─────────────────────────────────────────────────────
     (
         "Image Enhancement",
         [
@@ -1209,8 +1529,163 @@ FIERY_OPTION_SECTIONS = [
                     ("Sheets", "Selected Sheets"),
                 ],
             ),
+            (
+                "EFAutoImageAdjustment",
+                "Auto Image Adjustment",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("Position", "Position"),
+                    ("PositionGradation", "Position + Gradation"),
+                ],
+            ),
         ],
     ),
+
+    # ── Inspection & Proofing ─────────────────────────────────────────────────
+    (
+        "Inspection & Proofing",
+        [
+            (
+                "EFAutoInspection",
+                "Auto Inspection",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
+                ],
+            ),
+            (
+                "EFInspectionLevel",
+                "Inspection Level",
+                [
+                    ("", "— printer default —"),
+                    ("Loose", "Loose"),
+                    ("Normal", "Normal"),
+                    ("Hard", "Hard"),
+                ],
+            ),
+            (
+                "EFColorGradation",
+                "Color Gradation Patch",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+            (
+                "EFICCUWait",
+                "Approve at Control Panel",
+                [
+                    ("", "— printer default —"),
+                    ("True", "On"),
+                    ("False", "Off"),
+                ],
+            ),
+            (
+                "EFLastProofJob",
+                "Use Latest Proof Job",
+                [
+                    ("", "— printer default —"),
+                    ("True", "Yes"),
+                    ("False", "No"),
+                ],
+            ),
+            (
+                "EFSelectProofID",
+                "Select Reference Image ID",
+                [
+                    ("", "— printer default —"),
+                    ("True", "Yes"),
+                    ("False", "No"),
+                ],
+            ),
+            (
+                "EFDeleteReference",
+                "Delete Reference After Printing",
+                [
+                    ("", "— printer default —"),
+                    ("True", "Yes"),
+                    ("False", "No"),
+                ],
+            ),
+            (
+                "EFTUProfileBody",
+                "Device Profile (Body)",
+                [
+                    ("", "— printer default —"),
+                    ("None", "None"),
+                ],
+            ),
+            (
+                "EFTUProfileCover",
+                "Device Profile (Cover)",
+                [
+                    ("", "— printer default —"),
+                    ("None", "None"),
+                ],
+            ),
+            (
+                "EFBothSideAdjustment",
+                "Both Side Adjustment",
+                [
+                    ("", "— printer default —"),
+                    ("False", "Off"),
+                    ("True", "On"),
+                ],
+            ),
+        ],
+    ),
+
+    # ── Copy Protection ───────────────────────────────────────────────────────
+    (
+        "Copy Protection",
+        [
+            (
+                "EFCopyProtectMode",
+                "Copy Protect Mode",
+                [
+                    ("", "— printer default —"),
+                    ("Off", "Off"),
+                    ("Copy", "Copy"),
+                    ("IllegalCopy", "Illegal Copy"),
+                    ("Invalid", "Invalid"),
+                    ("InvalidCopy", "Invalid Copy"),
+                ],
+            ),
+            (
+                "EFCopyProtectLang",
+                "Copy Protect Language",
+                [
+                    ("", "— printer default —"),
+                    ("English", "English"),
+                    ("French", "French"),
+                    ("German", "German"),
+                    ("Italian", "Italian"),
+                    ("Japanese", "Japanese"),
+                    ("Spanish", "Spanish"),
+                ],
+            ),
+            (
+                "EFCopyProtectPattern",
+                "Copy Protect Pattern",
+                [
+                    ("", "— printer default —"),
+                    ("Pattern1", "Pattern 1"),
+                    ("Pattern2", "Pattern 2"),
+                    ("Pattern3", "Pattern 3"),
+                    ("Pattern4", "Pattern 4"),
+                    ("Pattern5", "Pattern 5"),
+                    ("Pattern6", "Pattern 6"),
+                    ("Pattern7", "Pattern 7"),
+                    ("Pattern8", "Pattern 8"),
+                ],
+            ),
+        ],
+    ),
+
+    # ── Control & Diagnostics ────────────────────────────────────────────────
     (
         "Control & Diagnostics",
         [
@@ -1236,125 +1711,12 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
-                "EFEngTabShift",
-                "Tab Shift",
-                [
-                    ("", "— printer default —"),
-                    ("False", "Off"),
-                    ("True", "On"),
-                ],
-            ),
-            (
                 "EFTrayAlignment",
                 "Tray Alignment",
                 [
                     ("", "— printer default —"),
-                    ("True", "On"),
-                    ("False", "Off"),
-                ],
-            ),
-            (
-                "EFSubsetFinishingInUse",
-                "Subset Finishing",
-                [
-                    ("", "— printer default —"),
                     ("False", "Off"),
                     ("True", "On"),
-                ],
-            ),
-        ],
-    ),
-    (
-        "Advanced Fiery Options",
-        [
-            (
-                "EFAutoImageAdjustment",
-                "Auto Image Adjustment",
-                [
-                    ("", "— printer default —"),
-                    ("False", "Off"),
-                    ("Position", "Position"),
-                    ("PositionGradation", "Position + Gradation"),
-                ],
-            ),
-            (
-                "EFAutoInspection",
-                "Auto Inspection",
-                [
-                    ("", "— printer default —"),
-                    ("False", "Off"),
-                    ("True", "On"),
-                ],
-            ),
-            (
-                "EFColorGradation",
-                "Color Gradation Patch",
-                [
-                    ("", "— printer default —"),
-                    ("False", "Off"),
-                    ("True", "On"),
-                ],
-            ),
-            (
-                "EFICCUWait",
-                "Approve at Control Panel",
-                [
-                    ("", "— printer default —"),
-                    ("False", "Off"),
-                    ("True", "On"),
-                ],
-            ),
-            (
-                "EFLastProofJob",
-                "Use Latest Proof Job",
-                [
-                    ("", "— printer default —"),
-                    ("False", "No"),
-                    ("True", "Yes"),
-                ],
-            ),
-            (
-                "EFSelectProofID",
-                "Select Reference Image ID",
-                [
-                    ("", "— printer default —"),
-                    ("False", "No"),
-                    ("True", "Yes"),
-                ],
-            ),
-            (
-                "EFDeleteReference",
-                "Delete Reference Image After Printing",
-                [
-                    ("", "— printer default —"),
-                    ("False", "No"),
-                    ("True", "Yes"),
-                ],
-            ),
-            (
-                "EFInspectionLevel",
-                "Inspection Level",
-                [
-                    ("", "— printer default —"),
-                    ("Loose", "Loose"),
-                    ("Normal", "Normal"),
-                    ("Hard", "Hard"),
-                ],
-            ),
-            (
-                "EFTUProfileBody",
-                "Device Profile (Body)",
-                [
-                    ("", "— printer default —"),
-                    ("None", "None"),
-                ],
-            ),
-            (
-                "EFTUProfileCover",
-                "Device Profile (Cover)",
-                [
-                    ("", "— printer default —"),
-                    ("None", "None"),
                 ],
             ),
             (
@@ -1376,15 +1738,6 @@ FIERY_OPTION_SECTIONS = [
                 ],
             ),
             (
-                "EFBothSideAdjustment",
-                "Both Side Adjustment",
-                [
-                    ("", "— printer default —"),
-                    ("False", "Off"),
-                    ("True", "On"),
-                ],
-            ),
-            (
                 "EFBypassChecks",
                 "Bypass Fiery Settings Checks",
                 [
@@ -1400,17 +1753,6 @@ FIERY_OPTION_SECTIONS = [
                     ("", "— printer default —"),
                     ("False", "Off"),
                     ("True", "On"),
-                ],
-            ),
-            (
-                "EFJobStacking",
-                "Allow Job Stacking",
-                [
-                    ("", "— printer default —"),
-                    ("False", "Off"),
-                    ("True", "On"),
-                    ("This", "This"),
-                    ("Next", "Next"),
                 ],
             ),
         ],
