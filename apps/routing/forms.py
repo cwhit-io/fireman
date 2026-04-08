@@ -145,7 +145,8 @@ class RoutingPresetAdminForm(forms.ModelForm):
         help_text=(
             "Options left at \u201c\u2014 printer default \u2014\u201d are not sent to the"
             " printer. Only explicitly selected values are included in the"
-            " print command."
+            " print command. These dropdowns are matched to the current"
+            " `fiery_hold` PPD capabilities where available."
         ),
     )
 

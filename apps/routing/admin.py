@@ -40,17 +40,6 @@ class RoutingPresetAdmin(ImportExportAdminMixin, admin.ModelAdmin):
                 ),
             },
         ),
-        (
-            "Legacy Fields",
-            {
-                "fields": ["media_type", "media_size", "duplex", "color_mode", "tray"],
-                "classes": ["collapse"],
-                "description": (
-                    "Only used when <em>Fiery Print Options</em> is empty."
-                    " Prefer the dropdowns above for new presets."
-                ),
-            },
-        ),
     ]
 
     def obj_to_dict(self, obj):
