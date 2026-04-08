@@ -36,6 +36,9 @@ static/js/alpine.min.js
 static/js/htmx.min.js
 static/css/output.css
 
+# Printer assets
+assets/printer/KM_IC419_v3_0_FD703_WinRel1.zip
+
 # Misc
 *.swp
 *.swo
