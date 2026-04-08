@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>QR Code Generator</h1>
+<form method="get" action="{% url 'core:qr_page' %}">
+  <label for="data">Text / URL</label>
+  <input id="data" name="data" type="text" value="{{ data|default:'' }}" style="width:60%" />
+  <label for="size">Size (px)</label>
+  <input id="size" name="size" type="number" value="{{ size|default:'300' }}" style="width:80px" />
+  <button type="submit">Generate</button>
+</form>
+
+{% if data %}
+  <h2>Result</h2>
+  <img src="{% url 'core:qr_image' %}?data={{ data|urlencode }}&size={{ size }}" alt="QR code" />
+  <p>Right-click to save the PNG.</p>
+{% endif %}
+
+{% endblock %}
