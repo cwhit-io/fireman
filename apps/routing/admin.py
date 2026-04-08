@@ -2,17 +2,56 @@ from django.contrib import admin
 
 from core.admin_mixins import ImportExportAdminMixin
 
+from .forms import RoutingPresetAdminForm
 from .models import RoutingPreset
 
 
 @admin.register(RoutingPreset)
 class RoutingPresetAdmin(ImportExportAdminMixin, admin.ModelAdmin):
-    list_display = ["name", "printer_queue", "duplex", "color_mode", "copies", "active"]
-    list_filter = ["duplex", "color_mode", "active"]
+    form = RoutingPresetAdminForm
+    list_display = ["name", "printer_queue", "copies", "active"]
+    list_filter = ["active"]
     search_fields = ["name", "printer_queue"]
     import_label = "Routing Presets"
     export_filename = "routing_presets.json"
     export_key = "routing_presets"
+    fieldsets = [
+        (
+            None,
+            {
+                "fields": ["name", "printer_queue", "copies", "active"],
+            },
+        ),
+        (
+            "Fiery Print Options",
+            {
+                "fields": ["fiery_options"],
+                "classes": ["wide"],
+            },
+        ),
+        (
+            "Additional Raw Options",
+            {
+                "fields": ["extra_lpr_options"],
+                "classes": ["collapse"],
+                "description": (
+                    "Extra <code>-o key=value</code> options appended verbatim to the"
+                    " lpr command, one per line. Applied after the Fiery options above."
+                ),
+            },
+        ),
+        (
+            "Legacy Fields",
+            {
+                "fields": ["media_type", "media_size", "duplex", "color_mode", "tray"],
+                "classes": ["collapse"],
+                "description": (
+                    "Only used when <em>Fiery Print Options</em> is empty."
+                    " Prefer the dropdowns above for new presets."
+                ),
+            },
+        ),
+    ]
 
     def obj_to_dict(self, obj):
         return {

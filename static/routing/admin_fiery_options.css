@@ -1,0 +1,115 @@
+/* ── Fiery options widget — Django admin ──────────────────────────────────── */
+
+.fiery-opts-widget {
+  margin-top: 6px;
+}
+
+/* Section container */
+.fiery-section {
+  margin-bottom: 6px;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Section header */
+.fiery-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: var(--darkened-bg, #f8f8f8);
+  font-weight: 600;
+  font-size: 13px;
+  list-style: none;
+  user-select: none;
+}
+
+/* Hide default marker and replace with arrow */
+.fiery-section-title::marker,
+.fiery-section-title::-webkit-details-marker {
+  display: none;
+}
+
+.fiery-section-title::before {
+  content: "▶";
+  font-size: 9px;
+  transition: transform 0.15s ease;
+  display: inline-block;
+  color: var(--body-quiet-color, #888);
+}
+
+details[open] > .fiery-section-title::before {
+  transform: rotate(90deg);
+}
+
+.fiery-section-title:hover {
+  background: var(--selected-row, #eff3f8);
+}
+
+/* Options grid */
+.fiery-section-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px 14px;
+  padding: 12px 14px;
+  background: var(--body-bg, #fff);
+}
+
+@media (max-width: 1400px) {
+  .fiery-section-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1000px) {
+  .fiery-section-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .fiery-section-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Individual option */
+.fiery-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fiery-field-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--body-quiet-color, #666);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fiery-field-group select {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 3px;
+  background: var(--body-bg, #fff);
+  color: var(--body-fg, #333);
+  line-height: 1.4;
+}
+
+.fiery-field-group select:focus {
+  outline: none;
+  border-color: var(--primary, #447e9b);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #447e9b) 20%, transparent);
+}
+
+/* Highlight selects that have a non-default value */
+.fiery-field-group select:not([value=""]):has(option[value=""]:not(:checked)) {
+  border-color: var(--primary, #447e9b);
+  background: color-mix(in srgb, var(--primary, #447e9b) 8%, var(--body-bg, #fff));
+}
