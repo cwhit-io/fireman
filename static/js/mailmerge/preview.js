@@ -583,6 +583,8 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
     _imbFont: null,
     records: [],
     recordIdx: 0,
+    csvTab: 'upload',
+    nm: { month: '', year: '', loading: false, error: '', success: '' },
 
     get currentRecord() {
       return this.records[this.recordIdx] || null;
@@ -653,6 +655,33 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
         self._drawOverlay();
       };
       reader.readAsText(file);
+    },
+
+    async pullNewMovers() {
+      this.nm.error = '';
+      this.nm.success = '';
+      if (!this.nm.month || !this.nm.year) { this.nm.error = 'Please enter a month and year.'; return; }
+      this.nm.loading = true;
+      try {
+        const url = '/mailmerge/new-movers-csv/?month=' + this.nm.month + '&year=' + this.nm.year;
+        const res = await fetch(url);
+        if (!res.ok) { const d = await res.json(); this.nm.error = d.error || 'Request failed.'; return; }
+        const blob = await res.blob();
+        const cd = res.headers.get('Content-Disposition') || '';
+        const nameMatch = cd.match(/filename=\"?([^\"]+)\"?/);
+        const filename = nameMatch ? nameMatch[1] : 'new_movers.csv';
+        const file = new File([blob], filename, { type: 'text/csv' });
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        const input = document.getElementById('csv_file');
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        this.nm.success = filename + ' loaded (' + file.size.toLocaleString() + ' bytes)';
+      } catch (e) {
+        this.nm.error = 'Network error: ' + e.message;
+      } finally {
+        this.nm.loading = false;
+      }
     },
 
     renderPreview() {
@@ -821,6 +850,7 @@ window.mailMergeEdit = function mailMergeEdit(cfg) {
     _bgValid: false,
     _imbFont: null,
     canvasReady: false,
+    pdfInfo: null,
     records: [],
     recordIdx: 0,
 

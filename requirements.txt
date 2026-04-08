@@ -1,6 +1,7 @@
 # Core
 Django==6.0.2
 pypdf==6.7.5
+requests==2.32.3
 Pillow==12.1.1
 qrcode==8.2
 python-barcode==0.16.1

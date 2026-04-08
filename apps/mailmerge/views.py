@@ -194,6 +194,30 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
         return redirect("mailmerge:detail", pk=job.pk)
 
 
+class NewMoversCsvView(LoginRequiredMixin, View):
+    """Fetch Allen County new movers for a given month/year and return as CSV."""
+
+    def get(self, request):
+        try:
+            month = int(request.GET["month"])
+            year = int(request.GET["year"])
+            if not (1 <= month <= 12 and 2000 <= year <= 2100):
+                raise ValueError
+        except (KeyError, ValueError, TypeError):
+            return JsonResponse({"error": "Invalid month or year."}, status=400)
+
+        from core.get_addresses import generate_csv_for_period
+        try:
+            filename, csv_bytes = generate_csv_for_period(month, year)
+        except Exception:
+            logger.exception("New movers fetch failed")
+            return JsonResponse({"error": "Failed to fetch new movers data. Please try again."}, status=502)
+
+        response = HttpResponse(csv_bytes, content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
 class MailMergeSampleCsvView(LoginRequiredMixin, View):
     """Serve the project's sample CSV for download from the assets folder."""
 

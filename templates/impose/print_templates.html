@@ -5,10 +5,10 @@
 {% block meta_description %}Download Canva templates and view available print sizes for all finished products.{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto px-4 py-10">
+<div class="max-w-5xl mx-auto px-4 py-16">
 
-  <div class="mb-10">
-    <h1 class="text-3xl font-bold mb-2">Print Templates</h1>
+  <div class="mb-14">
+    <h1 class="text-3xl font-bold mb-3">Print Templates</h1>
     <p class="text-base-content/60">
       Download a Canva template to design your artwork at the correct size.
       All templates are set up with bleed and safe-zone guides already in place.
@@ -18,10 +18,10 @@
   {% if groups %}
 
     {% for category_name, sizes, bg_color in groups %}
-    <section class="mb-12">
+    <section class="mb-20 py-8">
 
       {# Category heading #}
-      <div class="flex items-center gap-3 mb-5">
+      <div class="flex items-center gap-3 mb-6">
         <h2 class="text-xl font-semibold">
           {% if category_name %}{{ category_name }}{% else %}Other{% endif %}
         </h2>
