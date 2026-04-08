@@ -69,12 +69,17 @@ def _page_size_already_set(fiery_options: dict, extra_lpr_options: str) -> bool:
 
 
 def _build_lpr_command(
-    preset, pdf_path: str, title: str = "", duplex_override: str | None = None
+    preset,
+    pdf_path: str,
+    title: str = "",
+    duplex_override: str | None = None,
+    print_user: str | None = None,
 ) -> list[str]:
     """Build the lpr command list for the given preset."""
     from django.conf import settings
 
-    print_user = getattr(settings, "FIERY_PRINT_USER", "Ember")
+    if print_user is None:
+        print_user = getattr(settings, "FIERY_PRINT_USER", "Ember")
     cmd = [
         "lpr",
         "-P",
@@ -143,6 +148,7 @@ def send_to_fiery_lpr(
     dry_run: bool = False,
     title: str = "",
     duplex_override: str | None = None,
+    print_user: str | None = None,
 ) -> subprocess.CompletedProcess | None:
     """
     Send *pdf_path* to Fiery via lpr using *preset*.
@@ -154,7 +160,11 @@ def send_to_fiery_lpr(
         raise OSError("lpr is not available on this system.")
 
     cmd = _build_lpr_command(
-        preset, pdf_path, title=title, duplex_override=duplex_override
+        preset,
+        pdf_path,
+        title=title,
+        duplex_override=duplex_override,
+        print_user=print_user,
     )
     logger.info("Sending to Fiery via lpr: %s", " ".join(cmd))
 
@@ -166,7 +176,8 @@ def send_to_fiery_lpr(
 
 
 def send_to_fiery_ipp(
-    pdf_path: str, printer_uri: str, preset, dry_run: bool = False, title: str = ""
+    pdf_path: str, printer_uri: str, preset, dry_run: bool = False, title: str = "",
+    print_user: str | None = None,
 ) -> subprocess.CompletedProcess | None:
     """
     Send *pdf_path* to Fiery via IPP using `lp`.
@@ -176,7 +187,8 @@ def send_to_fiery_ipp(
 
     from django.conf import settings
 
-    print_user = getattr(settings, "FIERY_PRINT_USER", "Ember")
+    if print_user is None:
+        print_user = getattr(settings, "FIERY_PRINT_USER", "Ember")
     cmd = ["lp", "-d", printer_uri, "-n", str(preset.copies), "-U", print_user]
     if title:
         cmd += ["-t", title]

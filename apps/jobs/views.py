@@ -439,6 +439,7 @@ class JobResendView(LoginRequiredMixin, View):
                 job.routing_preset,
                 title=job_title,
                 duplex_override=duplex_override,
+                print_user=f"Ember - {request.user.username}",
             )
             job.status = PrintJob.Status.SENT
             job.save(update_fields=["status"])

@@ -551,7 +551,12 @@ class MailMergeJobSendGangupToFieryView(LoginRequiredMixin, View):
                 tray=getattr(preset, "tray", ""),
             )
 
-            send_to_fiery_lpr(tmp_path, tmp_preset, title=title)
+            send_to_fiery_lpr(
+                tmp_path,
+                tmp_preset,
+                title=title,
+                print_user=f"Ember - {request.user.username}",
+            )
             messages.success(request, "Gang-up PDF sent to printer.")
         except Exception as exc:
             messages.error(request, f"Failed to send: {exc}")
@@ -643,7 +648,12 @@ class MailMergeJobSendAddressesToFieryView(LoginRequiredMixin, View):
                 tray=getattr(preset, "tray", ""),
             )
 
-            send_to_fiery_lpr(tmp_path, tmp_preset, title=title)
+            send_to_fiery_lpr(
+                tmp_path,
+                tmp_preset,
+                title=title,
+                print_user=f"Ember - {request.user.username}",
+            )
             messages.success(request, "Address PDF sent to printer.")
         except Exception as exc:
             messages.error(request, f"Failed to send: {exc}")
