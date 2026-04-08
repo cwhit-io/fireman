@@ -120,18 +120,66 @@
 
         <!-- CSV file -->
         <div class="form-control">
-          <label class="label" for="csv_file">
+          <label class="label">
             <span class="label-text font-medium">Address CSV <span class="text-error">*</span></span>
           </label>
-          <div class="flex items-center gap-3">
-            <input type="file" name="csv_file" id="csv_file" accept=".csv" required
-                 class="file-input file-input-bordered w-full"
-                 @change="onCsvChange($event)">
-            <a href="{% url 'mailmerge:sample_csv' %}" class="btn btn-ghost btn-sm ml-2" title="Download sample CSV">Download sample CSV</a>
+          <!-- Tabs -->
+          <div role="tablist" class="tabs tabs-border mb-3">
+            <button type="button" role="tab" class="tab" :class="csvTab === 'upload' && 'tab-active'" @click="csvTab = 'upload'">Upload file</button>
+            <button type="button" role="tab" class="tab" :class="csvTab === 'newmovers' && 'tab-active'" @click="csvTab = 'newmovers'">Pull New Movers list</button>
           </div>
-          <label class="label">
-            <span class="label-text-alt text-base-content/50">USPS Intelligent Mail CSV with name, address, and IMb columns.</span>
-          </label>
+
+          <!-- Upload tab -->
+          <div x-show="csvTab === 'upload'">
+            <div class="flex items-center gap-3">
+              <input type="file" name="csv_file" id="csv_file" accept=".csv"
+                   class="file-input file-input-bordered w-full"
+                   :required="csvTab === 'upload'"
+                   @change="onCsvChange($event)">
+              <a href="{% url 'mailmerge:sample_csv' %}" class="btn btn-ghost btn-sm ml-2" title="Download sample CSV">Download sample CSV</a>
+            </div>
+            <label class="label">
+              <span class="label-text-alt text-base-content/50">USPS Intelligent Mail CSV with name, address, and IMb columns.</span>
+            </label>
+          </div>
+
+          <!-- New Movers tab -->
+          <div x-show="csvTab === 'newmovers'">
+            <div class="flex flex-wrap items-end gap-3">
+              <div>
+                <label class="label py-0 mb-1"><span class="label-text text-sm">Month</span></label>
+                <select x-model="nm.month" class="select select-bordered select-sm w-36">
+                  <option value="">— Month —</option>
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+              <div>
+                <label class="label py-0 mb-1"><span class="label-text text-sm">Year</span></label>
+                <input type="number" x-model="nm.year" placeholder="2026" min="2000" max="2100"
+                       class="input input-bordered input-sm w-28">
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" :disabled="nm.loading" @click="pullNewMovers()">
+                <span x-show="!nm.loading">Pull List</span>
+                <span x-show="nm.loading" class="loading loading-spinner loading-xs"></span>
+              </button>
+            </div>
+            <div x-show="nm.error" x-text="nm.error" class="mt-2 text-sm text-error"></div>
+            <div x-show="nm.success" x-text="nm.success" class="mt-2 text-sm text-success"></div>
+            <label class="label">
+              <span class="label-text-alt text-base-content/50">Fetches Allen County new movers from the GIS API for the selected period.</span>
+            </label>
+          </div>
         </div>
 
         <div class="card bg-base-200 border border-base-300">
