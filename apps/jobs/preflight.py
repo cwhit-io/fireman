@@ -273,43 +273,161 @@ def _check_image_dpi(
     critical_dpi: int | None = None
 
     try:
-        resources = page.get("/Resources")
-        if resources is None:
-            return None, None
-        xobj = resources.get("/XObject", {})
-        if not xobj:
-            return None, None
+        # Prefer computing rendered size from the page content stream CTM
+        content = page.get_contents()
+        resources = page.get("/Resources") or {}
+        xobjects = (resources.get("/XObject") or {})
 
-        for _k, xobj_ref in xobj.items():
-            try:
-                xobj_obj = (
-                    xobj_ref.get_object()
-                    if hasattr(xobj_ref, "get_object")
-                    else xobj_ref
-                )
-                subtype = xobj_obj.get("/Subtype", "")
-                if str(subtype) != "/Image":
+        # CTM stack (a,b,c,d,e,f) — start with identity
+        import math
+
+        def identity():
+            return (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+
+        def mul_ctm(m1, m2):
+            # multiply two 3x3 affine matrices stored as 6-tuples
+            a1, b1, c1, d1, e1, f1 = m1
+            a2, b2, c2, d2, e2, f2 = m2
+            a = a1 * a2 + c1 * b2
+            b = b1 * a2 + d1 * b2
+            c = a1 * c2 + c1 * d2
+            d = b1 * c2 + d1 * d2
+            e = a1 * e2 + c1 * f2 + e1
+            f = b1 * e2 + d1 * f2 + f1
+            return (a, b, c, d, e, f)
+
+        def vec_len(a, b):
+            return abs(math.hypot(a, b))
+
+        if content is not None:
+            ops = content.operations
+            ctm_stack = [identity()]
+            current_ctm = identity()
+
+            for params, op in ops:
+                try:
+                    if op == b"q":
+                        ctm_stack.append(current_ctm)
+                    elif op == b"Q":
+                        if ctm_stack:
+                            current_ctm = ctm_stack.pop()
+                        else:
+                            current_ctm = identity()
+                    elif op == b"cm":
+                        # params are six numbers
+                        try:
+                            nums = [float(n) for n in params]
+                            matrix = (nums[0], nums[1], nums[2], nums[3], nums[4], nums[5])
+                            current_ctm = mul_ctm(current_ctm, matrix)
+                        except Exception:
+                            pass
+                    elif op == b"Do":
+                        # params may be a NameObject or list — take first
+                        if not params:
+                            continue
+                        name = params[0]
+                        # name might be a NameObject like '/Im0' — convert to str key
+                        try:
+                            key = str(name)
+                        except Exception:
+                            key = None
+                        if key is None:
+                            continue
+                        # look up the XObject
+                        xobj_ref = xobjects.get(key) or xobjects.get(key.replace("/", ""))
+                        if not xobj_ref:
+                            continue
+                        xobj_obj = xobj_ref.get_object() if hasattr(xobj_ref, "get_object") else xobj_ref
+                        subtype = str(xobj_obj.get("/Subtype", ""))
+                        if subtype == "/Image":
+                            pix_w = int(xobj_obj.get("/Width", 0))
+                            pix_h = int(xobj_obj.get("/Height", 0))
+                            if pix_w <= 0 or pix_h <= 0:
+                                continue
+                            # compute rendered width/height in points from CTM
+                            a, b, c, d, e, f = current_ctm
+                            rendered_w_pts = vec_len(a, b)
+                            rendered_h_pts = vec_len(c, d)
+                            # if CTM produced zero, fallback to page trim
+                            if rendered_w_pts <= 0 or rendered_h_pts <= 0:
+                                rendered_w_pts = trim_w_pt
+                                rendered_h_pts = trim_h_pt
+                            dpi_x = int(pix_w * 72.0 / rendered_w_pts)
+                            dpi_y = int(pix_h * 72.0 / rendered_h_pts)
+                            dpi = min(dpi_x, dpi_y)
+                            if min_dpi_found is None or dpi < min_dpi_found:
+                                min_dpi_found = dpi
+                            dpi_minimum = _cfg_int("DPI_MINIMUM", 150)
+                            if dpi < dpi_minimum:
+                                if critical_dpi is None or dpi < critical_dpi:
+                                    critical_dpi = dpi
+                    elif op == b"INLINE IMAGE":
+                        # params contains dict with settings incl. 'W' and 'H'
+                        try:
+                            settings = params[0]["settings"]
+                            pix_w = int(settings.get("W", 0))
+                            pix_h = int(settings.get("H", 0))
+                            if pix_w <= 0 or pix_h <= 0:
+                                continue
+                            a, b, c, d, e, f = current_ctm
+                            rendered_w_pts = vec_len(a, b)
+                            rendered_h_pts = vec_len(c, d)
+                            if rendered_w_pts <= 0 or rendered_h_pts <= 0:
+                                rendered_w_pts = trim_w_pt
+                                rendered_h_pts = trim_h_pt
+                            dpi_x = int(pix_w * 72.0 / rendered_w_pts)
+                            dpi_y = int(pix_h * 72.0 / rendered_h_pts)
+                            dpi = min(dpi_x, dpi_y)
+                            if min_dpi_found is None or dpi < min_dpi_found:
+                                min_dpi_found = dpi
+                            dpi_minimum = _cfg_int("DPI_MINIMUM", 150)
+                            if dpi < dpi_minimum:
+                                if critical_dpi is None or dpi < critical_dpi:
+                                    critical_dpi = dpi
+                        except Exception:
+                            continue
+                except Exception:
+                    # continue parsing other operations on errors
                     continue
-                pix_w = int(xobj_obj.get("/Width", 0))
-                pix_h = int(xobj_obj.get("/Height", 0))
-                if pix_w <= 0 or pix_h <= 0:
+        # If we found nothing via content parsing, fallback to resource scan
+        if min_dpi_found is None:
+            resources = page.get("/Resources")
+            if resources is None:
+                return None, None
+            xobj = resources.get("/XObject", {})
+            if not xobj:
+                return None, None
+
+            for _k, xobj_ref in xobj.items():
+                try:
+                    xobj_obj = (
+                        xobj_ref.get_object()
+                        if hasattr(xobj_ref, "get_object")
+                        else xobj_ref
+                    )
+                    subtype = xobj_obj.get("/Subtype", "")
+                    if str(subtype) != "/Image":
+                        continue
+                    pix_w = int(xobj_obj.get("/Width", 0))
+                    pix_h = int(xobj_obj.get("/Height", 0))
+                    if pix_w <= 0 or pix_h <= 0:
+                        continue
+                    # Use trim dimensions as rendered size estimate
+                    rendered_w = trim_w_pt / 72.0
+                    rendered_h = trim_h_pt / 72.0
+                    if rendered_w <= 0 or rendered_h <= 0:
+                        continue
+                    dpi_x = int(pix_w / rendered_w)
+                    dpi_y = int(pix_h / rendered_h)
+                    dpi = min(dpi_x, dpi_y)
+                    if min_dpi_found is None or dpi < min_dpi_found:
+                        min_dpi_found = dpi
+                    dpi_minimum = _cfg_int("DPI_MINIMUM", 150)
+                    if dpi < dpi_minimum:
+                        if critical_dpi is None or dpi < critical_dpi:
+                            critical_dpi = dpi
+                except Exception:
                     continue
-                # Use trim dimensions as rendered size estimate
-                rendered_w = trim_w_pt / 72.0
-                rendered_h = trim_h_pt / 72.0
-                if rendered_w <= 0 or rendered_h <= 0:
-                    continue
-                dpi_x = int(pix_w / rendered_w)
-                dpi_y = int(pix_h / rendered_h)
-                dpi = min(dpi_x, dpi_y)
-                if min_dpi_found is None or dpi < min_dpi_found:
-                    min_dpi_found = dpi
-                dpi_minimum = _cfg_int("DPI_MINIMUM", 150)
-                if dpi < dpi_minimum:
-                    if critical_dpi is None or dpi < critical_dpi:
-                        critical_dpi = dpi
-            except Exception:
-                continue
     except Exception:
         pass
 
