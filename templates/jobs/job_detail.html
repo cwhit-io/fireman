@@ -31,7 +31,7 @@
   }
 </style>
 
-<div class="max-w-4xl mx-auto px-4 py-8 pb-36"
+<div class="max-w-6xl mx-auto px-4 py-8 pb-36"
      x-data="{ showChange: false, showDeleteModal: false, showHowModal: false, showRenameModal: false, showPreflightReport: {% if job.preflight_status and not job.preflight_acknowledged %}true{% else %}false{% endif %} }"
      @keydown.arrow-right.window="$dispatch('preview-next')"
      @keydown.arrow-left.window="$dispatch('preview-prev')">
