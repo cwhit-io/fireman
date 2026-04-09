@@ -4,10 +4,10 @@
 {% block title %}New Mail Merge Job — Ember{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-10" x-data="mailMergeUpload({ addrXIn: {{ addr_config.addr_x_in|default:'null' }}, addrYIn: {{ addr_config.addr_y_in|default:'null' }}, fontPt: {{ addr_config.font_size|default:'null' }}, lineHeightPt: {{ addr_config.line_height|default:'null' }}, barcodeFontPt: {{ addr_config.barcode_font_size|default:'null' }}, barcodeXIn: {{ addr_config.barcode_x_in|default:'null' }}, barcodeYIn: {{ addr_config.barcode_y_in|default:'null' }}, trayXIn: {{ addr_config.tray_x_in|default:'null' }}, trayYIn: {{ addr_config.tray_y_in|default:'null' }}, trayFontPt: {{ addr_config.tray_font_size|default:'null' }}, csvFields: {{ csv_fields_json }}, addressTemplate: '{{ addr_config.address_template|escapejs }}' })" @keydown.window="onKeyNav($event)">
+<div class="max-w-6xl mx-auto px-4 py-8" x-data="mailMergeUpload({ addrXIn: {{ addr_config.addr_x_in|default:'null' }}, addrYIn: {{ addr_config.addr_y_in|default:'null' }}, fontPt: {{ addr_config.font_size|default:'null' }}, lineHeightPt: {{ addr_config.line_height|default:'null' }}, barcodeFontPt: {{ addr_config.barcode_font_size|default:'null' }}, barcodeXIn: {{ addr_config.barcode_x_in|default:'null' }}, barcodeYIn: {{ addr_config.barcode_y_in|default:'null' }}, trayXIn: {{ addr_config.tray_x_in|default:'null' }}, trayYIn: {{ addr_config.tray_y_in|default:'null' }}, trayFontPt: {{ addr_config.tray_font_size|default:'null' }}, csvFields: {{ csv_fields_json }}, addressTemplate: '{{ addr_config.address_template|escapejs }}' })" @keydown.window="onKeyNav($event)">
 
   <div class="mb-6">
-    <h1 class="text-3xl font-extrabold text-base-content tracking-tight">New Mail Merge Job</h1>
+    <h1 class="text-3xl font-extrabold tracking-tight">New Mail Merge Job</h1>
     <p class="text-base-content/60 mt-1 text-sm">Upload your postcard artwork and USPS Intelligent Mail CSV to create a mail-merged PDF.</p>
   </div>
 

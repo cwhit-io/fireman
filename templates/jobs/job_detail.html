@@ -45,26 +45,28 @@
   </div>
 
   {# ── Page Header ── #}
-    <div class="mb-6">
+  <div class="mb-6">
     <div class="flex items-center gap-2 flex-wrap mb-1">
-      <h1 class="text-3xl md:text-3xl font-extrabold tracking-tight">{{ job.name|default:job.pk }}</h1>
+      <h1 class="text-3xl font-extrabold tracking-tight">{{ job.name|default:job.pk }}</h1>
       {% if user.is_authenticated %}
       <button type="button" @click="showRenameModal = true"
               class="btn btn-xs btn-ghost" title="Edit job name">✏️</button>
       {% endif %}
       {% include "jobs/_status_badge.html" with job=job %}
     </div>
-    <p class="text-base-content/60 text-sm italic border-l-4 border-indigo-200 pl-3 mt-2">
-      Quick visual check: confirm page count, media, and finishing before sending to print.
+    <p class="text-base-content/60 mt-1 text-sm">
+      Review page count, media, and finishing before sending to print.
     </p>
-    {% if messages %}
-      {% for message in messages %}
-        <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %} mb-4 mt-3">
-          {{ message }}
-        </div>
-      {% endfor %}
-    {% endif %}
   </div>
+  {% if messages %}
+  <div class="space-y-2 mb-6">
+    {% for message in messages %}
+      <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} shadow-sm">
+        <span>{{ message }}</span>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   {# ── Collapsible Job Details (collapsed by default) ── #}
   <div class="collapse collapse-arrow bg-base-100 border border-base-300 shadow mb-6">

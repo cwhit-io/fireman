@@ -4,7 +4,7 @@
 {% block title %}{{ job.name|default:"Mail Merge Job" }} — Ember{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-10 pb-28"
+<div class="max-w-6xl mx-auto px-4 py-8 pb-28"
      x-data="mailMergeEdit({
        artworkUrl: '{% url "mailmerge:serve_artwork" job.pk %}',
        recordsUrl: '{% url "mailmerge:records" job.pk %}',
@@ -28,7 +28,7 @@
 
   <div class="flex items-start justify-between gap-4 mb-6">
     <div>
-      <h1 class="text-3xl font-extrabold text-base-content tracking-tight">
+      <h1 class="text-3xl font-extrabold tracking-tight">
         {{ job.name|default:"Mail Merge Job" }}
       </h1>
       <p class="text-base-content/60 mt-1 text-sm">Created {{ job.created_at|date:"M j, Y g:i A" }}</p>

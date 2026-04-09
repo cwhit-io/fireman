@@ -141,6 +141,7 @@ commit: venv ## Format, fix, stage everything, then commit (usage: make commit m
 	git commit -m "$(m)"
 
 migrate: venv ## Apply database migrations
+	$(PYTHON) manage.py makemigrations
 	$(PYTHON) manage.py migrate
 
 makemigrations: venv ## Create new migrations

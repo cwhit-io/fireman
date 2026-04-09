@@ -22,14 +22,21 @@
     </div>
     <div class="modal-backdrop bg-black/40" @click="deleteModal = false"></div>
   </div>
-  <div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-extrabold tracking-tight">Print Jobs</h1>
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-extrabold tracking-tight">Print Jobs</h1>
+      <p class="text-base-content/60 mt-1 text-sm">Review and manage your uploaded print jobs.</p>
+    </div>
     <a href="{% url 'jobs:upload' %}" class="btn btn-primary">Upload Job</a>
   </div>
   {% if messages %}
+  <div class="space-y-2 mb-6">
     {% for message in messages %}
-      <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %} mb-4">{{ message }}</div>
+      <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} shadow-sm">
+        <span>{{ message }}</span>
+      </div>
     {% endfor %}
+  </div>
   {% endif %}
 
   {# ── Saved Jobs (pinned, twirl-down, revealed by default) ── #}
