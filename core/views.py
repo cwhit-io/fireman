@@ -316,6 +316,37 @@ def upload_logo(request):
     return JsonResponse({'error': 'No file uploaded'}, status=400)
 
 
+# Explicit allowlist — only these filenames may be downloaded; no user-supplied paths.
+_PRINTER_DRIVERS = {
+    "mac": "KM_IC419_v3_0_FD702.dmg",
+    "win": "KM_IC419_v3_0_FD703_WinRel1.zip",
+}
+
+
+def printer_driver_download(request, platform):
+    """Serve a printer driver file identified by an allowlisted platform key."""
+    filename = _PRINTER_DRIVERS.get(platform)
+    if not filename:
+        from django.http import Http404
+        raise Http404
+
+    file_path = settings.ASSETS_DIR / "printer" / filename
+    if not file_path.exists():
+        from django.http import Http404
+        raise Http404
+
+    import mimetypes
+    from django.http import FileResponse
+    mime_type, _ = mimetypes.guess_type(str(file_path))
+    response = FileResponse(
+        open(file_path, "rb"),
+        content_type=mime_type or "application/octet-stream",
+        as_attachment=True,
+        filename=filename,
+    )
+    return response
+
+
 def qr_image(request):
     """Return a QR code for the given `data` (GET param) and optional parameters."""
     data = request.GET.get("data")
