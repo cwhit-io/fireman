@@ -229,7 +229,7 @@ DAISY_SETTINGS = {
     "SITE_TITLE": "Ember",
     "SITE_HEADER": "Ember Admin",
     "INDEX_TITLE": "Welcome to Ember Admin",
-    "DEFAULT_THEME": "fireman",
+    "DEFAULT_THEME": "ember",
     "DONT_SUPPORT_ME": True,
     "SHOW_THEME_SELECTOR": True,
     "THEME_LIST": [

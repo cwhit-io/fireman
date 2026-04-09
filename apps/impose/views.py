@@ -15,15 +15,17 @@ from .models import POINTS_PER_INCH, ImpositionTemplate, PrintSize, ProductCateg
 
 # Muted background colours cycled per category
 _GROUP_COLORS = [
-    "#1435a4",  # indigo-100
-    "#a1226a",  # pink-100
-    "#28b96e",  # emerald-100
-    "#a88d22",  # amber-100
-    "#1d84c9",  # sky-100
-    "#7527c9",  # purple-100
-    "#bf2929",  # red-100
-    "#86ba1f",  # lime-100
+    "#4d8ccd",  # Soft Blue — Trustworthy and calm (primary)
+    "#ff6b6b",  # Coral — Warmth and urgency (secondary)
+    "#3ecf8e",  # Muted Mint Green — Success and confirmation (accent)
+    "#eaa63b",  # Muted Orange — Warm warning (for alerts)
+    "#305780",  # Darker Blue — Reliable alternative (for depth)
+    "#af2b1d",  # Muted Red — Clear error indication (emergency)
+    "#7c1e14",  # Dark Coral — Stronger secondary focus (hover state)
+    "#a88d22",  # Muted Amber — Friendly warmth (for highlights)
 ]
+
+
 
 
 def print_templates(request):
