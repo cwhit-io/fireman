@@ -38,6 +38,10 @@ def homepage(request):
     return render(request, "home.html")
 
 
+def links_page(request):
+    return render(request, "core/links.html")
+
+
 def qr_page(request):
     """Render the QR generator page."""
     return render(request, "core/qr.html")

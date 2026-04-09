@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 [x-cloak] { display: none !important; }
-@plugin "daisyui" {themes: bumblebee --default, cupcake, retro, synthwave, dark --prefersdark;}
+@plugin "daisyui" {themes: bumblebee --default, cupcake, retro, synthwave, dark --prefersdark, emerald, corporate, garden, lofi, pastel, fantasy, wireframe, winter, nord, lemonade, silk, caramellatte, halloween, forest, aqua, luxury, dracula, night, dim, coffee, abyss, acid, cyberpunk, autumn, business, valentine, cmyk, black, sunset;}
 
-[data-theme="fireman"] {
+[data-theme="ember"] {
   /* ── Core Brand ─────────────────────────────────────────
      Blue = trustworthy, first-responder energy
      Coral = fire helmet, warmth, friendly urgency        */

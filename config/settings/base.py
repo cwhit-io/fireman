@@ -233,7 +233,7 @@ DAISY_SETTINGS = {
     "DONT_SUPPORT_ME": True,
     "SHOW_THEME_SELECTOR": True,
     "THEME_LIST": [
-        {"name": "Default", "value": "fireman"},
+        {"name": "Ember", "value": "ember"},
         {"name": "Light", "value": "light"},
         {"name": "Dark", "value": "dark"},
         {"name": "Dracula", "value": "dracula"},

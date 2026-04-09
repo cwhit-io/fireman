@@ -37,14 +37,6 @@
      @keydown.arrow-right.window="$dispatch('preview-next')"
      @keydown.arrow-left.window="$dispatch('preview-prev')">
 
-  {# ── Breadcrumb ── #}
-  <div class="breadcrumbs text-sm mb-2">
-    <ul>
-      <li><a href="{% url 'jobs:list' %}">Jobs</a></li>
-      <li>{{ job.name|default:job.pk }}</li>
-    </ul>
-  </div>
-
   {# ── Page Header ── #}
   <div class="mb-6">
     <div class="flex items-center gap-2 flex-wrap mb-1">
@@ -68,89 +60,7 @@
     {% endfor %}
   </div>
   {% endif %}
-
-  {# ── Collapsible Job Details (collapsed by default) ── #}
-  <div class="collapse collapse-arrow bg-base-100 border border-base-300 shadow mb-6">
-    <input type="checkbox">
-    <div class="collapse-title font-semibold">Job Details</div>
-    <div class="collapse-content">
-      <table class="table table-sm">
-        <tbody>
-          <tr><th>Job ID</th><td class="font-mono text-sm">{{ job.pk }}</td></tr>
-          <tr><th>Created</th><td>{{ job.created_at|date:"M j, Y H:i" }}</td></tr>
-          <tr><th>Paper Size</th><td class="font-semibold">
-            {% if job.imposition_template and job.imposition_template.sheet_size %}
-              {{ job.imposition_template.sheet_size.label }}
-            {% elif job.imposition_template and job.imposition_template.sheet_width %}
-              {{ job.imposition_template.sheet_size_label }}
-            {% else %}—{% endif %}
-          </td></tr>
-          <tr><th>Imposition</th><td>
-            {% if job.pages_are_unique %}N-up (unique pages){% else %}Step-and-repeat{% endif %}
-          </td></tr>
-          {% if job.imposition_template %}
-          <tr><th>Template</th><td>{{ job.imposition_template.name }}</td></tr>
-          {% endif %}
-          {% if job.cutter_program %}
-          <tr><th>Cutter Code</th><td class="font-semibold">
-            {% if job.cutter_program.duplo_code %}#{{ job.cutter_program.duplo_code }}{% else %}{{ job.cutter_program }}{% endif %}
-          </td></tr>
-          {% endif %}
-          {% if job.routing_preset %}
-          <tr><th>Printer Preset</th><td>{{ job.routing_preset }}</td></tr>
-          {% endif %}
-          {% if fiery_name %}
-          <tr><th>Fiery Name</th><td class="font-mono text-sm">{{ fiery_name }}</td></tr>
-          {% endif %}
-          <tr><th>Page Count</th><td>{{ job.page_count|default:"—" }}</td></tr>
-          <tr><th>Page Size</th><td>{{ job.page_size_label }}</td></tr>
-          <tr><th>Type</th><td>{{ job.get_product_type_display|default:"—" }}</td></tr>
-          <tr><th>Double-sided</th><td>{% if job.is_double_sided %}Yes{% else %}No{% endif %}</td></tr>
-          <tr><th>Unique pages</th><td>
-            {% if job.pages_are_unique %}Yes (n-up){% else %}No (step-and-repeat){% endif %}
-          </td></tr>
-        </tbody>
-      </table>
-
-      {% if job.error_message %}
-      <div class="alert alert-error mt-4">
-        <div>
-          <p class="font-medium">Error:</p>
-          <pre class="text-xs mt-1 whitespace-pre-wrap">{{ job.error_message }}</pre>
-        </div>
-      </div>
-      {% endif %}
-
-      {% if job.notes %}
-      <div class="mt-4">
-        <p class="text-sm text-base-content/60">Notes</p>
-        <p class="mt-1">{{ job.notes }}</p>
-      </div>
-      {% endif %}
-
-      <div class="card-actions justify-end mt-4 pt-4 border-t border-base-300">
-        <button @click="showChange = !showChange" class="btn btn-sm btn-outline">Change Template</button>
-        {% if user.is_authenticated %}
-        <button type="button" @click="showRenameModal = true" class="btn btn-sm btn-outline">Rename</button>
-        {% endif %}
-        {% if user.is_authenticated %}
-        <form method="post" action="{% url 'jobs:toggle_save' job.pk %}" class="inline">
-          {% csrf_token %}
-          <input type="hidden" name="next" value="{{ request.path }}">
-          {% if job.is_saved %}
-            <button type="submit" class="btn btn-sm btn-outline">Unsave</button>
-          {% else %}
-            <button type="submit" class="btn btn-sm btn-outline">Save</button>
-          {% endif %}
-        </form>
-        {% endif %}
-        <button type="button" @click="showDeleteModal = true"
-                class="btn btn-sm btn-error btn-outline">Delete</button>
-      </div>
-    </div>
-  </div>
-
-
+  
   {% if job.imposed_file %}
   <div class="card card-bordered shadow mb-6 overflow-hidden">
 
@@ -632,6 +542,87 @@
     }
   </script>
   {% endif %}
+  {# ── Collapsible Job Details (moved here, after the Page Preview) ── #}
+  <div class="collapse collapse-arrow bg-base-100 border border-base-300 shadow mb-6">
+    <input type="checkbox">
+    <div class="collapse-title font-semibold">Job Details</div>
+    <div class="collapse-content">
+      <table class="table table-sm">
+        <tbody>
+          <tr><th>Job ID</th><td class="font-mono text-sm">{{ job.pk }}</td></tr>
+          <tr><th>Created</th><td>{{ job.created_at|date:"M j, Y H:i" }}</td></tr>
+          <tr><th>Paper Size</th><td class="font-semibold">
+            {% if job.imposition_template and job.imposition_template.sheet_size %}
+              {{ job.imposition_template.sheet_size.label }}
+            {% elif job.imposition_template and job.imposition_template.sheet_width %}
+              {{ job.imposition_template.sheet_size_label }}
+            {% else %}—{% endif %}
+          </td></tr>
+          <tr><th>Imposition</th><td>
+            {% if job.pages_are_unique %}N-up (unique pages){% else %}Step-and-repeat{% endif %}
+          </td></tr>
+          {% if job.imposition_template %}
+          <tr><th>Template</th><td>{{ job.imposition_template.name }}</td></tr>
+          {% endif %}
+          {% if job.cutter_program %}
+          <tr><th>Cutter Code</th><td class="font-semibold">
+            {% if job.cutter_program.duplo_code %}#{{ job.cutter_program.duplo_code }}{% else %}{{ job.cutter_program }}{% endif %}
+          </td></tr>
+          {% endif %}
+          {% if job.routing_preset %}
+          <tr><th>Printer Preset</th><td>{{ job.routing_preset }}</td></tr>
+          {% endif %}
+          {% if fiery_name %}
+          <tr><th>Fiery Name</th><td class="font-mono text-sm">{{ fiery_name }}</td></tr>
+          {% endif %}
+          <tr><th>Page Count</th><td>{{ job.page_count|default:"—" }}</td></tr>
+          <tr><th>Page Size</th><td>{{ job.page_size_label }}</td></tr>
+          <tr><th>Type</th><td>{{ job.get_product_type_display|default:"—" }}</td></tr>
+          <tr><th>Double-sided</th><td>{% if job.is_double_sided %}Yes{% else %}No{% endif %}</td></tr>
+          <tr><th>Unique pages</th><td>
+            {% if job.pages_are_unique %}Yes (n-up){% else %}No (step-and-repeat){% endif %}
+          </td></tr>
+        </tbody>
+      </table>
+
+      {% if job.error_message %}
+      <div class="alert alert-error mt-4">
+        <div>
+          <p class="font-medium">Error:</p>
+          <pre class="text-xs mt-1 whitespace-pre-wrap">{{ job.error_message }}</pre>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if job.notes %}
+      <div class="mt-4">
+        <p class="text-sm text-base-content/60">Notes</p>
+        <p class="mt-1">{{ job.notes }}</p>
+      </div>
+      {% endif %}
+
+      <div class="card-actions justify-end mt-4 pt-4 border-t border-base-300">
+        <button @click="showChange = !showChange" class="btn btn-sm btn-outline">Change Template</button>
+        {% if user.is_authenticated %}
+        <button type="button" @click="showRenameModal = true" class="btn btn-sm btn-outline">Rename</button>
+        {% endif %}
+        {% if user.is_authenticated %}
+        <form method="post" action="{% url 'jobs:toggle_save' job.pk %}" class="inline">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          {% if job.is_saved %}
+            <button type="submit" class="btn btn-sm btn-outline">Unsave</button>
+          {% else %}
+            <button type="submit" class="btn btn-sm btn-outline">Save</button>
+          {% endif %}
+        </form>
+        {% endif %}
+        <button type="button" @click="showDeleteModal = true"
+                class="btn btn-sm btn-error btn-outline">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <div x-show="showChange" x-transition x-cloak class="card card-bordered bg-base-100 shadow mb-6">
     <div class="card-body">
       <h3 class="card-title text-sm mb-1">Change Template</h3>
