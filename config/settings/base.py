@@ -223,3 +223,20 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+
+# django-daisy admin theme
+DAISY_SETTINGS = {
+    "SITE_TITLE": "Ember",
+    "SITE_HEADER": "Ember Admin",
+    "INDEX_TITLE": "Welcome to Ember Admin",
+    "DEFAULT_THEME": "fireman",
+    "DONT_SUPPORT_ME": True,
+    "SHOW_THEME_SELECTOR": True,
+    "THEME_LIST": [
+        {"name": "Fireman", "value": "fireman"},
+        {"name": "Light", "value": "light"},
+        {"name": "Dark", "value": "dark"},
+        {"name": "Dracula", "value": "dracula"},
+        {"name": "CMYK", "value": "cmyk"},
+    ],
+}

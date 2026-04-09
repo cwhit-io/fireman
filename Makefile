@@ -113,7 +113,7 @@ stop: ## Stop all running services
 
 	@echo "Stopped."
 
-reload: stop run ## Restart production services
+reload: stop _tailwind run ## Restart production services
 	@echo "Reloaded."
 
 reload-dev: stop dev ## Restart dev services (rebuilds assets)
