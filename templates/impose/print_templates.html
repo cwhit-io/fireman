@@ -18,7 +18,7 @@
   {% if groups %}
 
     {% for category_name, sizes, bg_color in groups %}
-    <section class="mb-10 py-6">
+    <section class="mb-6 py-4">
 
       {# Category heading #}
       <div class="flex items-center gap-3 mb-6">
@@ -28,34 +28,26 @@
         <div class="flex-1 border-t border-base-300"></div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {% for size in sizes %}
         <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow">
 
-          {# Thumbnail #}
-          <figure class="h-36 flex items-center justify-center rounded-t-2xl" style="background:{{ bg_color }}">
-            {% if size.thumbnail %}
-              <img src="{{ size.thumbnail.url }}"
-                   alt="{{ size.name }}"
-                   class="max-h-full max-w-full object-contain p-3">
-            {% elif size.width_in and size.height_in %}
-              <div style="
-                aspect-ratio: {{ size.width_in|floatformat:-3 }} / {{ size.height_in|floatformat:-3 }};
-                max-width: 62%;
-                max-height: 62%;
-                background: white;
-                border-radius: 3px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.12);
-              "></div>
-            {% endif %}
-          </figure>
+          <div class="flex flex-col sm:flex-row items-center sm:items-start gap-3 p-3">
+            {# Left thumbnail: fixed square, preserves bg color #}
+            <div class="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden flex items-center justify-center" style="background:{{ bg_color }}">
+              {% if size.thumbnail %}
+                <img src="{{ size.thumbnail.url }}" alt="{{ size.name }}" class="w-full h-full object-cover" />
+              {% elif size.width_in and size.height_in %}
+                <div style="width:72%; height:72%; background:white; border-radius:3px; box-shadow:0 2px 10px rgba(0,0,0,0.12);"></div>
+              {% endif %}
+            </div>
 
-          <div class="card-body p-4 gap-0.5">
-            <h3 class="text-sm font-semibold leading-tight">{{ size.name }}</h3>
-            <p class="text-xs text-base-content/45 mb-3">{{ size.label }}</p>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-sm font-semibold leading-tight truncate">{{ size.name }}</h3>
+              <p class="text-sm text-base-content/60 mb-2 truncate">{{ size.label }}</p>
 
-            {# Actions row #}
-            <div class="flex items-center gap-2">
+              {# Actions row #}
+              <div class="flex items-center gap-2">
 
               {# Canva button — grow to fill available space #}
               {% if size.canva_template_url %}
