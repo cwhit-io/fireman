@@ -22,7 +22,7 @@ from django.http import HttpResponse
 from django.urls import include, path
 
 from config.api import api
-from core.views import homepage, qr_page, qr_image
+from core.views import homepage, qr_page, qr_image, upload_logo, api_generate_preview
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -31,6 +31,8 @@ urlpatterns = [
     path("demo/", include("core.urls", namespace="core")),
     path("qr/", qr_page, name="qr_page"),
     path("qr/image/", qr_image, name="qr_image"),
+    path("qr/upload-logo/", upload_logo, name="upload_logo"),
+    path("api/qr/generate-preview/", api_generate_preview, name="api_generate_preview"),
     path("accounts/", include("django.contrib.auth.urls")),
     path("", homepage, name="homepage"),
     path("jobs/", include("apps.jobs.urls", namespace="jobs")),

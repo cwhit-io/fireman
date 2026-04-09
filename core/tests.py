@@ -48,7 +48,179 @@ class TestPdfUtils:
             b"trailer<</Size 4/Root 1 0 R>>\nstartxref\n190\n%%EOF"
         )
 
-    def test_validate_and_repair_clean_pdf(self):
+
+class TestQrViews:
+    """Tests for QR code generation views."""
+
+    def test_qr_page_returns_200(self, client: Client):
+        response = client.get(reverse("qr_page"))
+        assert response.status_code == 200
+
+    def test_qr_page_with_data(self, client: Client):
+        # qr_page is now GET-only and renders the template without echoing GET params
+        response = client.get(reverse("qr_page") + "?data=test")
+        assert response.status_code == 200
+
+    def test_qr_image_requires_data(self, client: Client):
+        response = client.get(reverse("qr_image"))
+        assert response.status_code == 400
+
+    def test_qr_image_generates_png(self, client: Client):
+        response = client.get(reverse("qr_image") + "?data=test")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/png"
+        # Check that we got some PNG data
+        assert len(response.content) > 0
+        assert response.content.startswith(b"\x89PNG")
+
+    def test_qr_image_with_size(self, client: Client):
+        response = client.get(reverse("qr_image") + "?data=test&size=200")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/png"
+
+    def test_qr_image_invalid_size_defaults(self, client: Client):
+        response = client.get(reverse("qr_image") + "?data=test&size=invalid")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/png"
+
+    def test_qr_image_svg_format(self, client: Client):
+        response = client.get(reverse("qr_image") + "?data=test&format=svg")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/svg+xml"
+        # Check that we got some SVG data
+        assert len(response.content) > 0
+        assert b"<svg" in response.content
+
+    def test_qr_image_pdf_format(self, client: Client):
+        response = client.get(reverse("qr_image") + "?data=test&format=pdf")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/pdf"
+        # Check that we got some PDF data
+        assert len(response.content) > 0
+        assert response.content.startswith(b"%PDF")
+
+    def test_qr_image_invalid_format_defaults_to_png(self, client: Client):
+        response = client.get(reverse("qr_image") + "?data=test&format=invalid")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/png"
+
+    def test_qr_image_with_custom_colors(self, client: Client):
+        response = client.get(reverse("qr_image") + "?data=test&fg_color=%23FF0000&bg_color=%2300FF00")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/png"
+
+    def test_qr_image_with_style(self, client: Client):
+        response = client.get(reverse("qr_image") + "?data=test&style=rounded")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/png"
+
+    def test_api_preview_svg(self, client: Client):
+        import json
+        payload = {
+            'data': 'test',
+            'size': 300,
+            'quality': 10,
+            'style': 'square',
+            'fg_color': '#000000',
+            'bg_color': '#FFFFFF',
+            'format': 'svg',
+            'logo_id': None,
+            'logo_position': 'center'
+        }
+        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        assert response.status_code == 200
+        data = response.json()
+        assert data['format'] == 'svg'
+        assert '<svg' in data['data']
+
+    def test_api_preview_png(self, client: Client):
+        import json
+        payload = {
+            'data': 'test',
+            'size': 300,
+            'quality': 10,
+            'style': 'square',
+            'fg_color': '#000000',
+            'bg_color': '#FFFFFF',
+            'format': 'png',
+            'logo_id': None,
+            'logo_position': 'center'
+        }
+        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        assert response.status_code == 200
+        data = response.json()
+        assert data['format'] == 'png'
+        assert 'data:image/png;base64,' in data['data']
+
+    def test_api_preview_no_data(self, client: Client):
+        import json
+        payload = {
+            'data': '',
+            'size': 300,
+            'quality': 10,
+            'style': 'square',
+            'format': 'png'
+        }
+        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        assert response.status_code == 400
+        assert response.json()['error'] == 'Missing data parameter'
+
+    def test_api_preview_custom_colors(self, client: Client):
+        import json
+        payload = {
+            'data': 'test',
+            'size': 300,
+            'quality': 10,
+            'style': 'circle',
+            'fg_color': '#FF0000',
+            'bg_color': '#00FF00',
+            'format': 'svg',
+            'logo_id': None,
+            'logo_position': 'center'
+        }
+        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        assert response.status_code == 200
+        data = response.json()
+        assert '#FF0000' in data['data']
+        assert '#00FF00' in data['data']
+
+    def test_api_preview_pdf_format(self, client: Client):
+        import json
+        payload = {'data': 'test', 'size': 200, 'quality': 5, 'style': 'square', 'format': 'pdf'}
+        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        assert response.status_code == 200
+        result = response.json()
+        assert result['format'] == 'pdf'
+        assert result['data'].startswith('data:application/pdf;base64,')
+
+    def test_api_preview_data_too_long(self, client: Client):
+        import json
+        payload = {'data': 'x' * 2001, 'size': 300, 'quality': 10, 'style': 'square', 'format': 'png'}
+        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        assert response.status_code == 400
+        assert 'too long' in response.json()['error']
+
+    def test_qr_image_data_too_long(self, client: Client):
+        response = client.get(reverse("qr_image") + "?data=" + "x" * 2001)
+        assert response.status_code == 400
+
+    def test_qr_image_malicious_color_rejected(self, client: Client):
+        """Injection attempt in color param must be silently replaced with the default."""
+        response = client.get(
+            reverse("qr_image") + '?data=test&format=svg&fg_color=%22%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E'
+        )
+        assert response.status_code == 200
+        # Default color should appear, not the injected string
+        assert b'<script>' not in response.content
+
+    def test_upload_logo_rejects_svg(self, client: Client):
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        svg_bytes = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+        fake_svg = SimpleUploadedFile('evil.svg', svg_bytes, content_type='image/svg+xml')
+        response = client.post(reverse("upload_logo"), {'logo': fake_svg})
+        assert response.status_code == 400
+        assert 'not allowed' in response.json()['error']
         """A well-formed PDF should be returned unchanged with no warnings."""
         import io
 
