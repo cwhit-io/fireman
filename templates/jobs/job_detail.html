@@ -37,7 +37,7 @@
      @keydown.arrow-left.window="$dispatch('preview-prev')">
 
   {# ── Breadcrumb ── #}
-  <div class="breadcrumbs text-sm mb-4">
+  <div class="breadcrumbs text-sm mb-2">
     <ul>
       <li><a href="{% url 'jobs:list' %}">Jobs</a></li>
       <li>{{ job.name|default:job.pk }}</li>
@@ -45,9 +45,9 @@
   </div>
 
   {# ── Page Header ── #}
-  <div class="mb-6">
+    <div class="mb-6">
     <div class="flex items-center gap-2 flex-wrap mb-1">
-      <h1 class="text-2xl md:text-3xl font-bold">{{ job.name|default:job.pk }}</h1>
+      <h1 class="text-3xl md:text-3xl font-extrabold tracking-tight">{{ job.name|default:job.pk }}</h1>
       {% if user.is_authenticated %}
       <button type="button" @click="showRenameModal = true"
               class="btn btn-xs btn-ghost" title="Edit job name">✏️</button>
