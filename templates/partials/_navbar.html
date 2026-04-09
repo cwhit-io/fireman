@@ -10,9 +10,9 @@
        aria-label="Sidebar navigation">
 
   {# ── Brand ───────────────────────────────────────── #}
-  <div class="h-14 px-3 flex items-center justify-between shrink-0 border-b border-base-300/60">
+  <div class="h-32 px-3 flex items-center justify-between shrink-0 border-b border-base-300/60">
     <a href="{% url 'homepage' %}" class="flex items-center gap-2 group min-w-0">
-      <img src="{% static 'logo.png' %}" alt="Ember" class="h-8 shrink-0 transition-transform group-hover:scale-105" />
+      <img src="{% static 'logo.png' %}" alt="Ember" class="shrink-0 transition-transform group-hover:scale-105" />
       <span class="font-semibold text-sm leading-tight truncate"></span>
     </a>
     {# Close button — mobile only #}
@@ -184,61 +184,115 @@
 
 </aside>
 
-{# Calculator modal (moved outside sidebar, globally positioned and draggable) #}
-<div x-data x-show="$store.nav.calcOpen" x-cloak x-transition class="fixed inset-0 z-50 pointer-events-none" @keydown.escape.window="$store.nav.calcOpen = false">
-  <div class="pointer-events-auto" x-data="{
+{# Calculator modal #}
+<div x-data="{
     x: parseInt(localStorage.getItem('calcX') || '100'),
     y: parseInt(localStorage.getItem('calcY') || '100'),
     dragging: false,
     ox: 0,
     oy: 0,
-    dragStart(e) { this.dragging = true; this.ox = e.clientX - this.x; this.oy = e.clientY - this.y; }
+    ensureVisible() {
+      const maxX = Math.max(16, window.innerWidth - 336);
+      const maxY = Math.max(16, window.innerHeight - 260);
+      this.x = Number.isFinite(this.x) ? Math.min(Math.max(this.x, 16), maxX) : 100;
+      this.y = Number.isFinite(this.y) ? Math.min(Math.max(this.y, 16), maxY) : 100;
+    },
+    init() {
+      this.ensureVisible();
+    },
+    display: '0',
+    pending: null,
+    op: null,
+    justCalc: false,
+    dragStart(e) {
+      this.dragging = true;
+      this.ox = e.clientX - this.x;
+      this.oy = e.clientY - this.y;
+    },
+    dragMove(e) {
+      if (!this.dragging) return;
+      this.x = e.clientX - this.ox;
+      this.y = e.clientY - this.oy;
+    },
+    dragEnd() {
+      if (!this.dragging) return;
+      localStorage.setItem('calcX', this.x);
+      localStorage.setItem('calcY', this.y);
+      this.dragging = false;
+    },
+    input(v) {
+      if (this.justCalc) {
+        this.display = String(v);
+        this.justCalc = false;
+        return;
+      }
+      this.display = this.display === '0' ? String(v) : this.display + v;
+    },
+    decimal() {
+      if (this.justCalc) {
+        this.display = '0.';
+        this.justCalc = false;
+        return;
+      }
+      if (!this.display.includes('.')) this.display += '.';
+    },
+    setOp(nextOp) {
+      this.pending = parseFloat(this.display);
+      this.op = nextOp;
+      this.justCalc = true;
+    },
+    calc() {
+      if (!this.op || this.pending === null) return;
+      const current = parseFloat(this.display);
+      let result;
+      if (this.op === '+') result = this.pending + current;
+      else if (this.op === '-') result = this.pending - current;
+      else if (this.op === '*') result = this.pending * current;
+      else if (this.op === '/') result = current !== 0 ? this.pending / current : NaN;
+      this.display = Number.isNaN(result) ? 'Error' : String(parseFloat(result.toFixed(10)));
+      this.pending = null;
+      this.op = null;
+      this.justCalc = true;
+    },
+    clear() {
+      this.display = '0';
+      this.pending = null;
+      this.op = null;
+      this.justCalc = false;
+    },
+    backspace() {
+      if (this.justCalc) return;
+      this.display = this.display.length > 1 ? this.display.slice(0, -1) : '0';
+    },
+    negate() {
+      this.display = this.display.startsWith('-')
+        ? this.display.slice(1)
+        : (this.display !== '0' ? '-' + this.display : '0');
+    },
+    pct() {
+      this.display = String(parseFloat(this.display) / 100);
+    }
   }"
-  @mousemove.window="if (dragging) { x = $event.clientX - ox; y = $event.clientY - oy; }"
-  @mouseup.window="if (dragging) { localStorage.setItem('calcX', x); localStorage.setItem('calcY', y); dragging = false; }"
-  :style="{ position: 'fixed', left: x + 'px', top: y + 'px' }">
+  x-show="$store.nav && $store.nav.calcOpen"
+  x-cloak
+  x-transition
+  class="fixed inset-0 z-50 pointer-events-none"
+  x-effect="if ($store.nav && $store.nav.calcOpen) ensureVisible()"
+  @keydown.escape.window="$store.nav.calcOpen = false"
+  @resize.window="ensureVisible()"
+  @mousemove.window="dragMove($event)"
+  @mouseup.window="dragEnd()">
+  <div class="pointer-events-auto"
+    :style="{ position: 'fixed', left: x + 'px', top: y + 'px' }">
     <div class="bg-base-100 rounded-lg shadow-2xl w-80 p-4" role="dialog" aria-modal="true">
-      <div class="flex items-center justify-between mb-2 cursor-move select-none" @mousedown="dragStart">
+      <div class="flex items-center justify-between mb-2 cursor-move select-none" @mousedown="dragStart($event)">
         <h3 class="text-lg font-semibold">Calculator</h3>
-        <button type="button" @click="$store.nav.calcOpen = false" @mousedown.stop class="btn btn-ghost btn-xs btn-square">
+        <button type="button" @click.stop="$store.nav.calcOpen = false" @mousedown.stop class="btn btn-ghost btn-xs btn-square">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
 
-      <div x-data="{
-           display: '0',
-           pending: null,
-           op: null,
-           justCalc: false,
-           input(v) {
-             if (this.justCalc) { this.display = String(v); this.justCalc = false; return; }
-             this.display = this.display === '0' ? String(v) : this.display + v;
-           },
-           decimal() {
-             if (this.justCalc) { this.display = '0.'; this.justCalc = false; return; }
-             if (!this.display.includes('.')) this.display += '.';
-           },
-           setOp(o) {
-             this.pending = parseFloat(this.display);
-             this.op = o;
-             this.justCalc = true;
-           },
-           calc() {
-             if (!this.op || this.pending === null) return;
-             const cur = parseFloat(this.display);
-             let r;
-             if (this.op === '+') r = this.pending + cur;
-             else if (this.op === '-') r = this.pending - cur;
-             else if (this.op === '*') r = this.pending * cur;
-             else if (this.op === '/') r = cur !== 0 ? this.pending / cur : 'Error';
-             this.display = r === 'Error' ? 'Error' : String(parseFloat(r.toFixed(10)));
-             this.op = null; this.pending = null; this.justCalc = true;
-           },
-           clear() { this.display = '0'; this.pending = null; this.op = null; this.justCalc = false; },
-           backspace() { if (this.justCalc) return; this.display = this.display.length > 1 ? this.display.slice(0, -1) : '0'; },
-           negate() { this.display = this.display.startsWith('-') ? this.display.slice(1) : (this.display !== '0' ? '-' + this.display : '0'); },
-           pct() { this.display = String(parseFloat(this.display) / 100); }
-         }" @click.stop>
+      <div @click.stop>
         <div class="bg-base-300 rounded-lg px-3 py-2 mb-2 text-right font-mono text-xl font-medium truncate select-all min-h-[2.5rem] flex items-center justify-end" x-text="display"></div>
         <div class="flex flex-col gap-2">
           <div class="flex gap-1">
