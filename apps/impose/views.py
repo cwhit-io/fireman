@@ -15,14 +15,14 @@ from .models import POINTS_PER_INCH, ImpositionTemplate, PrintSize, ProductCateg
 
 # Muted background colours cycled per category
 _GROUP_COLORS = [
-    "#e0e7ff",  # indigo-100
-    "#fce7f3",  # pink-100
-    "#d1fae5",  # emerald-100
-    "#fef3c7",  # amber-100
-    "#e0f2fe",  # sky-100
-    "#f3e8ff",  # purple-100
-    "#fee2e2",  # red-100
-    "#ecfccb",  # lime-100
+    "#1435a4",  # indigo-100
+    "#a1226a",  # pink-100
+    "#28b96e",  # emerald-100
+    "#a88d22",  # amber-100
+    "#1d84c9",  # sky-100
+    "#7527c9",  # purple-100
+    "#bf2929",  # red-100
+    "#86ba1f",  # lime-100
 ]
 
 

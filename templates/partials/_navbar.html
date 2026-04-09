@@ -4,7 +4,7 @@
 {# Resolve active-state helpers once for the whole sidebar #}
 {% with ns=request.resolver_match.app_name un=request.resolver_match.url_name %}
 
-<aside x-data="{ calcOpen: false }"
+<aside x-data="{ linksOpen: false }"
   class="fixed sm:static inset-y-0 left-0 z-40 w-56 flex flex-col bg-base-100 border-r border-base-300/60 shrink-0 h-dvh transition-transform duration-200 sm:translate-x-0"
        :class="$store.nav && $store.nav.open ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'"
        aria-label="Sidebar navigation">
@@ -77,202 +77,224 @@
     </a>
 
     {# Calculator — modal triggered #}
-    <button @click="calcOpen = true" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-base-content/70 hover:bg-base-200 hover:text-base-content transition-colors">
+    <button @click="$store.nav.calcOpen = true" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-base-content/70 hover:bg-base-200 hover:text-base-content transition-colors">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4 shrink-0" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008Zm0 2.25h.008v.008H8.25V13.5Zm0 2.25h.008v.008H8.25v-.008Zm0 2.25h.008v.008H8.25V18Zm2.498-6.75h.007v.008h-.007v-.008Zm0 2.25h.007v.008h-.007V13.5Zm0 2.25h.007v.008h-.007v-.008Zm0 2.25h.007v.008h-.007V18Zm2.504-6.75h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V13.5Zm0 2.25h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V18Zm2.498-6.75h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V13.5ZM8.25 6h7.5v2.25h-7.5V6ZM12 2.25c-1.892 0-3.758.11-5.593.322C5.307 2.7 4.5 3.613 4.5 4.733V19.5a2.25 2.25 0 0 0 2.25 2.25h10.5a2.25 2.25 0 0 0 2.25-2.25V4.733c0-1.12-.806-2.031-1.907-2.161A48.507 48.507 0 0 0 12 2.25Z" />
       </svg>
       Calculator
     </button>
 
-    <!-- Calculator modal -->
-    <div x-show="calcOpen" x-cloak x-transition class="fixed inset-0 z-50 flex items-center justify-center">
-      <div class="fixed inset-0 bg-black/40" @click="calcOpen = false" aria-hidden="true"></div>
-      <div class="bg-base-100 rounded-lg shadow-2xl w-80 p-4 z-50" role="dialog" aria-modal="true" @keydown.escape.window="calcOpen = false">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-semibold">Calculator</h3>
-          <button type="button" @click="calcOpen = false" class="btn btn-ghost btn-xs btn-square">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
+    {# Links section (collapsible) #}
+    <div class="px-3 pt-4 mt-4">
+      <button @click="linksOpen = !linksOpen" x-bind:aria-expanded="linksOpen" class="w-full flex items-center gap-2.5 py-2 text-left text-sm font-semibold rounded-lg text-base-content/70 hover:bg-base-200 hover:text-base-content transition-colors">
+        <span class="flex items-center gap-2.5">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18" />
+          </svg>
+          <span class="uppercase tracking-wider text-xs">Links</span>
+        </span>
+        <svg x-show="!linksOpen" xmlns="http://www.w3.org/2000/svg" class="ml-auto h-4 w-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+        <svg x-show="linksOpen" xmlns="http://www.w3.org/2000/svg" class="ml-auto h-4 w-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
 
-        <div x-data="{
-             display: '0',
-             pending: null,
-             op: null,
-             justCalc: false,
-             input(v) {
-               if (this.justCalc) { this.display = String(v); this.justCalc = false; return; }
-               this.display = this.display === '0' ? String(v) : this.display + v;
-             },
-             decimal() {
-               if (this.justCalc) { this.display = '0.'; this.justCalc = false; return; }
-               if (!this.display.includes('.')) this.display += '.';
-             },
-             setOp(o) {
-               this.pending = parseFloat(this.display);
-               this.op = o;
-               this.justCalc = true;
-             },
-             calc() {
-               if (!this.op || this.pending === null) return;
-               const cur = parseFloat(this.display);
-               let r;
-               if (this.op === '+') r = this.pending + cur;
-               else if (this.op === '-') r = this.pending - cur;
-               else if (this.op === '*') r = this.pending * cur;
-               else if (this.op === '/') r = cur !== 0 ? this.pending / cur : 'Error';
-               this.display = r === 'Error' ? 'Error' : String(parseFloat(r.toFixed(10)));
-               this.op = null; this.pending = null; this.justCalc = true;
-             },
-             clear() { this.display = '0'; this.pending = null; this.op = null; this.justCalc = false; },
-             backspace() { if (this.justCalc) return; this.display = this.display.length > 1 ? this.display.slice(0, -1) : '0'; },
-             negate() { this.display = this.display.startsWith('-') ? this.display.slice(1) : (this.display !== '0' ? '-' + this.display : '0'); },
-             pct() { this.display = String(parseFloat(this.display) / 100); }
-           }">
-          <div class="bg-base-300 rounded-lg px-3 py-2 mb-2 text-right font-mono text-xl font-medium truncate select-all min-h-[2.5rem] flex items-center justify-end" x-text="display"></div>
-          <div class="flex flex-col gap-2">
-            <div class="flex gap-1">
-              <button @click="clear()" style="flex:2" class="h-9 flex items-center justify-center text-xs font-semibold text-error bg-base-100 hover:bg-base-300 rounded-lg transition-colors">AC</button>
-              <button @click="negate()" class="flex-1 h-9 flex items-center justify-center text-xs font-semibold bg-base-100 hover:bg-base-300 rounded-lg transition-colors">+/-</button>
-              <button @click="pct()" class="flex-1 h-9 flex items-center justify-center text-xs font-semibold bg-base-100 hover:bg-base-300 rounded-lg transition-colors">%</button>
-            </div>
-            <div class="flex gap-1">
-              <button @click="input(7)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">7</button>
-              <button @click="input(8)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">8</button>
-              <button @click="input(9)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">9</button>
-              <button @click="setOp('/')" class="flex-1 h-9 flex items-center justify-center text-sm font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-lg transition-colors">÷</button>
-            </div>
-            <div class="flex gap-1">
-              <button @click="input(4)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">4</button>
-              <button @click="input(5)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">5</button>
-              <button @click="input(6)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">6</button>
-              <button @click="setOp('*')" class="flex-1 h-9 flex items-center justify-center text-sm font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-lg transition-colors">×</button>
-            </div>
-            <div class="flex gap-1">
-              <button @click="input(1)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">1</button>
-              <button @click="input(2)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">2</button>
-              <button @click="input(3)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">3</button>
-              <button @click="setOp('-')" class="flex-1 h-9 flex items-center justify-center text-sm font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-lg transition-colors">−</button>
-            </div>
-            <div class="flex gap-1">
-              <button @click="input(0)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">0</button>
-              <button @click="backspace()" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">⌫</button>
-              <button @click="decimal()" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">.</button>
-              <button @click="setOp('+')" class="flex-1 h-9 flex items-center justify-center text-sm font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-lg transition-colors">+</button>
-            </div>
-            <div class="flex">
-              <button @click="calc()" class="flex-1 h-9 flex items-center justify-center text-sm font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-lg transition-colors">=</button>
-            </div>
+      <div x-show="linksOpen" x-cloak x-transition class="mt-2 space-y-1">
+        <a href="https://perryprotech.com/supply-request/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7h6v6m0-6L10 18"/></svg>
+          Supply Ordering
+        </a>
+        <a href="http://www.cmpaper.com/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7h6v6m0-6L10 18"/></svg>
+          Paper Ordering
+        </a>
+        <a href="https://perryprotech.com/supply-request/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7h6v6m0-6L10 18"/></svg>
+          Printer Repair
+        </a>
+        <a href="https://mbgraphic.com/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7h6v6m0-6L10 18"/></svg>
+          Cutter Repair
+        </a>
+      </div>
+    </div>
+
+  </nav>
+
+  {# ── Bottom: compact icon buttons for theme, admin, account ────────────── #}
+  <div class="shrink-0 border-t border-base-300/60 p-2">
+    <div class="flex items-center justify-between gap-2">
+
+      {# Theme picker as an icon button (keeps the existing details menu) #}
+      <details class="group/theme">
+        <summary class="btn btn-ghost btn-square btn-xs" title="Theme">
+          <span class="sr-only">Theme</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+          </svg>
+        </summary>
+        <div class="mt-2 flex flex-col gap-0.5 p-2 bg-base-100 rounded-md shadow-md">
+          <button data-set-theme="fireman"   class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Default</button>
+          <button data-set-theme="bumblebee" class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Bumblebee</button>
+          <button data-set-theme="cupcake"   class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Cupcake</button>
+          <button data-set-theme="retro"     class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Retro</button>
+          <button data-set-theme="synthwave" class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Synthwave</button>
+          <button data-set-theme="dark"      class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Dark</button>
+        </div>
+      </details>
+
+      <div class="flex-1"></div>
+
+      {# Admin (staff) and Sign-out / Sign-in buttons #}
+      <div class="flex items-center gap-2">
+        {% if user.is_authenticated %}
+          {% if user.is_staff %}
+            <a href="/admin/" class="btn btn-ghost btn-square btn-xs" title="Admin">
+              <span class="sr-only">Admin</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </a>
+          {% endif %}
+
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-ghost btn-square btn-xs text-error" title="Sign out">
+              <span class="sr-only">Sign out</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              </svg>
+            </button>
+          </form>
+
+        {% else %}
+          <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-ghost btn-square btn-xs" title="Sign in">
+            <span class="sr-only">Sign in</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+            </svg>
+          </a>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+</aside>
+
+{# Calculator modal (moved outside sidebar, globally positioned and draggable) #}
+<div x-show="$store.nav && $store.nav.calcOpen" x-cloak x-transition class="fixed inset-0 z-50 flex items-center justify-start pointer-events-none" @keydown.escape.window="$store.nav.calcOpen = false">
+  <div class="pointer-events-auto ml-[20rem]" x-data="{
+    x: localStorage.getItem('calcX') ? parseInt(localStorage.getItem('calcX')) : 100,
+    y: localStorage.getItem('calcY') ? parseInt(localStorage.getItem('calcY')) : 100,
+    dragging: false,
+    startX: 0,
+    startY: 0,
+    dragStart(e) {
+      this.dragging = true;
+      this.startX = e.clientX - this.x;
+      this.startY = e.clientY - this.y;
+    },
+    dragMove(e) {
+      if (!this.dragging) return;
+      this.x = e.clientX - this.startX;
+      this.y = e.clientY - this.startY;
+    },
+    dragEnd() {
+      if (this.dragging) {
+        localStorage.setItem('calcX', this.x);
+        localStorage.setItem('calcY', this.y);
+      }
+      this.dragging = false;
+    },
+    init() {
+      document.addEventListener('mousemove', (e) => this.dragMove(e));
+      document.addEventListener('mouseup', () => this.dragEnd());
+    }
+  }" @mousedown.window="dragMove($event)" @mouseup.window="dragEnd()" style="position: fixed;" :style="`left: ${x}px; top: ${y}px;`"
+  >
+    <div class="bg-base-100 rounded-lg shadow-2xl w-80 p-4" role="dialog" aria-modal="true">
+      <div class="flex items-center justify-between mb-2 cursor-move select-none" @mousedown="dragStart">
+        <h3 class="text-lg font-semibold">Calculator</h3>
+        <button type="button" @click="$store.nav.calcOpen = false" class="btn btn-ghost btn-xs btn-square">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div x-data="{
+           display: '0',
+           pending: null,
+           op: null,
+           justCalc: false,
+           input(v) {
+             if (this.justCalc) { this.display = String(v); this.justCalc = false; return; }
+             this.display = this.display === '0' ? String(v) : this.display + v;
+           },
+           decimal() {
+             if (this.justCalc) { this.display = '0.'; this.justCalc = false; return; }
+             if (!this.display.includes('.')) this.display += '.';
+           },
+           setOp(o) {
+             this.pending = parseFloat(this.display);
+             this.op = o;
+             this.justCalc = true;
+           },
+           calc() {
+             if (!this.op || this.pending === null) return;
+             const cur = parseFloat(this.display);
+             let r;
+             if (this.op === '+') r = this.pending + cur;
+             else if (this.op === '-') r = this.pending - cur;
+             else if (this.op === '*') r = this.pending * cur;
+             else if (this.op === '/') r = cur !== 0 ? this.pending / cur : 'Error';
+             this.display = r === 'Error' ? 'Error' : String(parseFloat(r.toFixed(10)));
+             this.op = null; this.pending = null; this.justCalc = true;
+           },
+           clear() { this.display = '0'; this.pending = null; this.op = null; this.justCalc = false; },
+           backspace() { if (this.justCalc) return; this.display = this.display.length > 1 ? this.display.slice(0, -1) : '0'; },
+           negate() { this.display = this.display.startsWith('-') ? this.display.slice(1) : (this.display !== '0' ? '-' + this.display : '0'); },
+           pct() { this.display = String(parseFloat(this.display) / 100); }
+         }">
+        <div class="bg-base-300 rounded-lg px-3 py-2 mb-2 text-right font-mono text-xl font-medium truncate select-all min-h-[2.5rem] flex items-center justify-end" x-text="display"></div>
+        <div class="flex flex-col gap-2">
+          <div class="flex gap-1">
+            <button @click="clear()" style="flex:2" class="h-9 flex items-center justify-center text-xs font-semibold text-error bg-base-100 hover:bg-base-300 rounded-lg transition-colors">AC</button>
+            <button @click="negate()" class="flex-1 h-9 flex items-center justify-center text-xs font-semibold bg-base-100 hover:bg-base-300 rounded-lg transition-colors">+/-</button>
+            <button @click="pct()" class="flex-1 h-9 flex items-center justify-center text-xs font-semibold bg-base-100 hover:bg-base-300 rounded-lg transition-colors">%</button>
+          </div>
+          <div class="flex gap-1">
+            <button @click="input(7)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">7</button>
+            <button @click="input(8)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">8</button>
+            <button @click="input(9)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">9</button>
+            <button @click="setOp('/')" class="flex-1 h-9 flex items-center justify-center text-sm font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-lg transition-colors">÷</button>
+          </div>
+          <div class="flex gap-1">
+            <button @click="input(4)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">4</button>
+            <button @click="input(5)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">5</button>
+            <button @click="input(6)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">6</button>
+            <button @click="setOp('*')" class="flex-1 h-9 flex items-center justify-center text-sm font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-lg transition-colors">×</button>
+          </div>
+          <div class="flex gap-1">
+            <button @click="input(1)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">1</button>
+            <button @click="input(2)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">2</button>
+            <button @click="input(3)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">3</button>
+            <button @click="setOp('-')" class="flex-1 h-9 flex items-center justify-center text-sm font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-lg transition-colors">−</button>
+          </div>
+          <div class="flex gap-1">
+            <button @click="input(0)" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">0</button>
+            <button @click="backspace()" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">⌫</button>
+            <button @click="decimal()" class="flex-1 h-9 flex items-center justify-center text-sm bg-base-100 hover:bg-base-300 rounded-lg transition-colors">.</button>
+            <button @click="setOp('+')" class="flex-1 h-9 flex items-center justify-center text-sm font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-lg transition-colors">+</button>
+          </div>
+          <div class="flex">
+            <button @click="calc()" class="flex-1 h-9 flex items-center justify-center text-sm font-bold bg-primary hover:bg-primary/80 text-primary-content rounded-lg transition-colors">=</button>
           </div>
         </div>
       </div>
     </div>
-
-    {# Links section #}
-    <p class="px-3 pt-4 pb-1 mt-4 text-xs font-semibold uppercase tracking-wider text-base-content/40 select-none">Links</p>
-    <a href="https://perryprotech.com/supply-request/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 7h6v6m0-6L10 18" />
-        <path stroke-linecap="round" stroke-linejoin="round" d="M21 3l-6 6" opacity="0" />
-      </svg>
-      Supply Ordering
-    </a>
-    <a href="http://www.cmpaper.com/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 7h6v6m0-6L10 18" />
-        <path stroke-linecap="round" stroke-linejoin="round" d="M21 3l-6 6" opacity="0" />
-      </svg>
-      Paper Ordering
-    </a>
-        <a href="https://perryprotech.com/supply-request/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 7h6v6m0-6L10 18" />
-        <path stroke-linecap="round" stroke-linejoin="round" d="M21 3l-6 6" opacity="0" />
-      </svg>
-      Printer Repair
-    </a>
-    <a href="https://mbgraphic.com/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 7h6v6m0-6L10 18" />
-        <path stroke-linecap="round" stroke-linejoin="round" d="M21 3l-6 6" opacity="0" />
-      </svg>
-      Cutter Repair
-    </a>
-
-  </nav>
-
-  {# ── Bottom: settings + user account ────────────── #}
-  <div class="shrink-0 border-t border-base-300/60 p-2 space-y-0.5">
-
-    {# Theme picker #}
-    <details class="group/theme">
-      <summary class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-base-content/70 hover:bg-base-200 hover:text-base-content transition-colors cursor-pointer list-none select-none">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
-        </svg>
-        Theme
-        <svg xmlns="http://www.w3.org/2000/svg" class="ml-auto h-3.5 w-3.5 opacity-40 transition-transform duration-150 group-open/theme:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-        </svg>
-      </summary>
-      <div class="pl-9 pr-2 pt-0.5 pb-1 flex flex-col gap-0.5">
-        <button data-set-theme="fireman"   class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Default</button>
-        <button data-set-theme="bumblebee" class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Bumblebee</button>
-        <button data-set-theme="cupcake"   class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Cupcake</button>
-        <button data-set-theme="retro"     class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Retro</button>
-        <button data-set-theme="synthwave" class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Synthwave</button>
-        <button data-set-theme="dark"      class="text-left text-sm py-1 px-2 rounded hover:bg-base-200 text-base-content/60 hover:text-base-content transition-colors">Dark</button>
-      </div>
-    </details>
-
-    {% if user.is_authenticated %}
-
-      {# Admin link — staff only #}
-      {% if user.is_staff %}
-      <a href="/admin/"
-         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-base-content/70 hover:bg-base-200 hover:text-base-content transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
-        Admin
-      </a>
-      {% endif %}
-
-      {# Signed-in user label #}
-      <div class="flex items-center gap-2.5 px-3 py-1.5 text-xs text-base-content/40">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-        </svg>
-        <span class="truncate">{{ user.username }}</span>
-      </div>
-
-      {# Sign out #}
-      <form method="post" action="{% url 'logout' %}">
-        {% csrf_token %}
-        <button type="submit"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-error hover:bg-error/10 transition-colors w-full text-left">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-          </svg>
-          Sign Out
-        </button>
-      </form>
-
-    {% else %}
-
-      {# Sign in #}
-      <a href="{% url 'login' %}?next={{ request.path }}"
-         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-base-content/70 hover:bg-base-200 hover:text-base-content transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
-        </svg>
-        Sign In
-      </a>
-
-    {% endif %}
-
   </div>
-
-</aside>
+</div>
 
 {% endwith %}
