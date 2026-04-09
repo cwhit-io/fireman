@@ -1,4 +1,6 @@
 @import "tailwindcss";
+
+[x-cloak] { display: none !important; }
 @plugin "daisyui" {themes: bumblebee --default, cupcake, retro, synthwave, dark --prefersdark;}
 
 [data-theme="fireman"] {

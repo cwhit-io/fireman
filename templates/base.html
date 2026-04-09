@@ -77,7 +77,7 @@
   {# Initialise Alpine store for sidebar open/close state before Alpine boots #}
   <script>
     document.addEventListener('alpine:init', () => {
-      Alpine.store('nav', { open: false });
+      Alpine.store('nav', { open: false, calcOpen: false });
     });
   </script>
   {# Alpine.js — lightweight reactivity for dropdowns, toggles, calculator, etc. #}

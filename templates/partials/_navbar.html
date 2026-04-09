@@ -185,40 +185,22 @@
 </aside>
 
 {# Calculator modal (moved outside sidebar, globally positioned and draggable) #}
-<div x-show="$store.nav && $store.nav.calcOpen" x-cloak x-transition class="fixed inset-0 z-50 flex items-center justify-start pointer-events-none" @keydown.escape.window="$store.nav.calcOpen = false">
-  <div class="pointer-events-auto ml-[20rem]" x-data="{
-    x: localStorage.getItem('calcX') ? parseInt(localStorage.getItem('calcX')) : 100,
-    y: localStorage.getItem('calcY') ? parseInt(localStorage.getItem('calcY')) : 100,
+<div x-data x-show="$store.nav.calcOpen" x-cloak x-transition class="fixed inset-0 z-50 pointer-events-none" @keydown.escape.window="$store.nav.calcOpen = false">
+  <div class="pointer-events-auto" x-data="{
+    x: parseInt(localStorage.getItem('calcX') || '100'),
+    y: parseInt(localStorage.getItem('calcY') || '100'),
     dragging: false,
-    startX: 0,
-    startY: 0,
-    dragStart(e) {
-      this.dragging = true;
-      this.startX = e.clientX - this.x;
-      this.startY = e.clientY - this.y;
-    },
-    dragMove(e) {
-      if (!this.dragging) return;
-      this.x = e.clientX - this.startX;
-      this.y = e.clientY - this.startY;
-    },
-    dragEnd() {
-      if (this.dragging) {
-        localStorage.setItem('calcX', this.x);
-        localStorage.setItem('calcY', this.y);
-      }
-      this.dragging = false;
-    },
-    init() {
-      document.addEventListener('mousemove', (e) => this.dragMove(e));
-      document.addEventListener('mouseup', () => this.dragEnd());
-    }
-  }" @mousedown.window="dragMove($event)" @mouseup.window="dragEnd()" style="position: fixed;" :style="`left: ${x}px; top: ${y}px;`"
-  >
+    ox: 0,
+    oy: 0,
+    dragStart(e) { this.dragging = true; this.ox = e.clientX - this.x; this.oy = e.clientY - this.y; }
+  }"
+  @mousemove.window="if (dragging) { x = $event.clientX - ox; y = $event.clientY - oy; }"
+  @mouseup.window="if (dragging) { localStorage.setItem('calcX', x); localStorage.setItem('calcY', y); dragging = false; }"
+  :style="{ position: 'fixed', left: x + 'px', top: y + 'px' }">
     <div class="bg-base-100 rounded-lg shadow-2xl w-80 p-4" role="dialog" aria-modal="true">
       <div class="flex items-center justify-between mb-2 cursor-move select-none" @mousedown="dragStart">
         <h3 class="text-lg font-semibold">Calculator</h3>
-        <button type="button" @click="$store.nav.calcOpen = false" class="btn btn-ghost btn-xs btn-square">
+        <button type="button" @click="$store.nav.calcOpen = false" @mousedown.stop class="btn btn-ghost btn-xs btn-square">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
@@ -256,7 +238,7 @@
            backspace() { if (this.justCalc) return; this.display = this.display.length > 1 ? this.display.slice(0, -1) : '0'; },
            negate() { this.display = this.display.startsWith('-') ? this.display.slice(1) : (this.display !== '0' ? '-' + this.display : '0'); },
            pct() { this.display = String(parseFloat(this.display) / 100); }
-         }">
+         }" @click.stop>
         <div class="bg-base-300 rounded-lg px-3 py-2 mb-2 text-right font-mono text-xl font-medium truncate select-all min-h-[2.5rem] flex items-center justify-end" x-text="display"></div>
         <div class="flex flex-col gap-2">
           <div class="flex gap-1">
