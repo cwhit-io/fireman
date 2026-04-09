@@ -14,26 +14,57 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-base-100 text-base-content min-h-screen flex flex-col">
+{# Full-height flex row: left sidebar + right content column #}
+<body class="bg-base-100 text-base-content h-dvh flex overflow-hidden">
 
   {# Skip link for keyboard / screen-reader users #}
   <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] btn btn-sm btn-primary">
     Skip to content
   </a>
 
-  {# Sticky navbar injected as a partial #}
+  {# Left sidebar — desktop pinned, mobile slide-in overlay (controlled via Alpine $store.nav) #}
   {% include "partials/_navbar.html" %}
 
-  {# Toast / Django messages overlay #}
-  {% include "partials/_messages.html" %}
+  {# Mobile backdrop — dims content and closes sidebar on tap #}
+  <div x-data
+       x-show="$store.nav && $store.nav.open"
+       @click="$store.nav.open = false"
+       class="fixed inset-0 bg-black/40 z-30 sm:hidden"
+       x-transition:enter="transition ease-out duration-150"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-100"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       aria-hidden="true">
+  </div>
 
-  {# Page content — grows to fill available vertical space #}
-  <main id="main-content" class="flex-1 {% block main_class %}{% endblock %}">
-    {% block content %}{% endblock %}
-  </main>
+  {# Right column: mobile top bar + messages + main content + footer #}
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-  {# Site footer #}
-  {% include "partials/_footer.html" %}
+    {# Mobile-only top bar with hamburger and brand #}
+    <div x-data class="sm:hidden flex-none h-12 px-4 flex items-center gap-3 border-b border-base-300/60 bg-base-100 shrink-0">
+      <button @click="$store.nav.open = true"
+              class="btn btn-ghost btn-sm btn-square"
+              aria-label="Open navigation">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7"/>
+        </svg>
+      </button>
+      <a href="{% url 'homepage' %}" class="flex items-center gap-2">
+        <img src="{% static 'logo.png' %}" alt="Ember" class="h-8" />
+      </a>
+    </div>
+
+    {# Toast / Django messages overlay #}
+    {% include "partials/_messages.html" %}
+
+    {# Page content — scrolls when content overflows; pages can override via main_class block #}
+    <main id="main-content" class="flex-1 {% block main_class %}overflow-y-auto{% endblock %}">
+      {% block content %}{% endblock %}
+    </main>
+
+  </div>
 
   {# htmx — declarative AJAX without writing JS #}
   <script src="{% static 'js/htmx.min.js' %}"></script>
@@ -43,7 +74,13 @@
       evt.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
     });
   </script>
-  {# Alpine.js — lightweight reactivity for dropdowns, toggles, etc. #}
+  {# Initialise Alpine store for sidebar open/close state before Alpine boots #}
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.store('nav', { open: false });
+    });
+  </script>
+  {# Alpine.js — lightweight reactivity for dropdowns, toggles, calculator, etc. #}
   <script defer src="{% static 'js/alpine.min.js' %}"></script>
   {# DaisyUI theme controller — enables theme switching #}
   <script src="{% static 'js/theme.js' %}"></script>

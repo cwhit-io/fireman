@@ -1,274 +1,214 @@
 {% extends "base.html" %}
 
+{% block main_class %}overflow-hidden{% endblock %}
+
 {% block content %}
 {# Hidden form solely to render the CSRF token for JS fetch calls #}
 <form id="csrf-form" hidden>{% csrf_token %}</form>
-<div class="p-6 min-h-screen">
-  <h1 class="text-4xl font-bold mb-8 text-center">QR Code Generator</h1>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    <!-- Main Controls -->
-    <div class="lg:col-span-2 space-y-6">
-      <!-- Data Type Tabs -->
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <div class="tabs tabs-bordered w-full">
-            <input type="radio" name="data_type" class="tab" aria-label="URL" value="url" checked onchange="switchTab('url')" />
-            <input type="radio" name="data_type" class="tab" aria-label="Text" value="text" onchange="switchTab('text')" />
-            <input type="radio" name="data_type" class="tab" aria-label="Email" value="email" onchange="switchTab('email')" />
-            <input type="radio" name="data_type" class="tab" aria-label="vCard" value="vcard" onchange="switchTab('vcard')" />
-            <input type="radio" name="data_type" class="tab" aria-label="WiFi" value="wifi" onchange="switchTab('wifi')" />
-          </div>
+<div class="flex overflow-hidden" style="height:100dvh">
 
-          <!-- URL Tab -->
-          <div id="tab-url" class="tab-content mt-4">
-            <div class="form-control mb-4">
-              <label class="label">
-                <span class="label-text font-medium">URL</span>
-              </label>
-              <input type="url" id="url-input" placeholder="https://example.com" class="input input-bordered" oninput="debouncedUpdatePreview()" />
-            </div>
-          </div>
+  <!-- ── Left: scrollable controls ── -->
+  <div class="w-80 shrink-0 overflow-y-auto border-r border-base-300 p-3 space-y-3 bg-base-100">
 
-          <!-- Text Tab -->
-          <div id="tab-text" class="tab-content mt-4 hidden">
-            <div class="form-control mb-4">
-              <label class="label">
-                <span class="label-text font-medium">Text</span>
-              </label>
-              <textarea id="text-input" placeholder="Enter any text" class="textarea textarea-bordered h-24" oninput="debouncedUpdatePreview()"></textarea>
-            </div>
-          </div>
+    <h1 class="text-lg font-bold leading-tight">QR Generator</h1>
 
-          <!-- Email Tab -->
-          <div id="tab-email" class="tab-content mt-4 hidden">
-            <div class="form-control mb-4">
-              <label class="label">
-                <span class="label-text font-medium">Email Address</span>
-              </label>
-              <input type="email" id="email-input" placeholder="user@example.com" class="input input-bordered" oninput="debouncedUpdatePreview()" />
-            </div>
-            <div class="form-control mb-4">
-              <label class="label">
-                <span class="label-text font-medium">Subject (optional)</span>
-              </label>
-              <input type="text" id="email-subject" placeholder="Email subject" class="input input-bordered" oninput="debouncedUpdatePreview()" />
-            </div>
-          </div>
-
-          <!-- vCard Tab -->
-          <div id="tab-vcard" class="tab-content mt-4 hidden">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="form-control">
-                <label class="label"><span class="label-text font-medium">First Name</span></label>
-                <input type="text" id="vcard-fn" class="input input-bordered" oninput="debouncedUpdatePreview()" />
-              </div>
-              <div class="form-control">
-                <label class="label"><span class="label-text font-medium">Last Name</span></label>
-                <input type="text" id="vcard-ln" class="input input-bordered" oninput="debouncedUpdatePreview()" />
-              </div>
-              <div class="form-control">
-                <label class="label"><span class="label-text font-medium">Phone</span></label>
-                <input type="tel" id="vcard-phone" class="input input-bordered" oninput="debouncedUpdatePreview()" />
-              </div>
-              <div class="form-control">
-                <label class="label"><span class="label-text font-medium">Email</span></label>
-                <input type="email" id="vcard-email" class="input input-bordered" oninput="debouncedUpdatePreview()" />
-              </div>
-            </div>
-          </div>
-
-          <!-- WiFi Tab -->
-          <div id="tab-wifi" class="tab-content mt-4 hidden">
-            <div class="form-control mb-4">
-              <label class="label"><span class="label-text font-medium">Network SSID</span></label>
-              <input type="text" id="wifi-ssid" placeholder="Network name" class="input input-bordered" oninput="debouncedUpdatePreview()" />
-            </div>
-            <div class="form-control mb-4">
-              <label class="label"><span class="label-text font-medium">Password</span></label>
-              <input type="password" id="wifi-password" placeholder="WiFi password" class="input input-bordered" oninput="debouncedUpdatePreview()" />
-            </div>
-            <div class="form-control mb-4">
-              <label class="label"><span class="label-text font-medium">Security</span></label>
-              <select id="wifi-security" class="select select-bordered" onchange="updatePreview()">
-                <option value="WPA">WPA/WPA2</option>
-                <option value="WEP">WEP</option>
-                <option value="nopass">Open</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Customization Accordions -->
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <!-- Set Colors -->
-          <div class="collapse collapse-arrow border border-base-300 mb-2">
-            <input type="checkbox" />
-            <div class="collapse-title font-semibold">🎨 Set Colors</div>
-            <div class="collapse-content grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="form-control">
-                <label class="label"><span class="label-text">Foreground Color</span></label>
-                <input type="color" id="fg-color" value="#000000" class="input input-bordered h-12" oninput="updatePreview()" />
-              </div>
-              <div class="form-control">
-                <label class="label"><span class="label-text">Background Color</span></label>
-                <input type="color" id="bg-color" value="#FFFFFF" class="input input-bordered h-12" oninput="updatePreview()" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Add Logo -->
-          <div class="collapse collapse-arrow border border-base-300 mb-2">
-            <input type="checkbox" />
-            <div class="collapse-title font-semibold">🖼️ Add Logo Image</div>
-            <div class="collapse-content space-y-4">
-              <div class="form-control">
-                <label class="label"><span class="label-text">Upload Logo</span></label>
-                <input type="file" id="logo-input" accept="image/*" class="file-input file-input-bordered" onchange="uploadLogo()" />
-              </div>
-              <div id="logo-preview" class="hidden">
-                <img id="logo-preview-img" class="max-w-24 max-h-24 rounded border border-base-300" />
-                <button type="button" onclick="removeLogo()" class="btn btn-sm btn-error mt-2">Remove Logo</button>
-              </div>
-              <div class="form-control">
-                <label class="label"><span class="label-text">Logo Position</span></label>
-                <select id="logo-position" class="select select-bordered" onchange="updatePreview()">
-                  <option value="center">Center</option>
-                  <option value="top">Top</option>
-                  <option value="bottom">Bottom</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- Customize Design -->
-          <div class="collapse collapse-arrow border border-base-300">
-            <input type="checkbox" />
-            <div class="collapse-title font-semibold">⚙️ Customize Design</div>
-            <div class="collapse-content space-y-4">
-              <div class="form-control">
-                <label class="label"><span class="label-text">Module Style</span></label>
-                <select id="style-select" class="select select-bordered" onchange="updatePreview()">
-                  <option value="square">Squares</option>
-                  <option value="circle">Dots</option>
-                  <option value="rounded">Rounded</option>
-                </select>
-              </div>
-              <div class="form-control">
-                <label class="label"><span class="label-text">Preview / Download Format</span></label>
-                <div class="join w-full">
-                  <input type="radio" name="qr-format" value="png" class="join-item btn btn-sm flex-1" aria-label="PNG" checked onchange="updatePreview()" />
-                  <input type="radio" name="qr-format" value="svg" class="join-item btn btn-sm flex-1" aria-label="SVG" onchange="updatePreview()" />
-                  <input type="radio" name="qr-format" value="pdf" class="join-item btn btn-sm flex-1" aria-label="PDF" onchange="updatePreview()" />
-                </div>
-              </div>
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Quality / Size</span>
-                  <span class="label-text-alt" id="quality-value">10</span>
-                </label>
-                <input type="range" id="quality-slider" min="5" max="20" value="10" class="range" oninput="debouncedUpdatePreview()" />
-                <div class="flex justify-between text-xs px-2">
-                  <span>Low</span>
-                  <span>High</span>
-                </div>
-              </div>
-              <div class="form-control">
-                <label class="label"><span class="label-text">Size (pixels)</span></label>
-                <input type="number" id="size-input" min="100" max="1000" value="300" class="input input-bordered" oninput="debouncedUpdatePreview()" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- Data Type Tabs -->
+    <div class="tabs tabs-bordered tabs-sm w-full">
+      <input type="radio" name="data_type" class="tab text-xs" aria-label="URL"   value="url"   checked onchange="switchTab('url')" />
+      <input type="radio" name="data_type" class="tab text-xs" aria-label="Text"  value="text"  onchange="switchTab('text')" />
+      <input type="radio" name="data_type" class="tab text-xs" aria-label="Email" value="email" onchange="switchTab('email')" />
+      <input type="radio" name="data_type" class="tab text-xs" aria-label="vCard" value="vcard" onchange="switchTab('vcard')" />
+      <input type="radio" name="data_type" class="tab text-xs" aria-label="WiFi"  value="wifi"  onchange="switchTab('wifi')" />
     </div>
 
-    <!-- Live Preview Pane -->
-    <div class="lg:col-span-1">
-      <div class="card bg-base-100 shadow-xl sticky top-6">
-        <div class="card-body">
-          <h2 class="card-title text-lg mb-4">Preview</h2>
-          <div id="preview-container" class="flex justify-center items-center bg-base-200 rounded-lg p-4 min-h-80">
-            <div class="loading loading-spinner loading-lg"></div>
-          </div>
+    <!-- URL -->
+    <div id="tab-url">
+      <input type="url" id="url-input" placeholder="https://example.com" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+    </div>
 
-          <!-- Download Buttons -->
-          <div class="card-actions justify-center mt-4 flex-wrap gap-2">
-            <a id="download-png" href="#" download="qr-code.png" class="btn btn-sm btn-outline">
-              📥 PNG
-            </a>
-            <a id="download-svg" href="#" download="qr-code.svg" class="btn btn-sm btn-outline">
-              📥 SVG
-            </a>
-            <a id="download-pdf" href="#" download="qr-code.pdf" class="btn btn-sm btn-outline">
-              📥 PDF
-            </a>
-          </div>
+    <!-- Text -->
+    <div id="tab-text" class="hidden">
+      <textarea id="text-input" placeholder="Enter any text" class="textarea textarea-bordered textarea-sm w-full h-20" oninput="debouncedUpdatePreview()"></textarea>
+    </div>
+
+    <!-- Email -->
+    <div id="tab-email" class="hidden space-y-1">
+      <input type="email" id="email-input" placeholder="user@example.com" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+      <input type="text"  id="email-subject" placeholder="Subject (optional)" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+    </div>
+
+    <!-- vCard -->
+    <div id="tab-vcard" class="hidden grid grid-cols-2 gap-1">
+      <input type="text"  id="vcard-fn"    placeholder="First name" class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
+      <input type="text"  id="vcard-ln"    placeholder="Last name"  class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
+      <input type="tel"   id="vcard-phone" placeholder="Phone"      class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
+      <input type="email" id="vcard-email" placeholder="Email"      class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
+    </div>
+
+    <!-- WiFi -->
+    <div id="tab-wifi" class="hidden space-y-1">
+      <input type="text"     id="wifi-ssid"     placeholder="Network SSID"  class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+      <input type="password" id="wifi-password" placeholder="Password"      class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+      <select id="wifi-security" class="select select-bordered select-sm w-full" onchange="updatePreview()">
+        <option value="WPA">WPA/WPA2</option>
+        <option value="WEP">WEP</option>
+        <option value="nopass">Open</option>
+      </select>
+    </div>
+
+    <div class="divider my-1"></div>
+
+    <!-- ── Colors ── -->
+    <details class="group">
+      <summary class="cursor-pointer text-sm font-semibold select-none list-none flex items-center justify-between">
+        <span>🎨 Colors</span>
+        <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="mt-2 grid grid-cols-2 gap-2">
+        <div>
+          <label class="label py-0.5"><span class="label-text text-xs">Foreground</span></label>
+          <input type="color" id="fg-color" value="#000000" class="input input-bordered input-sm h-9 w-full p-1 cursor-pointer" oninput="updatePreview()" />
+        </div>
+        <div>
+          <label class="label py-0.5"><span class="label-text text-xs">Background</span></label>
+          <input type="color" id="bg-color" value="#FFFFFF" class="input input-bordered input-sm h-9 w-full p-1 cursor-pointer" oninput="updatePreview()" />
         </div>
       </div>
+    </details>
+
+    <!-- ── Logo ── -->
+    <details class="group">
+      <summary class="cursor-pointer text-sm font-semibold select-none list-none flex items-center justify-between">
+        <span>🖼️ Logo</span>
+        <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="mt-2 space-y-2">
+        <input type="file" id="logo-input" accept="image/*" class="file-input file-input-bordered file-input-sm w-full" onchange="uploadLogo()" />
+        <div id="logo-preview" class="hidden flex items-center gap-2">
+          <img id="logo-preview-img" class="w-12 h-12 rounded border border-base-300 object-contain" />
+          <button type="button" onclick="removeLogo()" class="btn btn-xs btn-error">Remove</button>
+        </div>
+        <div>
+          <label class="label py-0.5"><span class="label-text text-xs">Position</span></label>
+          <select id="logo-position" class="select select-bordered select-sm w-full" onchange="updatePreview()">
+            <option value="center">Center</option>
+            <option value="top">Top</option>
+            <option value="bottom">Bottom</option>
+          </select>
+        </div>
+      </div>
+    </details>
+
+    <!-- ── Design ── -->
+    <details class="group" open>
+      <summary class="cursor-pointer text-sm font-semibold select-none list-none flex items-center justify-between">
+        <span>⚙️ Design</span>
+        <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="mt-2 space-y-2">
+        <div>
+          <label class="label py-0.5"><span class="label-text text-xs">Style</span></label>
+          <select id="style-select" class="select select-bordered select-sm w-full" onchange="updatePreview()">
+            <option value="square">Squares</option>
+            <option value="circle">Dots</option>
+            <option value="rounded">Rounded</option>
+          </select>
+        </div>
+        <div>
+          <label class="label py-0.5"><span class="label-text text-xs">Format</span></label>
+          <div class="join w-full">
+            <input type="radio" name="qr-format" value="png" class="join-item btn btn-xs flex-1" aria-label="PNG" checked onchange="updatePreview()" />
+            <input type="radio" name="qr-format" value="svg" class="join-item btn btn-xs flex-1" aria-label="SVG" onchange="updatePreview()" />
+            <input type="radio" name="qr-format" value="pdf" class="join-item btn btn-xs flex-1" aria-label="PDF" onchange="updatePreview()" />
+          </div>
+        </div>
+        <div>
+          <label class="label py-0.5">
+            <span class="label-text text-xs">Quality</span>
+            <span class="label-text-alt text-xs" id="quality-value">10</span>
+          </label>
+          <input type="range" id="quality-slider" min="5" max="20" value="10" class="range range-sm" oninput="debouncedUpdatePreview()" />
+          <div class="flex justify-between text-xs text-base-content/40 px-1"><span>Low</span><span>High</span></div>
+        </div>
+        <div>
+          <label class="label py-0.5"><span class="label-text text-xs">Output size (px)</span></label>
+          <input type="number" id="size-input" min="100" max="1000" value="300" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+        </div>
+      </div>
+    </details>
+
+  </div><!-- /left -->
+
+  <!-- ── Right: preview (always visible) ── -->
+  <div class="flex-1 flex flex-col items-center justify-center gap-4 p-6 bg-base-200/40">
+
+    <div id="preview-container" class="flex items-center justify-center bg-base-100 rounded-2xl shadow-lg"
+         style="width:min(100%,320px);height:min(calc(100dvh - 10rem),320px)">
+      <div class="loading loading-spinner loading-lg"></div>
     </div>
-  </div>
-</div>
+
+    <!-- Download buttons -->
+    <div class="flex gap-2 flex-wrap justify-center">
+      <a id="download-png" href="#" download="qr-code.png" class="btn btn-sm btn-outline gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        PNG
+      </a>
+      <a id="download-svg" href="#" download="qr-code.svg" class="btn btn-sm btn-outline gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        SVG
+      </a>
+      <a id="download-pdf" href="#" download="qr-code.pdf" class="btn btn-sm btn-outline gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        PDF
+      </a>
+    </div>
+
+  </div><!-- /right -->
+
+</div><!-- /flex -->
 
 <script>
   let currentLogoId = null;
 
-  // --- Utility ---
   function debounce(fn, delay) {
     let timer;
-    return function(...args) {
-      clearTimeout(timer);
-      timer = setTimeout(() => fn.apply(this, args), delay);
-    };
+    return function(...args) { clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), delay); };
   }
   const debouncedUpdatePreview = debounce(updatePreview, 400);
 
-  // --- Tabs ---
   function switchTab(tabName) {
-    document.querySelectorAll('[id^="tab-"]').forEach(tab => tab.classList.add('hidden'));
-    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+    ['url','text','email','vcard','wifi'].forEach(t => {
+      document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tabName);
+    });
     updatePreview();
   }
 
-  // --- Build QR payload string from the active tab ---
   function getQRData() {
     const activeTab = document.querySelector('input[name="data_type"]:checked').value;
-    let data = '';
     switch (activeTab) {
-      case 'url':
-        data = document.getElementById('url-input').value;
-        break;
-      case 'text':
-        data = document.getElementById('text-input').value;
-        break;
+      case 'url':   return document.getElementById('url-input').value;
+      case 'text':  return document.getElementById('text-input').value;
       case 'email': {
-        const email = document.getElementById('email-input').value;
-        const subject = document.getElementById('email-subject').value;
-        data = `mailto:${email}${subject ? '?subject=' + encodeURIComponent(subject) : ''}`;
-        break;
+        const e = document.getElementById('email-input').value;
+        const s = document.getElementById('email-subject').value;
+        return `mailto:${e}${s ? '?subject=' + encodeURIComponent(s) : ''}`;
       }
       case 'vcard': {
         const fn = document.getElementById('vcard-fn').value;
         const ln = document.getElementById('vcard-ln').value;
-        const phone = document.getElementById('vcard-phone').value;
-        const vemail = document.getElementById('vcard-email').value;
-        data = `BEGIN:VCARD\nVERSION:3.0\nFN:${fn} ${ln}\nTEL:${phone}\nEMAIL:${vemail}\nEND:VCARD`;
-        break;
+        return `BEGIN:VCARD\nVERSION:3.0\nFN:${fn} ${ln}\nTEL:${document.getElementById('vcard-phone').value}\nEMAIL:${document.getElementById('vcard-email').value}\nEND:VCARD`;
       }
       case 'wifi': {
-        const ssid = document.getElementById('wifi-ssid').value;
-        const password = document.getElementById('wifi-password').value;
-        const security = document.getElementById('wifi-security').value;
-        data = `WIFI:T:${security};S:${ssid};P:${password};;`;
-        break;
+        const s = document.getElementById('wifi-ssid').value;
+        const p = document.getElementById('wifi-password').value;
+        const t = document.getElementById('wifi-security').value;
+        return `WIFI:T:${t};S:${s};P:${p};;`;
       }
+      default: return '';
     }
-    return data;
   }
 
-  // --- Preview ---
   function getSelectedFormat() {
     return document.querySelector('input[name="qr-format"]:checked')?.value || 'png';
   }
@@ -277,7 +217,7 @@
     const data = getQRData();
     if (!data.trim()) {
       document.getElementById('preview-container').innerHTML =
-        '<span class="text-base-content/50">Enter data to see preview</span>';
+        '<span class="text-base-content/40 text-sm">Enter data above</span>';
       return;
     }
 
@@ -297,85 +237,62 @@
     };
 
     document.getElementById('preview-container').innerHTML =
-      '<div class="loading loading-spinner loading-lg"></div>';
+      '<div class="loading loading-spinner loading-md"></div>';
 
     fetch('{% url "api_generate_preview" %}', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-      },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
       body: JSON.stringify(payload),
     })
     .then(r => r.json())
     .then(result => {
       if (result.error) {
-        document.getElementById('preview-container').innerHTML =
-          `<span class="text-error">${result.error}</span>`;
+        document.getElementById('preview-container').innerHTML = `<span class="text-error text-sm">${result.error}</span>`;
         return;
       }
-
       let preview;
       if (result.format === 'svg') {
-        preview = result.data;
+        preview = `<div class="w-full h-full flex items-center justify-center p-2">${result.data}</div>`;
       } else if (result.format === 'pdf') {
-        preview = `<embed src="${result.data}" type="application/pdf" class="w-full" style="min-height:300px" />`;
+        preview = `<embed src="${result.data}" type="application/pdf" class="w-full h-full rounded-xl" />`;
       } else {
-        preview = `<img src="${result.data}" class="max-w-full h-auto rounded" />`;
+        preview = `<img src="${result.data}" class="max-w-full max-h-full object-contain rounded-xl p-2" />`;
       }
       document.getElementById('preview-container').innerHTML = preview;
-
       updateDownloadLinks(payload);
     })
     .catch(() => {
       document.getElementById('preview-container').innerHTML =
-        '<span class="text-error">Failed to generate preview</span>';
+        '<span class="text-error text-sm">Failed to generate preview</span>';
     });
   }
 
-  // --- Download links — all point to the GET qr_image endpoint ---
   function updateDownloadLinks(payload) {
     const base = new URLSearchParams({
-      data: payload.data,
-      size: payload.size,
-      quality: payload.quality,
-      style: payload.style,
-      fg_color: payload.fg_color,
-      bg_color: payload.bg_color,
+      data: payload.data, size: payload.size, quality: payload.quality,
+      style: payload.style, fg_color: payload.fg_color, bg_color: payload.bg_color,
       logo_position: payload.logo_position,
       ...(payload.logo_id ? { logo_id: payload.logo_id } : {}),
     });
-
-    const imageBase = '{% url "qr_image" %}';
-    document.getElementById('download-png').href = `${imageBase}?${base}&format=png`;
-    document.getElementById('download-svg').href = `${imageBase}?${base}&format=svg`;
-    document.getElementById('download-pdf').href = `${imageBase}?${base}&format=pdf`;
+    const root = '{% url "qr_image" %}';
+    document.getElementById('download-png').href = `${root}?${base}&format=png`;
+    document.getElementById('download-svg').href = `${root}?${base}&format=svg`;
+    document.getElementById('download-pdf').href = `${root}?${base}&format=pdf`;
   }
 
-  // --- Logo upload ---
   function uploadLogo() {
     const file = document.getElementById('logo-input').files[0];
     if (!file) return;
-
-    const formData = new FormData();
-    formData.append('logo', file);
-
+    const fd = new FormData();
+    fd.append('logo', file);
     fetch('{% url "upload_logo" %}', {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-      },
+      method: 'POST', body: fd,
+      headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
     })
     .then(r => r.json())
-    .then(data => {
-      if (data.logo_id) {
-        currentLogoId = data.logo_id;
-        showLogoPreview(file);
-        updatePreview();
-      } else {
-        alert('Upload failed: ' + (data.error || 'Unknown error'));
-      }
+    .then(d => {
+      if (d.logo_id) { currentLogoId = d.logo_id; showLogoPreview(file); updatePreview(); }
+      else alert('Upload failed: ' + (d.error || 'Unknown error'));
     })
     .catch(() => alert('Upload failed'));
   }

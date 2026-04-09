@@ -786,7 +786,7 @@
 
 {# ── Sticky Bottom Action Bar ── #}
 {% if job.imposed_file %}
-<div class="fixed bottom-0 left-0 right-0 z-40 bg-neutral text-neutral-content border-t border-base-300 shadow-lg"
+<div class="fixed bottom-0 left-0 sm:left-56 right-0 z-40 bg-neutral text-neutral-content border-t border-base-300 shadow-lg"
      role="region" aria-label="Action toolbar">
   <div class="max-w-4xl mx-auto px-4 py-3 flex gap-3 items-center justify-end flex-wrap">
     <a href="{% url 'jobs:preview' job.pk %}" target="_blank" class="btn btn-ghost">Preview PDF</a>
