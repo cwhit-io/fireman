@@ -6,85 +6,326 @@
 {# Hidden form solely to render the CSRF token for JS fetch calls #}
 <form id="csrf-form" hidden>{% csrf_token %}</form>
 
+<style>
+  .qr-control-pane {
+    scrollbar-gutter: stable;
+  }
+
+  /* ── Section cards ── */
+  .qr-section {
+    border: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+    border-radius: 1.1rem;
+    background: color-mix(in srgb, currentColor 2%, transparent);
+    padding: 0.9rem 1rem;
+  }
+  .qr-section-body {
+    margin-top: 0.85rem;
+  }
+
+  /* ── Shape pickers ── */
+  .qr-style-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+  .qr-style-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+    border-radius: 0.95rem;
+    padding: 0.45rem 0.3rem;
+    background: color-mix(in srgb, currentColor 2%, transparent);
+    transition: border-color 160ms ease, transform 160ms ease, background-color 160ms ease;
+    cursor: pointer;
+  }
+  .qr-style-option:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, currentColor 26%, transparent);
+    background: color-mix(in srgb, currentColor 4%, transparent);
+  }
+  .qr-style-option.is-selected {
+    border-color: hsl(var(--p));
+    box-shadow: 0 0 0 2px color-mix(in srgb, hsl(var(--p)) 22%, transparent);
+    background: color-mix(in srgb, hsl(var(--p)) 7%, transparent);
+  }
+  .qr-style-preview {
+    width: 2.85rem;
+    height: 2.85rem;
+    border-radius: 0.75rem;
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    padding: 0.3rem;
+  }
+  .qr-style-option span {
+    font-size: 0.62rem;
+    line-height: 0.95rem;
+    color: color-mix(in srgb, currentColor 70%, transparent);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  /* ── Color controls ── */
+  .qr-color-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .qr-color-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .qr-color-label {
+    font-size: 0.72rem;
+    color: color-mix(in srgb, currentColor 68%, transparent);
+    font-weight: 500;
+    padding-left: 0.2rem;
+  }
+  /* The clickable color row: [tile | hex text input] */
+  .color-display {
+    display: flex;
+    align-items: stretch;
+    height: 3rem;
+    border-radius: 0.85rem;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, currentColor 11%, transparent);
+    background: color-mix(in srgb, currentColor 1%, white);
+  }
+  .color-tile {
+    width: 4rem;
+    min-width: 4rem;
+    border-right: 1px solid color-mix(in srgb, currentColor 11%, transparent);
+    cursor: pointer;
+    transition: opacity 120ms ease;
+  }
+  .color-tile:hover {
+    opacity: 0.85;
+  }
+  .color-code {
+    flex: 1;
+    font-size: 0.82rem;
+    font-family: ui-monospace, 'Cascadia Code', monospace;
+    color: color-mix(in srgb, currentColor 84%, transparent);
+    letter-spacing: 0.04em;
+    border: 0;
+    background: transparent;
+    padding: 0 0.9rem;
+    height: 100%;
+  }
+  .color-code:focus {
+    outline: none;
+  }
+  /* Row that holds a color-display + optional action button */
+  .color-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+  .color-row .color-display {
+    flex: 1;
+  }
+  .color-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 3rem;
+    padding: 0 0.85rem;
+    border-radius: 0.85rem;
+    border: 1px solid color-mix(in srgb, currentColor 11%, transparent);
+    background: color-mix(in srgb, currentColor 2%, transparent);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease;
+  }
+  .color-action-btn:hover {
+    background: color-mix(in srgb, currentColor 5%, transparent);
+    border-color: color-mix(in srgb, currentColor 20%, transparent);
+  }
+
+  /* ── Color mode radios / checkbox row ── */
+  .qr-mode-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.1rem;
+    align-items: center;
+    padding: 0.2rem 0;
+  }
+  .qr-mode-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    cursor: pointer;
+    color: color-mix(in srgb, currentColor 88%, transparent);
+  }
+
+  /* ── Hidden native color picker ── */
+  .visually-hidden-color {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+  }
+
+  @media (max-width: 980px) {
+    .qr-style-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  @media (max-width: 520px) {
+    .qr-style-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .qr-color-grid { grid-template-columns: 1fr; }
+    .color-row { flex-direction: column; }
+    .color-action-btn { height: 2.6rem; }
+  }
+</style>
+
 <div class="flex overflow-hidden" style="height:100dvh">
 
   <!-- ── Left: scrollable controls ── -->
-  <div class="w-80 shrink-0 overflow-y-auto border-r border-base-300 pt-8 px-3 pb-3 space-y-3 bg-base-100">
-    <div class="mb-6">
+  <div class="qr-control-pane w-full max-w-[42rem] shrink-0 overflow-y-auto border-r border-base-300 pt-6 px-4 pb-8 space-y-3 bg-base-100 md:w-[40rem]">
 
-      <h1 class="text-3xl font-extrabold tracking-tight">QR Generator</h1>
-    </div>
-    <!-- Data Type Tabs -->
-    <div class="tabs tabs-bordered tabs-sm w-full">
-      <input type="radio" name="data_type" class="tab text-xs" aria-label="URL"   value="url"   checked onchange="switchTab('url')" />
-      <input type="radio" name="data_type" class="tab text-xs" aria-label="Text"  value="text"  onchange="switchTab('text')" />
-      <input type="radio" name="data_type" class="tab text-xs" aria-label="Email" value="email" onchange="switchTab('email')" />
-      <input type="radio" name="data_type" class="tab text-xs" aria-label="vCard" value="vcard" onchange="switchTab('vcard')" />
-      <input type="radio" name="data_type" class="tab text-xs" aria-label="WiFi"  value="wifi"  onchange="switchTab('wifi')" />
+    <div class="px-1 pb-1">
+      <h1 class="text-2xl font-extrabold tracking-tight">QR Generator</h1>
     </div>
 
-    <!-- URL -->
-    <div id="tab-url">
-      <input type="url" id="url-input" placeholder="https://example.com" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
-    </div>
+    <!-- ── Data input ── -->
+    <div class="qr-section space-y-3">
+      <!-- Data type tabs -->
+      <div class="tabs tabs-bordered tabs-sm w-full">
+        <input type="radio" name="data_type" class="tab text-xs" aria-label="URL"   value="url"   checked onchange="switchTab('url')" />
+        <input type="radio" name="data_type" class="tab text-xs" aria-label="Text"  value="text"  onchange="switchTab('text')" />
+        <input type="radio" name="data_type" class="tab text-xs" aria-label="Email" value="email" onchange="switchTab('email')" />
+        <input type="radio" name="data_type" class="tab text-xs" aria-label="vCard" value="vcard" onchange="switchTab('vcard')" />
+        <input type="radio" name="data_type" class="tab text-xs" aria-label="WiFi"  value="wifi"  onchange="switchTab('wifi')" />
+      </div>
 
-    <!-- Text -->
-    <div id="tab-text" class="hidden">
-      <textarea id="text-input" placeholder="Enter any text" class="textarea textarea-bordered textarea-sm w-full h-20" oninput="debouncedUpdatePreview()"></textarea>
+      <!-- URL -->
+      <div id="tab-url">
+        <input type="url" id="url-input" placeholder="https://example.com" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+      </div>
+      <!-- Text -->
+      <div id="tab-text" class="hidden">
+        <textarea id="text-input" placeholder="Enter any text" class="textarea textarea-bordered textarea-sm w-full h-20" oninput="debouncedUpdatePreview()"></textarea>
+      </div>
+      <!-- Email -->
+      <div id="tab-email" class="hidden space-y-1">
+        <input type="email" id="email-input"   placeholder="user@example.com"   class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+        <input type="text"  id="email-subject" placeholder="Subject (optional)" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+      </div>
+      <!-- vCard -->
+      <div id="tab-vcard" class="hidden grid grid-cols-2 gap-1">
+        <input type="text"  id="vcard-fn"    placeholder="First name" class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
+        <input type="text"  id="vcard-ln"    placeholder="Last name"  class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
+        <input type="tel"   id="vcard-phone" placeholder="Phone"      class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
+        <input type="email" id="vcard-email" placeholder="Email"      class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
+      </div>
+      <!-- WiFi -->
+      <div id="tab-wifi" class="hidden space-y-1">
+        <input type="text"     id="wifi-ssid"     placeholder="Network SSID" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+        <input type="password" id="wifi-password" placeholder="Password"     class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+        <select id="wifi-security" class="select select-bordered select-sm w-full" onchange="updatePreview()">
+          <option value="WPA">WPA/WPA2</option>
+          <option value="WEP">WEP</option>
+          <option value="nopass">Open</option>
+        </select>
+      </div>
     </div>
-
-    <!-- Email -->
-    <div id="tab-email" class="hidden space-y-1">
-      <input type="email" id="email-input" placeholder="user@example.com" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
-      <input type="text"  id="email-subject" placeholder="Subject (optional)" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
-    </div>
-
-    <!-- vCard -->
-    <div id="tab-vcard" class="hidden grid grid-cols-2 gap-1">
-      <input type="text"  id="vcard-fn"    placeholder="First name" class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
-      <input type="text"  id="vcard-ln"    placeholder="Last name"  class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
-      <input type="tel"   id="vcard-phone" placeholder="Phone"      class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
-      <input type="email" id="vcard-email" placeholder="Email"      class="input input-bordered input-sm" oninput="debouncedUpdatePreview()" />
-    </div>
-
-    <!-- WiFi -->
-    <div id="tab-wifi" class="hidden space-y-1">
-      <input type="text"     id="wifi-ssid"     placeholder="Network SSID"  class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
-      <input type="password" id="wifi-password" placeholder="Password"      class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
-      <select id="wifi-security" class="select select-bordered select-sm w-full" onchange="updatePreview()">
-        <option value="WPA">WPA/WPA2</option>
-        <option value="WEP">WEP</option>
-        <option value="nopass">Open</option>
-      </select>
-    </div>
-
-    <div class="divider my-1"></div>
 
     <!-- ── Colors ── -->
-    <details class="group">
-      <summary class="cursor-pointer text-sm font-semibold select-none list-none flex items-center justify-between">
-        <span>🎨 Colors</span>
-        <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+    <details class="group qr-section" open>
+      <summary class="cursor-pointer select-none list-none flex items-center justify-between">
+        <span class="text-sm font-semibold">🎨 Colors</span>
+        <svg class="w-4 h-4 transition-transform group-open:rotate-180 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
       </summary>
-      <div class="mt-2 grid grid-cols-2 gap-2">
-        <div>
-          <label class="label py-0.5"><span class="label-text text-xs">Foreground</span></label>
-          <input type="color" id="fg-color" value="#000000" class="input input-bordered input-sm h-9 w-full p-1 cursor-pointer" oninput="updatePreview()" />
+      <div class="qr-section-body space-y-3">
+
+        <!-- Color mode -->
+        <div class="qr-mode-row">
+          <label class="qr-mode-chip"><input type="radio" name="color-mode" id="mode-single"   value="single"   checked onchange="syncColorMode(); updatePreview()" /> <span>Single Color</span></label>
+          <label class="qr-mode-chip"><input type="radio" name="color-mode" id="mode-gradient" value="gradient"         onchange="syncColorMode(); updatePreview()" /> <span>Color Gradient</span></label>
+          <label class="qr-mode-chip"><input type="checkbox" id="custom-eye-checkbox" onchange="syncColorMode(); updatePreview()" /> <span>Custom Eye Color</span></label>
         </div>
-        <div>
-          <label class="label py-0.5"><span class="label-text text-xs">Background</span></label>
-          <input type="color" id="bg-color" value="#FFFFFF" class="input input-bordered input-sm h-9 w-full p-1 cursor-pointer" oninput="updatePreview()" />
+
+        <!-- Foreground + Background -->
+        <div class="qr-color-grid">
+          <div class="qr-color-field">
+            <span class="qr-color-label">Foreground</span>
+            <div class="color-display">
+              <input type="color" id="fg-color" value="#000000" class="visually-hidden-color" oninput="onColorInputChange('fg-color')" />
+              <span id="fg-color-tile" class="color-tile" style="background:#000000" onclick="document.getElementById('fg-color').click()" role="button" title="Pick foreground color"></span>
+              <input id="fg-color-hex" class="color-code" value="#000000" maxlength="7" spellcheck="false" oninput="onHexInputChange('fg-color')" />
+            </div>
+          </div>
+          <div class="qr-color-field">
+            <span class="qr-color-label">Background</span>
+            <div class="color-display">
+              <input type="color" id="bg-color" value="#FFFFFF" class="visually-hidden-color" oninput="onColorInputChange('bg-color')" />
+              <span id="bg-color-tile" class="color-tile" style="background:#FFFFFF" onclick="document.getElementById('bg-color').click()" role="button" title="Pick background color"></span>
+              <input id="bg-color-hex" class="color-code" value="#FFFFFF" maxlength="7" spellcheck="false" oninput="onHexInputChange('bg-color')" />
+            </div>
+          </div>
         </div>
+
+        <!-- Eye color (conditional) -->
+        <div id="eye-color-block" class="hidden">
+          <div class="qr-color-field">
+            <span class="qr-color-label">Eye color</span>
+            <div class="color-row">
+              <div class="color-display">
+                <input type="color" id="eye-color" value="#000000" class="visually-hidden-color" oninput="onColorInputChange('eye-color')" />
+                <span id="eye-color-tile" class="color-tile" style="background:#000000" onclick="document.getElementById('eye-color').click()" role="button" title="Pick eye color"></span>
+                <input id="eye-color-hex" class="color-code" value="#000000" maxlength="7" spellcheck="false" oninput="onHexInputChange('eye-color')" />
+              </div>
+              <button type="button" class="color-action-btn" onclick="copyForegroundToEye()" title="Copy foreground color to eye">Copy FG</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gradient controls (conditional) -->
+        <div id="gradient-controls" class="hidden space-y-3">
+          <div class="qr-color-grid">
+            <div class="qr-color-field">
+              <span class="qr-color-label">Gradient end color</span>
+              <div class="color-row">
+                <div class="color-display">
+                  <input type="color" id="gradient-color" value="#2563EB" class="visually-hidden-color" oninput="onColorInputChange('gradient-color')" />
+                  <span id="gradient-color-tile" class="color-tile" style="background:#2563EB" onclick="document.getElementById('gradient-color').click()" role="button" title="Pick gradient end color"></span>
+                  <input id="gradient-color-hex" class="color-code" value="#2563EB" maxlength="7" spellcheck="false" oninput="onHexInputChange('gradient-color')" />
+                </div>
+                <button type="button" class="color-action-btn" onclick="swapForegroundAndGradient()" title="Swap foreground and gradient end">⇄</button>
+              </div>
+            </div>
+            <div class="qr-color-field">
+              <span class="qr-color-label">Direction</span>
+              <select id="gradient-direction" class="select select-bordered select-sm w-full h-[3rem]" onchange="updatePreview()">
+                <option value="horizontal">Left → Right</option>
+                <option value="vertical">Top → Bottom</option>
+                <option value="diagonal">Diagonal</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
       </div>
     </details>
 
     <!-- ── Logo ── -->
-    <details class="group">
-      <summary class="cursor-pointer text-sm font-semibold select-none list-none flex items-center justify-between">
-        <span>🖼️ Logo</span>
-        <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+    <details class="group qr-section">
+      <summary class="cursor-pointer select-none list-none flex items-center justify-between">
+        <span class="text-sm font-semibold">🖼️ Logo</span>
+        <svg class="w-4 h-4 transition-transform group-open:rotate-180 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
       </summary>
-      <div class="mt-2 space-y-2">
+      <div class="qr-section-body space-y-2">
         <input type="file" id="logo-input" accept="image/*" class="file-input file-input-bordered file-input-sm w-full" onchange="uploadLogo()" />
         <div id="logo-preview" class="hidden flex items-center gap-2">
           <img id="logo-preview-img" class="w-12 h-12 rounded border border-base-300 object-contain" />
@@ -102,50 +343,47 @@
     </details>
 
     <!-- ── Design ── -->
-    <details class="group" open>
-      <summary class="cursor-pointer text-sm font-semibold select-none list-none flex items-center justify-between">
-        <span>⚙️ Design</span>
-        <svg class="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+    <details class="group qr-section" open>
+      <summary class="cursor-pointer select-none list-none flex items-center justify-between">
+        <span class="text-sm font-semibold">⚙️ Design</span>
+        <svg class="w-4 h-4 transition-transform group-open:rotate-180 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
       </summary>
-      <div class="mt-2 space-y-2">
+      <div class="qr-section-body space-y-4">
+        <input type="hidden" id="body-shape-input"      value="square" />
+        <input type="hidden" id="eye-frame-shape-input" value="square" />
+        <input type="hidden" id="eye-ball-shape-input"  value="square" />
+
         <div>
-          <label class="label py-0.5"><span class="label-text text-xs">Style</span></label>
-          <select id="style-select" class="select select-bordered select-sm w-full" onchange="updatePreview()">
-            <option value="square">Squares</option>
-            <option value="circle">Dots</option>
-            <option value="rounded">Rounded</option>
-          </select>
+          <p class="qr-color-label mb-2">Body shape</p>
+          <div id="body-shape-picker" class="qr-style-grid"></div>
         </div>
         <div>
-          <label class="label py-0.5"><span class="label-text text-xs">Format</span></label>
-          <div class="join w-full">
-            <input type="radio" name="qr-format" value="png" class="join-item btn btn-xs flex-1" aria-label="PNG" checked onchange="updatePreview()" />
-            <input type="radio" name="qr-format" value="svg" class="join-item btn btn-xs flex-1" aria-label="SVG" onchange="updatePreview()" />
-            <input type="radio" name="qr-format" value="pdf" class="join-item btn btn-xs flex-1" aria-label="PDF" onchange="updatePreview()" />
+          <p class="qr-color-label mb-2">Eye frame</p>
+          <div id="eye-frame-picker" class="qr-style-grid"></div>
+        </div>
+        <div>
+          <p class="qr-color-label mb-2">Eye ball</p>
+          <div id="eye-ball-picker" class="qr-style-grid"></div>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-baseline mb-1">
+            <p class="qr-color-label">Output size</p>
+            <span class="text-xs opacity-50" id="size-value">1000px</span>
           </div>
-        </div>
-        <div>
-          <label class="label py-0.5">
-            <span class="label-text text-xs">Quality</span>
-            <span class="label-text-alt text-xs" id="quality-value">10</span>
-          </label>
-          <input type="range" id="quality-slider" min="5" max="20" value="10" class="range range-sm" oninput="debouncedUpdatePreview()" />
-          <div class="flex justify-between text-xs text-base-content/40 px-1"><span>Low</span><span>High</span></div>
-        </div>
-        <div>
-          <label class="label py-0.5"><span class="label-text text-xs">Output size (px)</span></label>
-          <input type="number" id="size-input" min="100" max="1000" value="300" class="input input-bordered input-sm w-full" oninput="debouncedUpdatePreview()" />
+          <input type="range" id="size-slider" min="200" max="2000" step="50" value="1000" class="range range-sm w-full" oninput="syncSizeLabel(); refreshDownloadLinks()" />
+          <div class="flex justify-between text-xs opacity-30 px-1 mt-0.5"><span>200px</span><span>2000px</span></div>
         </div>
       </div>
     </details>
 
   </div><!-- /left -->
 
-  <!-- ── Right: preview (always visible) ── -->
+  <!-- ── Right: preview ── -->
   <div class="flex-1 flex flex-col items-center justify-center gap-4 p-6 bg-base-200/40">
-
-    <div id="preview-container" class="flex items-center justify-center bg-base-100 rounded-2xl shadow-lg"
-         style="width:min(100%,320px);height:min(calc(100dvh - 10rem),320px)">
+    <div id="preview-container"
+         class="flex items-center justify-center bg-base-100 rounded-2xl shadow-lg"
+         style="width:min(100%,540px);height:min(calc(100dvh - 8rem),540px)">
       <div class="loading loading-spinner loading-lg"></div>
     </div>
 
@@ -164,20 +402,228 @@
         PDF
       </a>
     </div>
-
   </div><!-- /right -->
 
-</div><!-- /flex -->
+</div><!-- /flex outer -->
 
 <script>
   let currentLogoId = null;
+  const PREVIEW_SIZE = 400;
 
+  const BODY_SHAPE_OPTIONS = [
+    { value: 'square',      label: 'Square'      },
+    { value: 'rounded',     label: 'Rounded'     },
+    { value: 'circle',      label: 'Dots'        },
+    { value: 'diamond',     label: 'Diamond'     },
+    { value: 'vertical',    label: 'Pill'        },
+    { value: 'horizontal',  label: 'Dash'        },
+    { value: 'small-dots',  label: 'Small dots'  },
+    { value: 'rounded-dot', label: 'Round dot'   },
+    { value: 'star',        label: 'Star'        },
+  ];
+  const EYE_FRAME_OPTIONS = [
+    { value: 'square',         label: 'Square'        },
+    { value: 'rounded',        label: 'Rounded'       },
+    { value: 'circle',         label: 'Circle'        },
+    { value: 'diamond',        label: 'Diamond'       },
+    { value: 'rounded-square', label: 'Soft square'   },
+    { value: 'inner-circle',   label: 'Inner circle'  },
+    { value: 'star',           label: 'Star'          },
+  ];
+  const EYE_BALL_OPTIONS = [
+    { value: 'square',       label: 'Square'       },
+    { value: 'rounded',      label: 'Rounded'      },
+    { value: 'circle',       label: 'Circle'       },
+    { value: 'diamond',      label: 'Diamond'      },
+    { value: 'small-dot',    label: 'Small dot'    },
+    { value: 'inner-circle', label: 'Ring'         },
+    { value: 'star',         label: 'Star'         },
+  ];
+
+  // ── Utilities ──────────────────────────────────────────────────────────────
   function debounce(fn, delay) {
     let timer;
     return function(...args) { clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), delay); };
   }
   const debouncedUpdatePreview = debounce(updatePreview, 400);
 
+  function getShapeValue(inputId) { return document.getElementById(inputId).value; }
+
+  function syncSizeLabel() {
+    const size = parseInt(document.getElementById('size-slider').value, 10);
+    document.getElementById('size-value').textContent = `${size}px`;
+    return size;
+  }
+
+  // ── Color mode visibility ──────────────────────────────────────────────────
+  function syncColorMode() {
+    const gradientOn = document.getElementById('mode-gradient')?.checked;
+    const customEyeOn = document.getElementById('custom-eye-checkbox')?.checked;
+    document.getElementById('gradient-controls')?.classList.toggle('hidden', !gradientOn);
+    document.getElementById('eye-color-block')?.classList.toggle('hidden', !customEyeOn);
+  }
+
+  // ── Color sync helpers ─────────────────────────────────────────────────────
+  function syncColorDisplays() {
+    ['fg-color', 'eye-color', 'bg-color', 'gradient-color'].forEach(id => {
+      const input = document.getElementById(id);
+      if (!input) return;
+      const tile = document.getElementById(id + '-tile');
+      const hex  = document.getElementById(id + '-hex');
+      if (tile) tile.style.background = input.value;
+      if (hex)  hex.value = input.value.toUpperCase();
+    });
+  }
+
+  function onColorInputChange(id) {
+    const val = document.getElementById(id).value.toUpperCase();
+    const tile = document.getElementById(id + '-tile');
+    const hex  = document.getElementById(id + '-hex');
+    if (tile) tile.style.background = val;
+    if (hex)  hex.value = val;
+    updatePreview();
+  }
+
+  function onHexInputChange(id) {
+    const hex = document.getElementById(id + '-hex');
+    if (!hex) return;
+    let val = hex.value.trim();
+    if (!val.startsWith('#')) val = '#' + val;
+    if (!/^#[0-9A-Fa-f]{6}$/.test(val)) return;
+    const picker = document.getElementById(id);
+    const tile   = document.getElementById(id + '-tile');
+    if (picker) picker.value = val;
+    if (tile)   tile.style.background = val;
+    updatePreview();
+  }
+
+  function copyForegroundToEye() {
+    const fg  = document.getElementById('fg-color').value.toUpperCase();
+    const eye = document.getElementById('eye-color');
+    const hex = document.getElementById('eye-color-hex');
+    const tile = document.getElementById('eye-color-tile');
+    if (eye)  eye.value = fg;
+    if (hex)  hex.value = fg;
+    if (tile) tile.style.background = fg;
+    navigator.clipboard?.writeText(fg).catch(() => {});
+    updatePreview();
+  }
+
+  function swapForegroundAndGradient() {
+    const fg   = document.getElementById('fg-color');
+    const grad = document.getElementById('gradient-color');
+    if (!fg || !grad) return;
+    const tmp = fg.value;
+    fg.value   = grad.value;
+    grad.value = tmp;
+    onColorInputChange('fg-color');
+    onColorInputChange('gradient-color');
+  }
+
+  // ── Payload builder ────────────────────────────────────────────────────────
+  function buildQrPayload({ preview }) {
+    const data = getQRData();
+    const customEyeOn  = document.getElementById('custom-eye-checkbox')?.checked;
+    const gradientOn   = document.getElementById('mode-gradient')?.checked;
+    return {
+      data,
+      size:               preview ? PREVIEW_SIZE : syncSizeLabel(),
+      quality:            10,
+      style:              getShapeValue('body-shape-input'),
+      body_shape:         getShapeValue('body-shape-input'),
+      eye_frame_shape:    getShapeValue('eye-frame-shape-input'),
+      eye_ball_shape:     getShapeValue('eye-ball-shape-input'),
+      fg_color:           document.getElementById('fg-color').value,
+      eye_color:          customEyeOn ? document.getElementById('eye-color').value : document.getElementById('fg-color').value,
+      bg_color:           document.getElementById('bg-color').value,
+      gradient_enabled:   Boolean(gradientOn),
+      gradient_color:     document.getElementById('gradient-color').value,
+      gradient_direction: document.getElementById('gradient-direction').value,
+      format:             preview ? 'svg' : 'png',
+      logo_id:            currentLogoId,
+      logo_position:      document.getElementById('logo-position').value,
+    };
+  }
+
+  function refreshDownloadLinks() {
+    const payload = buildQrPayload({ preview: false });
+    if (!payload.data.trim()) {
+      ['download-png','download-svg','download-pdf'].forEach(id => document.getElementById(id).href = '#');
+      return;
+    }
+    updateDownloadLinks(payload);
+  }
+
+  // ── Shape picker SVGs ──────────────────────────────────────────────────────
+  function renderBodyPreview(shape) {
+    const shapes = {
+      square:       '<rect x="6" y="6" width="10" height="10" rx="1" /><rect x="22" y="8" width="9" height="9" rx="1" /><rect x="9" y="22" width="8" height="8" rx="1" /><rect x="24" y="23" width="8" height="8" rx="1" />',
+      rounded:      '<rect x="6" y="6" width="10" height="10" rx="3" /><rect x="22" y="8" width="9" height="9" rx="3" /><rect x="9" y="22" width="8" height="8" rx="3" /><rect x="24" y="23" width="8" height="8" rx="3" />',
+      circle:       '<circle cx="11" cy="11" r="5" /><circle cx="26.5" cy="12.5" r="4.5" /><circle cx="13" cy="26" r="4" /><circle cx="28" cy="27" r="4" />',
+      diamond:      '<polygon points="11,5 17,11 11,17 5,11" /><polygon points="26.5,8 32,13.5 26.5,19 21,13.5" /><polygon points="13,21 18,26 13,31 8,26" /><polygon points="28,22 33,27 28,32 23,27" />',
+      vertical:     '<rect x="8" y="5" width="6" height="14" rx="3" /><rect x="24" y="6" width="6" height="14" rx="3" /><rect x="11" y="20" width="6" height="14" rx="3" /><rect x="27" y="20" width="6" height="14" rx="3" />',
+      horizontal:   '<rect x="5" y="8" width="14" height="6" rx="3" /><rect x="20" y="9" width="14" height="6" rx="3" /><rect x="8" y="24" width="14" height="6" rx="3" /><rect x="22" y="24" width="12" height="6" rx="3" />',
+      'small-dots': '<circle cx="9" cy="9" r="1.8" /><circle cx="17" cy="9" r="1.8" /><circle cx="25" cy="9" r="1.8" /><circle cx="33" cy="9" r="1.8" /><circle cx="9" cy="17" r="1.8" /><circle cx="17" cy="17" r="1.8" /><circle cx="25" cy="17" r="1.8" /><circle cx="33" cy="17" r="1.8" /><circle cx="9" cy="25" r="1.8" /><circle cx="17" cy="25" r="1.8" /><circle cx="25" cy="25" r="1.8" /><circle cx="33" cy="25" r="1.8" />',
+      'rounded-dot':'<circle cx="11" cy="11" r="4" /><circle cx="26.5" cy="12.5" r="3.5" /><circle cx="13" cy="26" r="3" /><circle cx="28" cy="27" r="3" />',
+      star:         '<polygon points="11,6 13,11 18,11 14,14 16,19 11,16 6,19 8,14 4,11 9,11" /><polygon points="26.5,8 32,13.5 26.5,19 21,13.5" /><polygon points="13,21 18,26 13,31 8,26" /><polygon points="28,22 33,27 28,32 23,27" />',
+    };
+    return `<svg viewBox="0 0 40 40" class="qr-style-preview" aria-hidden="true"><rect width="40" height="40" rx="9" fill="#ffffff" /><g fill="#111111">${shapes[shape] || ''}</g></svg>`;
+  }
+
+  function renderEyePreview(frameShape, ballShape) {
+    const frameMap = {
+      square:          '<rect x="5" y="5" width="30" height="30" rx="2" fill="#111111" /><rect x="10" y="10" width="20" height="20" rx="1" fill="#ffffff" />',
+      rounded:         '<rect x="5" y="5" width="30" height="30" rx="8" fill="#111111" /><rect x="10" y="10" width="20" height="20" rx="5" fill="#ffffff" />',
+      circle:          '<circle cx="20" cy="20" r="15" fill="#111111" /><circle cx="20" cy="20" r="10" fill="#ffffff" />',
+      diamond:         '<polygon points="20,4 36,20 20,36 4,20" fill="#111111" /><polygon points="20,10 30,20 20,30 10,20" fill="#ffffff" />',
+      'rounded-square':'<rect x="5" y="5" width="30" height="30" rx="10" fill="#111111" /><rect x="12" y="12" width="16" height="16" rx="6" fill="#ffffff" />',
+      'inner-circle':  '<rect x="5" y="5" width="30" height="30" rx="6" fill="#111111" /><circle cx="20" cy="20" r="8" fill="#ffffff" />',
+      star:            '<polygon points="20,6 23,16 34,16 25,22 28,32 20,26 12,32 15,22 6,16 17,16" fill="#111111" /><polygon points="20,10 22,16 28,16 23,20 25,26 20,22 15,26 17,20 12,16 18,16" fill="#ffffff" />',
+    };
+    const ballMap = {
+      square:       '<rect x="14" y="14" width="12" height="12" rx="1" fill="#111111" />',
+      rounded:      '<rect x="14" y="14" width="12" height="12" rx="4" fill="#111111" />',
+      circle:       '<circle cx="20" cy="20" r="6" fill="#111111" />',
+      diamond:      '<polygon points="20,12 28,20 20,28 12,20" fill="#111111" />',
+      'small-dot':  '<circle cx="20" cy="20" r="3" fill="#111111" />',
+      'inner-circle':'<circle cx="20" cy="20" r="6" fill="#111111" /><circle cx="20" cy="20" r="3" fill="#ffffff" />',
+      star:         '<polygon points="20,12 22,18 28,18 23,22 25,28 20,24 15,28 17,22 12,18 18,18" fill="#111111" />',
+    };
+    return `<svg viewBox="0 0 40 40" class="qr-style-preview" aria-hidden="true"><rect width="40" height="40" rx="9" fill="#ffffff" />${frameMap[frameShape] || ''}${ballMap[ballShape] || ''}</svg>`;
+  }
+
+  function renderShapePicker(containerId, inputId, options, previewFn) {
+    const container = document.getElementById(containerId);
+    const input = document.getElementById(inputId);
+    container.innerHTML = '';
+    options.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'qr-style-option';
+      btn.dataset.value = opt.value;
+      btn.setAttribute('aria-pressed', opt.value === input.value ? 'true' : 'false');
+      btn.innerHTML = `${previewFn(opt.value)}<span>${opt.label}</span>`;
+      if (opt.value === input.value) btn.classList.add('is-selected');
+      btn.addEventListener('click', () => {
+        input.value = opt.value;
+        container.querySelectorAll('.qr-style-option').forEach(item => {
+          const sel = item.dataset.value === opt.value;
+          item.classList.toggle('is-selected', sel);
+          item.setAttribute('aria-pressed', sel ? 'true' : 'false');
+        });
+        updatePreview();
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function renderShapePickers() {
+    renderShapePicker('body-shape-picker',  'body-shape-input',      BODY_SHAPE_OPTIONS, renderBodyPreview);
+    renderShapePicker('eye-frame-picker',   'eye-frame-shape-input', EYE_FRAME_OPTIONS,  shape => renderEyePreview(shape, 'square'));
+    renderShapePicker('eye-ball-picker',    'eye-ball-shape-input',  EYE_BALL_OPTIONS,   shape => renderEyePreview('square', shape));
+  }
+
+  // ── Tab switching ──────────────────────────────────────────────────────────
   function switchTab(tabName) {
     ['url','text','email','vcard','wifi'].forEach(t => {
       document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tabName);
@@ -186,8 +632,8 @@
   }
 
   function getQRData() {
-    const activeTab = document.querySelector('input[name="data_type"]:checked').value;
-    switch (activeTab) {
+    const tab = document.querySelector('input[name="data_type"]:checked').value;
+    switch (tab) {
       case 'url':   return document.getElementById('url-input').value;
       case 'text':  return document.getElementById('text-input').value;
       case 'email': {
@@ -210,40 +656,24 @@
     }
   }
 
-  function getSelectedFormat() {
-    return document.querySelector('input[name="qr-format"]:checked')?.value || 'png';
-  }
-
+  // ── Preview & download ─────────────────────────────────────────────────────
   function updatePreview() {
     const data = getQRData();
     if (!data.trim()) {
-      document.getElementById('preview-container').innerHTML =
-        '<span class="text-base-content/40 text-sm">Enter data above</span>';
+      document.getElementById('preview-container').innerHTML = '<span class="text-base-content/40 text-sm">Enter data above</span>';
+      refreshDownloadLinks();
       return;
     }
-
-    const quality = parseInt(document.getElementById('quality-slider').value);
-    document.getElementById('quality-value').textContent = quality;
-
-    const payload = {
-      data,
-      size: parseInt(document.getElementById('size-input').value),
-      quality,
-      style: document.getElementById('style-select').value,
-      fg_color: document.getElementById('fg-color').value,
-      bg_color: document.getElementById('bg-color').value,
-      format: getSelectedFormat(),
-      logo_id: currentLogoId,
-      logo_position: document.getElementById('logo-position').value,
-    };
-
-    document.getElementById('preview-container').innerHTML =
-      '<div class="loading loading-spinner loading-md"></div>';
-
+    const previewPayload  = buildQrPayload({ preview: true });
+    const downloadPayload = buildQrPayload({ preview: false });
+    document.getElementById('preview-container').innerHTML = '<div class="loading loading-spinner loading-md"></div>';
     fetch('{% url "api_generate_preview" %}', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-      body: JSON.stringify(payload),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+      },
+      body: JSON.stringify(previewPayload),
     })
     .then(r => r.json())
     .then(result => {
@@ -251,28 +681,30 @@
         document.getElementById('preview-container').innerHTML = `<span class="text-error text-sm">${result.error}</span>`;
         return;
       }
-      let preview;
-      if (result.format === 'svg') {
-        preview = `<div class="w-full h-full flex items-center justify-center p-2">${result.data}</div>`;
-      } else if (result.format === 'pdf') {
-        preview = `<embed src="${result.data}" type="application/pdf" class="w-full h-full rounded-xl" />`;
-      } else {
-        preview = `<img src="${result.data}" class="max-w-full max-h-full object-contain rounded-xl p-2" />`;
-      }
-      document.getElementById('preview-container').innerHTML = preview;
-      updateDownloadLinks(payload);
+      document.getElementById('preview-container').innerHTML = `<div class="w-full h-full flex items-center justify-center p-2">${result.data}</div>`;
+      updateDownloadLinks(downloadPayload);
     })
     .catch(() => {
-      document.getElementById('preview-container').innerHTML =
-        '<span class="text-error text-sm">Failed to generate preview</span>';
+      document.getElementById('preview-container').innerHTML = '<span class="text-error text-sm">Failed to generate preview</span>';
     });
   }
 
   function updateDownloadLinks(payload) {
     const base = new URLSearchParams({
-      data: payload.data, size: payload.size, quality: payload.quality,
-      style: payload.style, fg_color: payload.fg_color, bg_color: payload.bg_color,
-      logo_position: payload.logo_position,
+      data:               payload.data,
+      size:               payload.size,
+      quality:            payload.quality,
+      style:              payload.style,
+      body_shape:         payload.body_shape,
+      eye_frame_shape:    payload.eye_frame_shape,
+      eye_ball_shape:     payload.eye_ball_shape,
+      fg_color:           payload.fg_color,
+      eye_color:          payload.eye_color,
+      bg_color:           payload.bg_color,
+      gradient_enabled:   payload.gradient_enabled,
+      gradient_color:     payload.gradient_color,
+      gradient_direction: payload.gradient_direction,
+      logo_position:      payload.logo_position,
       ...(payload.logo_id ? { logo_id: payload.logo_id } : {}),
     });
     const root = '{% url "qr_image" %}';
@@ -281,13 +713,15 @@
     document.getElementById('download-pdf').href = `${root}?${base}&format=pdf`;
   }
 
+  // ── Logo upload ────────────────────────────────────────────────────────────
   function uploadLogo() {
     const file = document.getElementById('logo-input').files[0];
     if (!file) return;
     const fd = new FormData();
     fd.append('logo', file);
     fetch('{% url "upload_logo" %}', {
-      method: 'POST', body: fd,
+      method: 'POST',
+      body: fd,
       headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
     })
     .then(r => r.json())
@@ -314,7 +748,19 @@
     updatePreview();
   }
 
-  document.addEventListener('DOMContentLoaded', () => setTimeout(updatePreview, 300));
+  // ── Init ───────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    renderShapePickers();
+    syncSizeLabel();
+    syncColorDisplays();
+    syncColorMode();
+
+    ['fg-color', 'eye-color', 'bg-color', 'gradient-color'].forEach(id => {
+      document.getElementById(id + '-hex')?.addEventListener('input', () => onHexInputChange(id));
+    });
+
+    setTimeout(updatePreview, 300);
+  });
 </script>
 
 {% endblock %}

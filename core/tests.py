@@ -109,8 +109,38 @@ class TestQrViews:
         assert response.status_code == 200
         assert response["Content-Type"] == "image/png"
 
+    def test_qr_image_svg_supports_gradient_and_eye_color(self, client: Client):
+        response = client.get(
+            reverse("qr_image")
+            + "?data=test&format=svg&fg_color=%23000000&eye_color=%23FF6600"
+            + "&gradient_enabled=true&gradient_color=%230066FF&gradient_direction=diagonal"
+        )
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/svg+xml"
+        assert b'linearGradient id="qr-body-gradient"' in response.content
+        assert b'#FF6600' in response.content
+        assert b'#0066FF' in response.content
+
     def test_qr_image_with_style(self, client: Client):
         response = client.get(reverse("qr_image") + "?data=test&style=rounded")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/png"
+
+    def test_qr_image_with_separate_shape_selectors(self, client: Client):
+        response = client.get(
+            reverse("qr_image")
+            + "?data=test&format=svg&body_shape=diamond&eye_frame_shape=circle&eye_ball_shape=rounded"
+        )
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/svg+xml"
+        assert b"<polygon" in response.content
+        assert b"<circle" in response.content
+
+    def test_qr_image_invalid_shape_selectors_fall_back(self, client: Client):
+        response = client.get(
+            reverse("qr_image")
+            + "?data=test&body_shape=nope&eye_frame_shape=bad&eye_ball_shape=wrong"
+        )
         assert response.status_code == 200
         assert response["Content-Type"] == "image/png"
 
@@ -183,6 +213,48 @@ class TestQrViews:
         data = response.json()
         assert '#FF0000' in data['data']
         assert '#00FF00' in data['data']
+
+    def test_api_preview_supports_gradient_and_eye_color(self, client: Client):
+        import json
+        payload = {
+            'data': 'test',
+            'size': 640,
+            'quality': 10,
+            'style': 'square',
+            'fg_color': '#101010',
+            'eye_color': '#FF5500',
+            'bg_color': '#FFFFFF',
+            'gradient_enabled': True,
+            'gradient_color': '#0088FF',
+            'gradient_direction': 'horizontal',
+            'format': 'svg',
+        }
+        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        assert response.status_code == 200
+        result = response.json()
+        assert result['format'] == 'svg'
+        assert 'linearGradient id="qr-body-gradient"' in result['data']
+        assert '#FF5500' in result['data']
+        assert '#0088FF' in result['data']
+
+    def test_api_preview_with_separate_shape_selectors(self, client: Client):
+        import json
+        payload = {
+            'data': 'test',
+            'size': 300,
+            'quality': 10,
+            'style': 'square',
+            'body_shape': 'horizontal',
+            'eye_frame_shape': 'diamond',
+            'eye_ball_shape': 'circle',
+            'format': 'svg',
+        }
+        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        assert response.status_code == 200
+        result = response.json()
+        assert result['format'] == 'svg'
+        assert '<polygon' in result['data']
+        assert '<circle' in result['data']
 
     def test_api_preview_pdf_format(self, client: Client):
         import json
