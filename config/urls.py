@@ -28,7 +28,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", api.urls),
     path("ping/", lambda r: HttpResponse("pong"), name="ping"),
-    path("demo/", include("core.urls", namespace="core")),
+    path("cr/", include("core.urls", namespace="core")),
     path("qr/", qr_page, name="qr_page"),
     path("qr/image/", qr_image, name="qr_image"),
     path("qr/upload-logo/", upload_logo, name="upload_logo"),

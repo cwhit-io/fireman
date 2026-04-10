@@ -39,8 +39,8 @@
       Print Jobs
     </a>
 
-    {# Mail Merge — users with permission or staff only #}
-    {% if user.is_authenticated and user.can_use_mail_merge or user.is_authenticated and user.is_staff %}
+    {# Mail Merge — only users with the can_use_mail_merge flag #}
+    {% if user.is_authenticated and user.can_use_mail_merge %}
     <a href="{% url 'mailmerge:list' %}"
        class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
               {% if ns == 'mailmerge' %}bg-primary/10 text-primary{% else %}text-base-content/70 hover:bg-base-300/50 hover:text-base-content{% endif %}">

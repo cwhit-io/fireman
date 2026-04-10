@@ -14,6 +14,18 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
+
+class MailMergeAccessMixin(LoginRequiredMixin):
+    """Allow access only to staff or users with the can_use_mail_merge flag."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        if not getattr(request.user, "can_use_mail_merge", False):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
 from apps.impose.image_utils import image_to_contentfile
 
 from .models import MailMergeJob
@@ -27,7 +39,7 @@ _ADDR_X_DEFAULT_IN = None  # card_width - 4.5 in
 _ADDR_Y_DEFAULT_IN = 2.5
 
 
-class MailMergeJobListView(LoginRequiredMixin, ListView):
+class MailMergeJobListView(MailMergeAccessMixin, ListView):
     model = MailMergeJob
     template_name = "mailmerge/job_list.html"
     context_object_name = "jobs"
@@ -40,7 +52,7 @@ class MailMergeJobListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class MailMergeJobDetailView(LoginRequiredMixin, DetailView):
+class MailMergeJobDetailView(MailMergeAccessMixin, DetailView):
     model = MailMergeJob
     template_name = "mailmerge/job_detail.html"
     context_object_name = "job"
@@ -61,7 +73,7 @@ class MailMergeJobDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class MailMergeArtworkInspectView(LoginRequiredMixin, View):
+class MailMergeArtworkInspectView(MailMergeAccessMixin, View):
     """HTMX/JSON endpoint: inspect an uploaded artwork PDF and return page info."""
 
     def post(self, request):
@@ -84,7 +96,7 @@ class MailMergeArtworkInspectView(LoginRequiredMixin, View):
         return JsonResponse(data)
 
 
-class MailMergeJobUploadView(LoginRequiredMixin, View):
+class MailMergeJobUploadView(MailMergeAccessMixin, View):
     template_name = "mailmerge/job_upload.html"
 
     def _get_context(self):
@@ -194,7 +206,7 @@ class MailMergeJobUploadView(LoginRequiredMixin, View):
         return redirect("mailmerge:detail", pk=job.pk)
 
 
-class NewMoversCsvView(LoginRequiredMixin, View):
+class NewMoversCsvView(MailMergeAccessMixin, View):
     """Fetch Allen County new movers for a given month/year and return as CSV."""
 
     def get(self, request):
@@ -218,7 +230,7 @@ class NewMoversCsvView(LoginRequiredMixin, View):
         return response
 
 
-class MailMergeSampleCsvView(LoginRequiredMixin, View):
+class MailMergeSampleCsvView(MailMergeAccessMixin, View):
     """Serve the project's sample CSV for download from the assets folder."""
 
     def get(self, request):
@@ -229,7 +241,7 @@ class MailMergeSampleCsvView(LoginRequiredMixin, View):
         return FileResponse(open(sample_path, "rb"), as_attachment=True, filename="sample.csv")
 
 
-class MailMergeJobDeleteView(LoginRequiredMixin, DeleteView):
+class MailMergeJobDeleteView(MailMergeAccessMixin, DeleteView):
     model = MailMergeJob
     template_name = "mailmerge/job_confirm_delete.html"
     success_url = "/mailmerge/"
@@ -258,7 +270,7 @@ class MailMergeJobDeleteView(LoginRequiredMixin, DeleteView):
         return super().form_valid(form)
 
 
-class MailMergeJobEditView(View):
+class MailMergeJobEditView(MailMergeAccessMixin, View):
     """Edit an existing mail-merge job and re-trigger processing."""
 
     template_name = "mailmerge/job_edit.html"
@@ -330,7 +342,7 @@ class MailMergeJobEditView(View):
         return redirect("mailmerge:detail", pk=pk)
 
 
-class MailMergeJobArtworkServeView(View):
+class MailMergeJobArtworkServeView(MailMergeAccessMixin, View):
     """Serve the artwork PDF for a job (used by the edit-page preview canvas)."""
 
     def get(self, request, pk):
@@ -362,7 +374,7 @@ def _serve_job_file(job_file_field, fallback_name: str) -> HttpResponse:
     return response
 
 
-class MailMergeJobDownloadView(LoginRequiredMixin, View):
+class MailMergeJobDownloadView(MailMergeAccessMixin, View):
     def get(self, request, pk):
         if request.user.is_staff:
             job = get_object_or_404(MailMergeJob, pk=pk)
@@ -381,19 +393,19 @@ class MailMergeJobDownloadView(LoginRequiredMixin, View):
         return response
 
 
-class MailMergeJobDownloadGangupView(View):
+class MailMergeJobDownloadGangupView(MailMergeAccessMixin, View):
     def get(self, request, pk):
         job = get_object_or_404(MailMergeJob, pk=pk)
         return _serve_job_file(job.gangup_file, "gangup.pdf")
 
 
-class MailMergeJobDownloadAddressPdfView(View):
+class MailMergeJobDownloadAddressPdfView(MailMergeAccessMixin, View):
     def get(self, request, pk):
         job = get_object_or_404(MailMergeJob, pk=pk)
         return _serve_job_file(job.address_pdf_file, "addresses.pdf")
 
 
-class MailMergeJobDownloadAddressesPrintPreviewView(View):
+class MailMergeJobDownloadAddressesPrintPreviewView(MailMergeAccessMixin, View):
     """Return the interleaved address PDF as it would be sent to the printer.
 
     This does not modify stored files; it dynamically inserts blank pages
@@ -442,7 +454,7 @@ class MailMergeJobDownloadAddressesPrintPreviewView(View):
             raise Http404(f"Failed to build print-preview PDF: {exc}")
 
 
-class MailMergeJobReplaceCsvView(LoginRequiredMixin, View):
+class MailMergeJobReplaceCsvView(MailMergeAccessMixin, View):
     """Replace the CSV file for a mail-merge job and re-run processing.
 
     Expects a multipart POST with `csv_file` set. Validates file extension
@@ -481,7 +493,7 @@ class MailMergeJobReplaceCsvView(LoginRequiredMixin, View):
         return redirect("mailmerge:detail", pk=pk)
 
 
-class MailMergeGenerateMergedView(LoginRequiredMixin, View):
+class MailMergeGenerateMergedView(MailMergeAccessMixin, View):
     """Trigger on-demand generation of the full merged PDF."""
 
     def post(self, request, pk):
@@ -503,7 +515,7 @@ class MailMergeGenerateMergedView(LoginRequiredMixin, View):
         return redirect("mailmerge:detail", pk=pk)
 
 
-class MailMergeJobSendGangupToFieryView(LoginRequiredMixin, View):
+class MailMergeJobSendGangupToFieryView(MailMergeAccessMixin, View):
     """Send the artwork gang-up PDF to the Fiery."""
 
     def post(self, request, pk):

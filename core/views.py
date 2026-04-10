@@ -249,8 +249,15 @@ def _hex_to_rgb(color):
     return ImageColor.getrgb(color)
 
 
-def _gradient_coordinates(direction):
+def _gradient_coordinates(direction, size=None):
     direction = _validate_choice(direction, _GRADIENT_DIRECTIONS, 'horizontal')
+    if size is not None:
+        s = str(size)
+        if direction == 'vertical':
+            return '0', '0', '0', s
+        if direction == 'diagonal':
+            return '0', '0', s, s
+        return '0', '0', s, '0'
     if direction == 'vertical':
         return '0%', '0%', '0%', '100%'
     if direction == 'diagonal':
@@ -460,10 +467,10 @@ def _render_svg_qr(
         f'<svg width="{size}" height="{size}" xmlns="http://www.w3.org/2000/svg">',
     ]
     if gradient_enabled:
-        gradient_start_x, gradient_start_y, gradient_end_x, gradient_end_y = _gradient_coordinates(gradient_direction)
+        gradient_start_x, gradient_start_y, gradient_end_x, gradient_end_y = _gradient_coordinates(gradient_direction, size)
         parts.append(
             '<defs>'
-            f'<linearGradient id="qr-body-gradient" x1="{gradient_start_x}" y1="{gradient_start_y}" '
+            f'<linearGradient id="qr-body-gradient" gradientUnits="userSpaceOnUse" x1="{gradient_start_x}" y1="{gradient_start_y}" '
             f'x2="{gradient_end_x}" y2="{gradient_end_y}">'
             f'<stop offset="0%" stop-color="{fg_color}"/>'
             f'<stop offset="100%" stop-color="{gradient_color}"/>'

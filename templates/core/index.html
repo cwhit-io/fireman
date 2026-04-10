@@ -67,27 +67,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-function chatWidget() {
-    return {
-        ws: null,
-        message: '',
-        messages: [],
-        init() {
-            const room = 'demo';
-            this.ws = new WebSocket(`ws://${location.host}/ws/chat/${room}/`);
-            this.ws.onmessage = (e) => {
-                const data = JSON.parse(e.data);
-                this.messages.push(data.message);
-            };
-        },
-        send() {
-            if (this.message.trim() && this.ws.readyState === WebSocket.OPEN) {
-                this.ws.send(JSON.stringify({ message: this.message }));
-                this.message = '';
-            }
-        },
-    };
-}
-</script>
+
 {% endblock %}
