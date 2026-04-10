@@ -263,10 +263,11 @@ class JobApplyTemplateView(LoginRequiredMixin, View):
                 "status",
             ]
         )
-        # Re-process the job immediately
-        process_job_task.delay(str(job.pk))
-        # Re-run preflight with the new template's trim dimensions
+        # Run preflight first — it may correct orientation and overwrite job.file
+        # before the task reads it.
         run_preflight_for_job(job)
+        # Re-process the job (task reads the already-corrected file).
+        process_job_task.delay(str(job.pk))
         messages.success(
             request, f"Template '{template.name}' applied — job is being re-processed."
         )

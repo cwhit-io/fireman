@@ -620,8 +620,8 @@ def run_preflight(
             # Pretend file is now at trim size for bleed evaluation
             file_w, file_h = trim_w_pt, trim_h_pt
             excess_w = excess_h = 0.0
-        elif _ar_delta_pct(file_w, file_h, trim_h_pt, trim_w_pt) <= ar_tol_pct:
-            # Orientation flip: file AR matches the *inverted* trim → rotate 90° CW
+        elif file_h != file_w and trim_h_pt != trim_w_pt and (file_h > file_w) != (trim_h_pt > trim_w_pt):
+            # Orientation flip: long/short axis of file doesn't match trim → rotate 90° CW
             rotated = _rotate_pdf_pages(pdf_bytes, 90)
             if rotated is not None:
                 result.add(

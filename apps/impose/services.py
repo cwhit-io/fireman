@@ -400,18 +400,20 @@ def impose_nup(
             cell_trim_left = margin_left + col * cell_w + bleed
             cell_trim_bottom = sheet_height - margin_top - (row + 1) * cell_h + bleed
 
-            # Scale so the source trim fits the cell trim area (aspect-ratio preserved).
-            scale_x = cell_trim_w / src_trim_w if src_trim_w else 1.0
-            scale_y = cell_trim_h / src_trim_h if src_trim_h else 1.0
-            scale = min(scale_x, scale_y)
+            # Scale so the source trim *covers* the full bleed cell (aspect-ratio preserved).
+            # Artwork fills trim + bleed on all sides; excess beyond bleed is clipped below.
+            scale_x = cell_w / src_trim_w if src_trim_w else 1.0
+            scale_y = cell_h / src_trim_h if src_trim_h else 1.0
+            scale = max(scale_x, scale_y)
 
-            # Centre the scaled trim within the cell trim area.
-            center_x = (cell_trim_w - src_trim_w * scale) / 2
-            center_y = (cell_trim_h - src_trim_h * scale) / 2
+            # Centre the scaled artwork within the bleed cell; overflow handled by clip mask.
+            center_x = (cell_w - src_trim_w * scale) / 2
+            center_y = (cell_h - src_trim_h * scale) / 2
 
             # Desired position for the source trim's bottom-left corner on the sheet.
-            target_trim_left = cell_trim_left + center_x
-            target_trim_bottom = cell_trim_bottom + center_y
+            # Origin is the bleed cell's bottom-left corner (cell_trim origin minus bleed).
+            target_trim_left = (cell_trim_left - bleed) + center_x
+            target_trim_bottom = (cell_trim_bottom - bleed) + center_y
 
             # Transformation: scale(s) then translate(tx, ty).
             tx = target_trim_left - scale * src_trim_left
