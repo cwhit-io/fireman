@@ -1,0 +1,106 @@
+{% load static %}
+{# Individual brand asset card with preview and download buttons #}
+<div class="rounded-xl border border-base-300 bg-base-100 shadow-sm overflow-hidden flex flex-col">
+
+  {# SVG Preview — background swaps to dark when white variant is active #}
+  <div id="ba-box-{{ asset.pk }}"
+       class="flex-1 flex items-center justify-center bg-base-200 p-6 min-h-[120px]"
+       style="transition: background-color 0.15s;">
+    <img id="ba-img-{{ asset.pk }}"
+         src="{{ asset.svg_file.url }}"
+         alt="{{ asset.name }}"
+         class="max-h-28 w-auto object-contain"
+         loading="lazy"
+         style="transition: filter 0.15s;" />
+  </div>
+
+  {# Info + actions #}
+  <div class="p-3 border-t border-base-300 space-y-2">
+    <p class="font-semibold text-sm leading-snug truncate" title="{{ asset.name }}">{{ asset.name }}</p>
+    {% if asset.description %}
+    <p class="text-xs text-base-content/50 line-clamp-2">{{ asset.description }}</p>
+    {% endif %}
+
+    {# ── Colour variant chips ─────────────────────────────────────── #}
+    <div class="flex gap-1 pt-0.5">
+      <button id="ba-chip-{{ asset.pk }}-color"
+              onclick="baSetVariant({{ asset.pk }}, 'color')"
+              class="btn btn-xs btn-neutral"
+              title="Full colour preview">Color</button>
+      <button id="ba-chip-{{ asset.pk }}-black"
+              onclick="baSetVariant({{ asset.pk }}, 'black')"
+              class="btn btn-xs btn-outline"
+              title="Black version preview">Black</button>
+      <button id="ba-chip-{{ asset.pk }}-white"
+              onclick="baSetVariant({{ asset.pk }}, 'white')"
+              class="btn btn-xs btn-outline"
+              title="White version preview">White</button>
+    </div>
+
+    {# ── Download buttons ─────────────────────────────────────────── #}
+    <div class="flex flex-wrap gap-1.5 pt-1">
+      <a id="ba-dl-{{ asset.pk }}-svg"
+         href="{% url 'brand_assets:download' asset.pk %}?format=svg&variant=color"
+         class="btn btn-xs btn-outline gap-1" title="Download SVG">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        SVG
+      </a>
+      <a id="ba-dl-{{ asset.pk }}-pdf"
+         href="{% url 'brand_assets:download' asset.pk %}?format=pdf&variant=color"
+         class="btn btn-xs btn-outline gap-1" title="Download PDF">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        PDF
+      </a>
+      <a id="ba-dl-{{ asset.pk }}-png"
+         href="{% url 'brand_assets:download' asset.pk %}?format=png&variant=color"
+         class="btn btn-xs btn-outline gap-1" title="Download PNG (300 dpi)">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        PNG
+      </a>
+    </div>
+  </div>
+
+</div>
+
+{# Variant switcher — defined once; subsequent inclusions are no-ops #}
+<script>
+if (!window._baVariantDefined) {
+  window._baVariantDefined = true;
+  window.baSetVariant = function (id, v) {
+    var img = document.getElementById('ba-img-' + id);
+    var box = document.getElementById('ba-box-' + id);
+
+    // Preview filter
+    img.style.filter = v === 'black' ? 'brightness(0)'
+                     : v === 'white' ? 'brightness(0) invert(1)'
+                     : '';
+
+    // Preview background — dark for white logos so they're visible
+    box.classList.toggle('bg-base-200', v !== 'white');
+    box.classList.toggle('bg-neutral',  v === 'white');
+
+    // Chip active state
+    ['color', 'black', 'white'].forEach(function (x) {
+      var btn = document.getElementById('ba-chip-' + id + '-' + x);
+      if (!btn) return;
+      btn.classList.toggle('btn-neutral', x === v);
+      btn.classList.toggle('btn-outline', x !== v);
+    });
+
+    // Keep download hrefs in sync with selected variant
+    ['svg', 'pdf', 'png'].forEach(function (fmt) {
+      var a = document.getElementById('ba-dl-' + id + '-' + fmt);
+      if (!a) return;
+      var u = new URL(a.href);
+      u.searchParams.set('variant', v);
+      a.href = u.toString();
+    });
+  };
+}
+</script>

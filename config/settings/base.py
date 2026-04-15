@@ -15,6 +15,7 @@ env = environ.Env(
     # SECRET_KEY has no default — raises ImproperlyConfigured if not set
     DATABASE_URL=(str, f"sqlite:///{BASE_DIR / 'data' / 'db.sqlite3'}"),
     REDIS_URL=(str, "redis://localhost:6379/0"),
+    MEDIA_MOUNT_POINT=(str, ""),
 )
 
 environ.Env.read_env(BASE_DIR / ".env")
@@ -47,6 +48,7 @@ INSTALLED_APPS = [
     "apps.cutter",
     "apps.routing",
     "apps.mailmerge",
+    "apps.brand_assets",
 ]
 
 AUTH_USER_MODEL = "core.User"
@@ -129,6 +131,11 @@ MEDIA_URL = "/media/"
 ASSETS_DIR = BASE_DIR / "assets"
 # Store uploaded media under assets/media for easier packaging/deploy
 MEDIA_ROOT = ASSETS_DIR / "media"
+# Mount point for the dedicated media disk (e.g. /mnt/media).
+# When set, disk usage stats report the whole disk rather than just MEDIA_ROOT.
+# Set MEDIA_MOUNT_POINT=/mnt/media in .env once the disk is mounted.
+_media_mount = env("MEDIA_MOUNT_POINT", default="")
+MEDIA_MOUNT_POINT = Path(_media_mount) if _media_mount else MEDIA_ROOT
 
 # Fiery print queue username shown on the Fiery job list
 FIERY_PRINT_USER = env("FIERY_PRINT_USER", default="Ember")

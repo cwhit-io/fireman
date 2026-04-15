@@ -6,7 +6,8 @@ from django.conf import settings
 def disk_usage(request):
     """Inject disk usage stats for the sidebar widget."""
     try:
-        usage = shutil.disk_usage(settings.MEDIA_ROOT)
+        path = getattr(settings, "MEDIA_MOUNT_POINT", settings.MEDIA_ROOT)
+        usage = shutil.disk_usage(path)
         total = usage.total
         used = usage.used
         pct = round(used / total * 100, 1) if total else 0
