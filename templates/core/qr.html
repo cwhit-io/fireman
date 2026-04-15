@@ -178,8 +178,22 @@
     white-space: nowrap !important;
   }
 
+  #preview-container {
+    width: min(100%, 540px);
+    height: min(calc(100dvh - 8rem), 540px);
+  }
+
   @media (max-width: 980px) {
     .qr-style-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  @media (max-width: 767px) {
+    .qr-control-pane {
+      max-height: 58dvh;
+    }
+    #preview-container {
+      width: min(100%, 300px);
+      height: min(32dvh, 300px);
+    }
   }
   @media (max-width: 520px) {
     .qr-style-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -189,13 +203,13 @@
   }
 </style>
 
-<div class="flex overflow-hidden" style="height:100dvh">
+<div class="flex flex-col md:flex-row overflow-hidden" style="height:100dvh">
 
   <!-- ── Left: scrollable controls ── -->
-  <div class="qr-control-pane w-full max-w-[42rem] shrink-0 overflow-y-auto border-r border-base-300 pt-6 px-4 pb-8 space-y-3 bg-base-100 md:w-[40rem]">
+  <div class="qr-control-pane w-full overflow-y-auto border-b border-base-300 md:border-b-0 md:border-r pt-5 px-4 pb-6 space-y-3 bg-base-100 md:w-[40rem] md:max-w-[42rem] md:shrink-0">
 
     <div class="px-1 pb-1">
-      <h1 class="text-2xl font-extrabold tracking-tight">QR Generator</h1>
+      <h1 class="text-xl md:text-2xl font-extrabold tracking-tight">QR Generator</h1>
     </div>
 
     <!-- ── Data input ── -->
@@ -380,15 +394,14 @@
   </div><!-- /left -->
 
   <!-- ── Right: preview ── -->
-  <div class="flex-1 flex flex-col items-center justify-center gap-4 p-6 bg-base-200/40">
+  <div class="flex-1 flex flex-col items-center justify-center gap-3 p-3 md:gap-4 md:p-6 bg-base-200/40 min-h-0">
     <div id="preview-container"
-         class="flex items-center justify-center bg-base-100 rounded-2xl shadow-lg"
-         style="width:min(100%,540px);height:min(calc(100dvh - 8rem),540px)">
+         class="flex items-center justify-center bg-base-100 rounded-2xl shadow-lg">
       <div class="loading loading-spinner loading-lg"></div>
     </div>
 
     <!-- Download buttons -->
-    <div class="flex gap-2 flex-wrap justify-center">
+    <div class="flex gap-2 flex-wrap justify-center text-sm">
       <a id="download-png" href="#" download="qr-code.png" class="btn btn-sm btn-outline gap-1">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         PNG

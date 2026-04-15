@@ -7,10 +7,10 @@
 {% block main_class %}overflow-hidden{% endblock %}
 
 {% block content %}
-<div class="flex overflow-hidden" style="height:100dvh" x-data="{ selectedCategory: 'All' }">
+<div class="flex flex-col md:flex-row overflow-hidden" style="height:100dvh" x-data="{ selectedCategory: 'All' }">
 
   {# ── Left: scrollable category selector ── #}
-  <div class="w-80 shrink-0 overflow-y-auto border-r border-base-300 pt-8 px-3 pb-3 space-y-3 bg-base-100">
+  <div class="hidden md:block md:w-80 md:shrink-0 overflow-y-auto border-r border-base-300 pt-8 px-3 pb-3 space-y-3 bg-base-100">
     <div class="mb-6">
       <h1 class="text-3xl font-extrabold tracking-tight">Templates</h1>
     </div>
@@ -31,9 +31,31 @@
 
   {# ── Right: scrollable cards grid ── #}
   {% if groups %}
-  <div class="flex-1 overflow-y-auto px-6 py-8 bg-base-100">
+  <div class="flex-1 flex flex-col overflow-hidden bg-base-100">
+
+    {# ── Mobile: header + horizontal category chips ── #}
+    <div class="flex-none md:hidden">
+      <div class="px-4 pt-5 pb-1">
+        <h1 class="text-2xl font-extrabold tracking-tight">Templates</h1>
+      </div>
+      <div class="flex gap-2 overflow-x-auto px-4 py-3 border-b border-base-300 snap-x">
+        <button type="button" @click="selectedCategory='All'"
+                :class="selectedCategory==='All' ? 'shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-primary-content shadow-sm' : 'shrink-0 px-3 py-1.5 rounded-full text-xs bg-base-200 text-base-content hover:bg-base-300'">All</button>
+        {% for c_name, c_sizes, c_bg in groups %}
+          <button type="button"
+                  @click="selectedCategory='{{ c_name|default:'Other'|escapejs }}'"
+                  :class="selectedCategory==='{{ c_name|default:'Other'|escapejs }}' ? 'shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold text-white shadow-sm' : 'shrink-0 px-3 py-1.5 rounded-full text-xs bg-base-200 text-base-content hover:bg-base-300'"
+                  :style="selectedCategory==='{{ c_name|default:'Other'|escapejs }}' ? 'background: {{ c_bg }};' : ''">
+            {{ c_name|default:'Other' }}
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# ── Scrollable content ── #}
+    <div class="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-8">
     <div class="max-w-7xl">
-      <div class="mb-6">
+      <div class="hidden md:block mb-6">
         <p class="text-base-content/60 text-sm">
           Download a Canva template to design your artwork at the correct size.
           All templates are set up with bleed and safe-zone guides already in place.
@@ -45,31 +67,28 @@
           {% for size in sizes %}
             <div data-cat="{{ category_name|default:'Other' }}" x-show="selectedCategory==='All' || selectedCategory===$el.dataset.cat" x-cloak class="group flex flex-col rounded-xl border border-base-300 bg-base-100 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-150 min-h-[92px]">
 
-              {# colored top accent and category badge #}
+              {# colored top accent #}
               <div style="background: {{ bg_color }}; height:6px;"></div>
               <div class="p-4 flex flex-col gap-2">
-                <div class="flex items-center justify-between gap-3">
-                  <div class="min-w-0">
-                    <p class="text-base font-semibold leading-snug truncate">{{ size.name }}</p>
-                    <p class="text-sm text-base-content/60 truncate">{{ size.label }}</p>
-                  </div>
-                  <span class="text-xs font-semibold px-3 py-1 rounded-full shadow-sm" style="background: {{ bg_color }}; color: white;">{{ category_name|default:'Other' }}</span>
+                {# category chip above title #}
+                <span class="self-start text-xs font-semibold px-2.5 py-0.5 rounded-full shadow-sm" style="background: {{ bg_color }}; color: white;">{{ category_name|default:'Other' }}</span>
+                <div class="min-w-0">
+                  <p class="text-base font-semibold leading-snug truncate">{{ size.name }}</p>
+                  <p class="text-sm text-base-content/60 truncate">{{ size.label }}</p>
                 </div>
 
-                <div class="flex items-center gap-3 mt-2">
+                <div class="flex flex-col gap-2 mt-1">
                   {% if size.canva_template_url %}
-                  <a href="{{ size.canva_template_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm flex-1 gap-1">
+                  <a href="{{ size.canva_template_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm w-full gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-3 1 1-3a4 4 0 01.828-1.414z"/>
                     </svg>
                     Canva
                   </a>
-                  {% else %}
-                  <span class="flex-1"></span>
                   {% endif %}
 
-                  <div class="relative" x-data="{ open: false }">
-                    <button @click="open = !open" @click.outside="open = false" class="btn btn-outline btn-xs gap-1" title="Download PDF template with bleed guides">
+                  <div class="relative w-full" x-data="{ open: false }">
+                    <button @click="open = !open" @click.outside="open = false" class="btn btn-outline btn-sm w-full gap-1" title="Download PDF template with bleed guides">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4"/>
                       </svg>
@@ -100,6 +119,7 @@
         {% endfor %}
       </div>
     </div>
+    </div><!-- /scrollable content -->
   </div><!-- /right -->
 
   {% else %}
