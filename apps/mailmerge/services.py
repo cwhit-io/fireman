@@ -56,6 +56,10 @@ _FONT_NAME: bytes = b"/Helvetica"
 _FONT_SIZE: float = 9.0
 _LINE_HEIGHT: float = 13.0  # points between baselines
 
+# USPS presort CSV column schema (single source of truth — re-exported for
+# Django callers that do `from apps.mailmerge.services import CSV_HEADERS`).
+from ._csv_headers import CSV_HEADERS  # noqa: F401
+
 # Default address field ordering (bottom → top)
 from .models import DEFAULT_CSV_FIELDS as _DEFAULT_FIELDS
 

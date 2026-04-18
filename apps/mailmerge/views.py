@@ -218,7 +218,7 @@ class NewMoversCsvView(MailMergeAccessMixin, View):
         except (KeyError, ValueError, TypeError):
             return JsonResponse({"error": "Invalid month or year."}, status=400)
 
-        from core.get_addresses import generate_csv_for_period
+        from apps.mailmerge.get_addresses import generate_csv_for_period
         try:
             filename, csv_bytes = generate_csv_for_period(month, year)
         except Exception:

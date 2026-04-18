@@ -19,6 +19,8 @@ import requests
 from datetime import datetime
 from typing import List, Tuple, Dict, Any, Optional
 
+from apps.mailmerge._csv_headers import CSV_HEADERS
+
 API_BASE_URL = (
     "https://gis1.acimap.us/imapweb/rest/services/COMPS/Parcels_Sales_Live/MapServer/0/query"
 )
@@ -29,27 +31,6 @@ FIELDS = [
     "GISPublished.sde.AssessorSalesBuildingsParcelInfo.SaleDate",
     "GISPublished.sde.AssessorSalesBuildingsParcelInfo.Buyer1Name",
     "GISPublished.sde.AssessorSalesBuildingsParcelInfo.Buyer2Name",
-]
-
-# Output column order — matches mail presort layout exactly
-CSV_HEADERS = [
-    "no",
-    "name",
-    "contactid",
-    "company",
-    "urbanization",
-    "sec-primary street",
-    "primary street",
-    "city-state-zip",
-    "ase",
-    "oel",
-    "presorttrayid",
-    "presortdate",
-    "imbno",
-    "encodedimbno",
-    "primary city",
-    "primary state",
-    "primary zip",
 ]
 
 FIELD_MAP = {

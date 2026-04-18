@@ -5,6 +5,12 @@ import csv
 import argparse
 from dotenv import load_dotenv
 
+# Allow `from apps.mailmerge._csv_headers import ...` when run as a standalone
+# script from the project root (e.g. `python apps/mailmerge/pco-pull.py <id>`).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from apps.mailmerge._csv_headers import CSV_HEADERS  # noqa: E402
+
 # Load environment variables
 load_dotenv()
 
@@ -12,13 +18,6 @@ CLIENT_ID = os.environ.get('PLANNING_CENTER_CLIENT_ID')
 SECRET = os.environ.get('PLANNING_CENTER_SECRET')
 BASE_URL = 'https://api.planningcenteronline.com/people/v2'
 
-# The exact headers requested for the bulk mailing/presort software
-CSV_HEADERS = [
-    'no', 'name', 'contactid', 'company', 'urbanization', 
-    'sec-primary street', 'primary street', 'city-state-zip', 
-    'ase', 'oel', 'presorttrayid', 'presortdate', 
-    'imbno', 'encodedimbno', 'primary city', 'primary state', 'primary zip'
-]
 
 def get_list_people(list_id):
     """
