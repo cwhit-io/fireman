@@ -9,6 +9,8 @@ urlpatterns = [
     path("upload/", views.MailMergeJobUploadView.as_view(), name="upload"),
     path("sample-csv/", views.MailMergeSampleCsvView.as_view(), name="sample_csv"),
     path("new-movers-csv/", views.NewMoversCsvView.as_view(), name="new_movers_csv"),
+    path("pco-lists/", views.PcoListsJsonView.as_view(), name="pco_lists"),
+    path("pco-csv/", views.PcoCsvView.as_view(), name="pco_csv"),
     path(
         "inspect-artwork/",
         views.MailMergeArtworkInspectView.as_view(),

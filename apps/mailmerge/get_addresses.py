@@ -170,6 +170,31 @@ def get_sales_data(month: int, year: int, batch_size: int = 1000) -> List[Dict[s
 # Name formatting
 # ---------------------------------------------------------------------------
 
+def _strip_initials(name: str) -> str:
+    """Remove standalone initials, suffixes, and legal notations from a name.
+
+    Strips:
+    - Initials with periods:      'MASON S. & SOPHIA E. LINGG' -> 'MASON & SOPHIA LINGG'
+    - Bare single-letter initials (not the first token):
+                                  'CAROL J ROBERTS' -> 'CAROL ROBERTS'
+                                  'GENE R'          -> 'GENE'
+    - Name suffixes at end:       'WALKER, JR' -> 'WALKER', 'HILL III' -> 'HILL'
+    - Power-of-attorney notation: 'SVOBODA BY AYRIKA PIER, AIF' -> 'SVOBODA'
+    """
+    s = name
+    # Strip "X." initials (letter + period)
+    s = re.sub(r'\b[A-Z]\.\s*', '', s)
+    # Strip bare single-letter initials that are NOT the first token.
+    # Lookbehind requires exactly one word-char + one space before the letter,
+    # which ensures the initial is not the start of the string.
+    s = re.sub(r'(?<=\w )[A-Z](?= |\Z)', '', s)
+    # Strip name suffixes (Jr/Sr/II/III/IV) with optional preceding comma
+    s = re.sub(r',?\s*\b(JR|SR|II|III|IV)\b\.?\s*$', '', s, flags=re.IGNORECASE)
+    # Strip power-of-attorney / representative notation ("NAME BY AGENT, AIF")
+    s = re.sub(r'\s+BY\s+.+$', '', s, flags=re.IGNORECASE)
+    return ' '.join(s.split())
+
+
 def _split_person_name(name: str) -> tuple[str, str]:
     """Return (given-part, last-name) for a likely person name.
 
@@ -193,12 +218,14 @@ def format_recipient(buyer1: str | None, buyer2: str | None) -> str:
     """Return a single recipient string combining buyer1 and buyer2 intelligently.
 
     - Both people, same last name  -> "Given1 & Given2 Last"
+    - Last-name-first (shared first word): "WENZEL JONATHAN & WENZEL SARAH"
+                                       ->  "JONATHAN & SARAH WENZEL"
     - Both people, different names -> "Full1 & Full2"
     - Either is an org/entity      -> "Name1 & Name2" (no parsing)
     - Only one name present        -> that name as-is
     """
-    b1 = (buyer1 or '').strip()
-    b2 = (buyer2 or '').strip()
+    b1 = _strip_initials((buyer1 or '').strip())
+    b2 = _strip_initials((buyer2 or '').strip())
 
     if not b1 and not b2:
         return ''
@@ -209,6 +236,13 @@ def format_recipient(buyer1: str | None, buyer2: str | None) -> str:
 
     if _is_organization_name(b1) or _is_organization_name(b2):
         return f"{b1} & {b2}"
+
+    # Last-name-first detection: both names share the same leading word
+    # e.g. "WENZEL JONATHAN" & "WENZEL SARAH" → "JONATHAN & SARAH WENZEL"
+    t1, t2 = b1.split(), b2.split()
+    if len(t1) >= 2 and len(t2) >= 2 and t1[0].lower() == t2[0].lower():
+        shared_last = t1[0]
+        return f"{' '.join(t1[1:])} & {' '.join(t2[1:])} {shared_last}"
 
     g1, l1 = _split_person_name(b1)
     g2, l2 = _split_person_name(b2)

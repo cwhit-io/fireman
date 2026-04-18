@@ -584,7 +584,8 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
     records: [],
     recordIdx: 0,
     csvTab: 'upload',
-    nm: { month: '', year: '', loading: false, error: '', success: '' },
+    nm: { month: '', year: '', loading: false, error: '', success: '', downloadUrl: null, downloadFilename: '' },
+    pco: { lists: [], listId: '', loading: false, listsLoading: false, listsLoaded: false, error: '', success: '', downloadUrl: null, downloadFilename: '' },
 
     get currentRecord() {
       return this.records[this.recordIdx] || null;
@@ -657,10 +658,24 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
       reader.readAsText(file);
     },
 
+    switchCsvTab(tab) {
+      if (this.csvTab === 'newmovers' && tab !== 'newmovers') {
+        if (this.nm.downloadUrl) { URL.revokeObjectURL(this.nm.downloadUrl); }
+        this.nm.downloadUrl = null; this.nm.downloadFilename = ''; this.nm.success = '';
+      }
+      if (this.csvTab === 'pco' && tab !== 'pco') {
+        if (this.pco.downloadUrl) { URL.revokeObjectURL(this.pco.downloadUrl); }
+        this.pco.downloadUrl = null; this.pco.downloadFilename = ''; this.pco.success = '';
+      }
+      this.csvTab = tab;
+      if (tab === 'pco') this.loadPcoLists();
+    },
+
     async pullNewMovers() {
       this.nm.error = '';
       this.nm.success = '';
       if (!this.nm.month || !this.nm.year) { this.nm.error = 'Please enter a month and year.'; return; }
+      if (this.nm.downloadUrl) { URL.revokeObjectURL(this.nm.downloadUrl); this.nm.downloadUrl = null; this.nm.downloadFilename = ''; }
       this.nm.loading = true;
       try {
         const url = '/mailmerge/new-movers-csv/?month=' + this.nm.month + '&year=' + this.nm.year;
@@ -676,11 +691,61 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
         const input = document.getElementById('csv_file');
         input.files = dt.files;
         input.dispatchEvent(new Event('change', { bubbles: true }));
+        this.nm.downloadUrl = URL.createObjectURL(blob);
+        this.nm.downloadFilename = filename;
         this.nm.success = filename + ' loaded (' + file.size.toLocaleString() + ' bytes)';
       } catch (e) {
         this.nm.error = 'Network error: ' + e.message;
       } finally {
         this.nm.loading = false;
+      }
+    },
+
+    async loadPcoLists() {
+      if (this.pco.listsLoading) return;
+      this.pco.listsLoading = true;
+      this.pco.error = '';
+      try {
+        const res = await fetch('/mailmerge/pco-lists/');
+        const data = await res.json();
+        if (!res.ok) { this.pco.error = data.error || 'Failed to load lists.'; return; }
+        this.pco.lists = data.lists || [];
+        this.pco.listsLoaded = true;
+      } catch (e) {
+        this.pco.error = 'Network error: ' + e.message;
+      } finally {
+        this.pco.listsLoading = false;
+      }
+    },
+
+    async pullPcoList() {
+      if (!this.pco.listId) return;
+      this.pco.error = '';
+      this.pco.success = '';
+      // Revoke previous download to free memory
+      if (this.pco.downloadUrl) { URL.revokeObjectURL(this.pco.downloadUrl); this.pco.downloadUrl = null; this.pco.downloadFilename = ''; }
+      this.pco.loading = true;
+      try {
+        const url = '/mailmerge/pco-csv/?list_id=' + encodeURIComponent(this.pco.listId);
+        const res = await fetch(url);
+        if (!res.ok) { const d = await res.json(); this.pco.error = d.error || 'Request failed.'; return; }
+        const blob = await res.blob();
+        const cd = res.headers.get('Content-Disposition') || '';
+        const nameMatch = cd.match(/filename="?([^"]+)"?/);
+        const filename = nameMatch ? nameMatch[1] : 'pco_list.csv';
+        const file = new File([blob], filename, { type: 'text/csv' });
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        const input = document.getElementById('csv_file');
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        this.pco.downloadUrl = URL.createObjectURL(blob);
+        this.pco.downloadFilename = filename;
+        this.pco.success = filename + ' loaded (' + file.size.toLocaleString() + ' bytes)';
+      } catch (e) {
+        this.pco.error = 'Network error: ' + e.message;
+      } finally {
+        this.pco.loading = false;
       }
     },
 

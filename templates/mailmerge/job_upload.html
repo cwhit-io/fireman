@@ -125,8 +125,9 @@
           </label>
           <!-- Tabs -->
           <div role="tablist" class="tabs tabs-border mb-3">
-            <button type="button" role="tab" class="tab" :class="csvTab === 'upload' && 'tab-active'" @click="csvTab = 'upload'">Upload file</button>
-            <button type="button" role="tab" class="tab" :class="csvTab === 'newmovers' && 'tab-active'" @click="csvTab = 'newmovers'">Pull New Movers list</button>
+            <button type="button" role="tab" class="tab" :class="csvTab === 'upload' && 'tab-active'" @click="switchCsvTab('upload')">Upload file</button>
+            <button type="button" role="tab" class="tab" :class="csvTab === 'newmovers' && 'tab-active'" @click="switchCsvTab('newmovers')">Pull New Movers list</button>
+            <button type="button" role="tab" class="tab" :class="csvTab === 'pco' && 'tab-active'" @click="switchCsvTab('pco')">PCO Lists</button>
           </div>
 
           <!-- Upload tab -->
@@ -175,9 +176,51 @@
               </button>
             </div>
             <div x-show="nm.error" x-text="nm.error" class="mt-2 text-sm text-error"></div>
-            <div x-show="nm.success" x-text="nm.success" class="mt-2 text-sm text-success"></div>
+            <div x-show="nm.success" class="mt-2 flex items-center gap-3">
+              <span x-text="nm.success" class="text-sm text-success"></span>
+              <a x-show="nm.downloadUrl" :href="nm.downloadUrl" :download="nm.downloadFilename"
+                 class="btn btn-ghost btn-xs gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 8l-4-4m4 4l4-4"/></svg>
+                Download
+              </a>
+            </div>
             <label class="label">
               <span class="label-text-alt text-base-content/50">Fetches Allen County new movers from the GIS API for the selected period.</span>
+            </label>
+          </div>
+
+          <!-- PCO Lists tab -->
+          <div x-show="csvTab === 'pco'">
+            <div class="flex flex-wrap items-end gap-3">
+              <div class="flex-1 min-w-48">
+                <label class="label py-0 mb-1"><span class="label-text text-sm">Mailing List</span></label>
+                <select x-model="pco.listId" class="select select-bordered select-sm w-full" :disabled="pco.listsLoading">
+                  <option value="">— Select a list —</option>
+                  <template x-for="list in pco.lists" :key="list.id">
+                    <option :value="list.id" x-text="list.name"></option>
+                  </template>
+                </select>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" :disabled="pco.loading || !pco.listId" @click="pullPcoList()">
+                <span x-show="!pco.loading">Pull List</span>
+                <span x-show="pco.loading" class="loading loading-spinner loading-xs"></span>
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" :disabled="pco.listsLoading" @click="loadPcoLists()" title="Refresh lists">
+                <span x-show="!pco.listsLoading">&#8635;</span>
+                <span x-show="pco.listsLoading" class="loading loading-spinner loading-xs"></span>
+              </button>
+            </div>
+            <div x-show="pco.error" x-text="pco.error" class="mt-2 text-sm text-error"></div>
+            <div x-show="pco.success" class="mt-2 flex items-center gap-3">
+              <span x-text="pco.success" class="text-sm text-success"></span>
+              <a x-show="pco.downloadUrl" :href="pco.downloadUrl" :download="pco.downloadFilename"
+                 class="btn btn-ghost btn-xs gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 8l-4-4m4 4l4-4"/></svg>
+                Download
+              </a>
+            </div>
+            <label class="label">
+              <span class="label-text-alt text-base-content/50">Fetches a Planning Center "Mailing" category list and loads it as your address CSV.</span>
             </label>
           </div>
         </div>

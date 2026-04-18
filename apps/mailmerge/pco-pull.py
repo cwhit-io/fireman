@@ -96,14 +96,12 @@ def generate_mailing_csv(list_id, people):
             # Address Info
             addr = person['address']
             if addr:
-                # PCO stores multi-line addresses (like Apt/Suite) separated by newlines in the 'street' field
-                street_parts = addr.get('street', '').split('\n')
-                row['primary street'] = street_parts[0].strip() if len(street_parts) > 0 else ''
-                row['sec-primary street'] = street_parts[1].strip() if len(street_parts) > 1 else ''
-                
-                city = addr.get('city', '')
-                state = addr.get('state', '')
-                zip_code = addr.get('zip', '')
+                row['primary street'] = (addr.get('street_line_1') or '').strip()
+                row['sec-primary street'] = (addr.get('street_line_2') or '').strip()
+
+                city = addr.get('city') or ''
+                state = addr.get('state') or ''
+                zip_code = addr.get('zip') or ''
                 
                 row['primary city'] = city
                 row['primary state'] = state

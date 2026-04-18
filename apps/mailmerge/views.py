@@ -230,6 +230,41 @@ class NewMoversCsvView(MailMergeAccessMixin, View):
         return response
 
 
+class PcoListsJsonView(MailMergeAccessMixin, View):
+    """Return PCO Mailing lists as JSON for the frontend dropdown."""
+
+    def get(self, request):
+        from apps.mailmerge.pco import get_mailing_lists
+        try:
+            lists = get_mailing_lists()
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=503)
+        except Exception as exc:
+            logger.exception("PCO list fetch failed")
+            return JsonResponse({"error": str(exc) or "Failed to fetch PCO lists."}, status=502)
+        return JsonResponse({"lists": lists})
+
+
+class PcoCsvView(MailMergeAccessMixin, View):
+    """Fetch a PCO list and return it as a USPS Intelligent Mail CSV download."""
+
+    def get(self, request):
+        list_id = request.GET.get("list_id", "").strip()
+        if not list_id:
+            return JsonResponse({"error": "list_id is required."}, status=400)
+        from apps.mailmerge.pco import list_to_csv_bytes
+        try:
+            filename, csv_bytes = list_to_csv_bytes(list_id)
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=503)
+        except Exception as exc:
+            logger.exception("PCO CSV fetch failed for list %s", list_id)
+            return JsonResponse({"error": str(exc) or "Failed to fetch PCO list."}, status=502)
+        response = HttpResponse(csv_bytes, content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
 class MailMergeSampleCsvView(MailMergeAccessMixin, View):
     """Serve the project's sample CSV for download from the assets folder."""
 
