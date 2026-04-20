@@ -209,3 +209,19 @@ organize-assets: ## Create assets/printer layout and copy barcodes, fonts, and P
 	cp -n fonts/usps/trueType/*.ttf assets/printer/fonts/trueType/ 2>/dev/null || true
 	cp -n EF678921.PPD assets/printer/ppd/ 2>/dev/null || true
 	@echo "assets/printer prepared (existing files preserved)."
+
+FIERY_IP := 10.10.96.103
+PPD      := $(HOME)/fireman/assets/printer/ppd/EF604620.PPD
+
+register-printer:
+	sudo lpadmin -p EmberExpress -E \
+		-v "ipp://$(FIERY_IP)/ipp/print" \
+		-P $(PPD) \
+		-o printer-is-shared=true \
+		-o EFPrintSize=Letter \
+		-o EFMediaType=Plain \
+		-o EFMediaWeight=81_91 \
+		-o EFPunchHoleType=None \
+		-o EFOutputBin=RelayUnit \
+		-o EFPageDelivery=SameOrderFaceUp
+	sudo cupsenable EmberExpress
