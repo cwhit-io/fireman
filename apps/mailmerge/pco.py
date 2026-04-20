@@ -104,9 +104,17 @@ def get_list_people(list_id: str) -> list[dict]:
     return people_data
 
 
-def list_to_csv_bytes(list_id: str) -> tuple[str, bytes]:
-    """Fetch a PCO mailing list and return (filename, csv_bytes)."""
+def list_to_csv_bytes(list_id: str, clean: bool = False) -> tuple[str, bytes]:
+    """Fetch a PCO mailing list and return (filename, csv_bytes).
+
+    Args:
+        list_id: PCO list ID.
+        clean:   If True, apply address standardisation (USPS abbreviations,
+                 zip normalisation, etc.) via address_cleanup.clean_row().
+    """
     from apps.mailmerge._csv_headers import CSV_HEADERS
+    if clean:
+        from apps.mailmerge.address_cleanup import clean_row, dedup_rows
 
     people = get_list_people(list_id)
     filename = f"mailing_list_{list_id}.csv"
@@ -114,25 +122,42 @@ def list_to_csv_bytes(list_id: str) -> tuple[str, bytes]:
     writer = csv.DictWriter(output, fieldnames=CSV_HEADERS)
     writer.writeheader()
 
-    for index, person in enumerate(people, start=1):
+    skipped = 0
+    rows = []
+    for person in people:
+        addr = person["address"]
+        city = (addr.get("city") or "").strip() if addr else ""
+        state = (addr.get("state") or "").strip() if addr else ""
+        zip_code = (addr.get("zip") or "").strip() if addr else ""
+        street = (addr.get("street_line_1") or "").strip() if addr else ""
+
+        # Skip records missing any required address field
+        if not street or not city or not state or not zip_code:
+            skipped += 1
+            continue
+
         row = {header: "" for header in CSV_HEADERS}
-        row["no"] = index
         row["name"] = person["name"]
         row["contactid"] = person["id"]
+        row["primary street"] = street
+        row["sec-primary street"] = (addr.get("street_line_2") or "").strip()
+        row["primary city"] = city
+        row["primary state"] = state
+        row["primary zip"] = zip_code
+        row["city-state-zip"] = f"{city} {state} {zip_code}"
+        rows.append(row)
 
-        addr = person["address"]
-        if addr:
-            row["primary street"] = (addr.get("street_line_1") or "").strip()
-            row["sec-primary street"] = (addr.get("street_line_2") or "").strip()
-            city = (addr.get("city") or "")
-            state = (addr.get("state") or "")
-            zip_code = (addr.get("zip") or "")
-            row["primary city"] = city
-            row["primary state"] = state
-            row["primary zip"] = zip_code
-            if city or state or zip_code:
-                row["city-state-zip"] = f"{city} {state} {zip_code}".strip()
+    if clean:
+        for row in rows:
+            clean_row(row)
+        rows = dedup_rows(rows)
 
+    # Assign sequential row numbers after any deduplication
+    for index, row in enumerate(rows, start=1):
+        row["no"] = index
         writer.writerow(row)
+
+    if skipped:
+        print(f"  Skipped {skipped} record(s) with incomplete address")
 
     return filename, output.getvalue().encode("utf-8")

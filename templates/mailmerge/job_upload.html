@@ -210,6 +210,10 @@
                 <span x-show="pco.listsLoading" class="loading loading-spinner loading-xs"></span>
               </button>
             </div>
+            <label class="label cursor-pointer justify-start gap-3 py-2">
+              <input type="checkbox" class="checkbox checkbox-sm" x-model="pco.cleanAddresses">
+              <span class="label-text text-sm">Clean addresses <span class="text-base-content/50">(standardise streets, abbreviate suffixes &amp; directionals, normalise ZIP)</span></span>
+            </label>
             <div x-show="pco.error" x-text="pco.error" class="mt-2 text-sm text-error"></div>
             <div x-show="pco.success" class="mt-2 flex items-center gap-3">
               <span x-text="pco.success" class="text-sm text-success"></span>

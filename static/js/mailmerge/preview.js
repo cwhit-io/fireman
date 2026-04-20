@@ -585,7 +585,7 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
     recordIdx: 0,
     csvTab: 'upload',
     nm: { month: '', year: '', loading: false, error: '', success: '', downloadUrl: null, downloadFilename: '' },
-    pco: { lists: [], listId: '', loading: false, listsLoading: false, listsLoaded: false, error: '', success: '', downloadUrl: null, downloadFilename: '' },
+    pco: { lists: [], listId: '', loading: false, listsLoading: false, listsLoaded: false, error: '', success: '', downloadUrl: null, downloadFilename: '', cleanAddresses: false },
 
     get currentRecord() {
       return this.records[this.recordIdx] || null;
@@ -726,7 +726,7 @@ window.mailMergeUpload = function mailMergeUpload(cfg) {
       if (this.pco.downloadUrl) { URL.revokeObjectURL(this.pco.downloadUrl); this.pco.downloadUrl = null; this.pco.downloadFilename = ''; }
       this.pco.loading = true;
       try {
-        const url = '/mailmerge/pco-csv/?list_id=' + encodeURIComponent(this.pco.listId);
+        const url = '/mailmerge/pco-csv/?list_id=' + encodeURIComponent(this.pco.listId) + (this.pco.cleanAddresses ? '&clean=1' : '');
         const res = await fetch(url);
         if (!res.ok) { const d = await res.json(); this.pco.error = d.error || 'Request failed.'; return; }
         const blob = await res.blob();

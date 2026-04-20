@@ -307,6 +307,11 @@ def records_to_csv_bytes(
 
         state = "IN"  # all Allen County records are Indiana
 
+        # Skip records missing any required address field
+        if not raw_address or not raw_city or not raw_zip:
+            skipped += 1
+            continue
+
         city_state_zip = _build_city_state_zip(raw_city, state, raw_zip)
         recipient = format_recipient(raw_buyer1, raw_buyer2).upper()
 

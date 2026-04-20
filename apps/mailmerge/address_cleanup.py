@@ -72,6 +72,75 @@ def clean_zip(zip_code):
         
     return zip_code
 
+def _extract_last_name(name: str) -> str:
+    """Return the last word of a name string, treating it as the surname."""
+    words = re.sub(r'[.,]', '', name).split()
+    return words[-1] if words else ''
+
+
+def name_to_household(name: str) -> str:
+    """Convert a person/couple name to 'The {Last Name} Household'.
+
+    'JONATHAN & SARAH WENZEL'  ->  'The Wenzel Household'
+    'John Smith'               ->  'The Smith Household'
+    Returns the original value unchanged if name is empty.
+    """
+    if not name or not name.strip():
+        return name
+    last = _extract_last_name(name.strip())
+    if not last:
+        return name
+    return f"The {last.title()} Household"
+
+
+def dedup_rows(rows: list) -> list:
+    """Return a deduplicated copy of rows.
+
+    Two rows are considered duplicates when they share the same normalised
+    name AND normalised primary street. The first occurrence is kept.
+    """
+    seen: set = set()
+    result = []
+    for row in rows:
+        key = (
+            row.get('name', '').lower().strip(),
+            row.get('primary street', '').lower().strip(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(row)
+    return result
+
+
+def clean_row(row: dict) -> dict:
+    """Apply all cleaners to a single CSV row dict and return it.
+
+    Operates in-place and returns the same dict for convenience.
+    Add new cleaners here — they will automatically apply wherever clean_row
+    is called (pco.py, process_csv, etc.).
+    """
+    if 'name' in row:
+        row['name'] = name_to_household(row['name'])
+    if 'primary street' in row:
+        row['primary street'] = clean_street(row['primary street'])
+    if 'sec-primary street' in row:
+        row['sec-primary street'] = clean_street(row['sec-primary street'])
+    if 'primary city' in row:
+        row['primary city'] = row['primary city'].upper().strip()
+    if 'primary state' in row:
+        row['primary state'] = row['primary state'].upper().strip()[:2]
+    if 'primary zip' in row:
+        row['primary zip'] = clean_zip(row['primary zip'])
+    if all(k in row for k in ('primary city', 'primary state', 'primary zip', 'city-state-zip')):
+        city = row['primary city']
+        state = row['primary state']
+        zip_code = row['primary zip']
+        if city or state or zip_code:
+            row['city-state-zip'] = re.sub(r'\s+', ' ', f"{city} {state} {zip_code}".strip())
+    return row
+
+
 def process_csv(filepath):
     """
     Reads the CSV, cleans address fields, and safely overwrites the original file.
@@ -84,56 +153,34 @@ def process_csv(filepath):
     fd, temp_path = tempfile.mkstemp(suffix='.csv', text=True)
     
     try:
-        with open(filepath, mode='r', encoding='utf-8') as infile, \
-             os.fdopen(fd, mode='w', encoding='utf-8', newline='') as outfile:
-            
+        with open(filepath, mode='r', encoding='utf-8') as infile:
             reader = csv.DictReader(infile)
             fieldnames = reader.fieldnames
-            
             if not fieldnames:
                 print("Error: CSV file is empty or missing headers.")
+                os.close(fd)
+                os.remove(temp_path)
                 return
-                
+            rows = list(reader)
+
+        # Clean, deduplicate, then renumber
+        rows = [clean_row(row) for row in rows]
+        rows = dedup_rows(rows)
+        for index, row in enumerate(rows, start=1):
+            if 'no' in row:
+                row['no'] = str(index)
+
+        with os.fdopen(fd, mode='w', encoding='utf-8', newline='') as outfile:
             writer = csv.DictWriter(outfile, fieldnames=fieldnames)
             writer.writeheader()
-            
-            processed_count = 0
-            for row in reader:
-                # 1. Clean primary and secondary street
-                if 'primary street' in row:
-                    row['primary street'] = clean_street(row['primary street'])
-                if 'sec-primary street' in row:
-                    row['sec-primary street'] = clean_street(row['sec-primary street'])
-                
-                # 2. Clean city and state (uppercase, strip whitespace)
-                if 'primary city' in row:
-                    row['primary city'] = row['primary city'].upper().strip()
-                if 'primary state' in row:
-                    row['primary state'] = row['primary state'].upper().strip()[:2] # Force 2-letter state
-                
-                # 3. Clean ZIP code
-                if 'primary zip' in row:
-                    row['primary zip'] = clean_zip(row['primary zip'])
-                    
-                # 4. Rebuild the combined city-state-zip field
-                if all(k in row for k in ('primary city', 'primary state', 'primary zip', 'city-state-zip')):
-                    city = row['primary city']
-                    state = row['primary state']
-                    zip_code = row['primary zip']
-                    if city or state or zip_code:
-                        row['city-state-zip'] = f"{city} {state} {zip_code}".strip()
-                        # Remove double spaces if a field was missing
-                        row['city-state-zip'] = re.sub(r'\s+', ' ', row['city-state-zip'])
+            writer.writerows(rows)
 
-                writer.writerow(row)
-                processed_count += 1
-                
         # Safely replace the original file with the cleaned temporary file
         shutil.move(temp_path, filepath)
-        print(f"Successfully cleaned {processed_count} records in '{filepath}'.")
-        
+        print(f"Successfully cleaned {len(rows)} records in '{filepath}'.")
+
     except Exception as e:
-        os.remove(temp_path) # Clean up temp file on failure
+        os.remove(temp_path)  # Clean up temp file on failure
         print(f"An error occurred during processing: {e}")
 
 if __name__ == "__main__":

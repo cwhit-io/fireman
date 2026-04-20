@@ -252,9 +252,10 @@ class PcoCsvView(MailMergeAccessMixin, View):
         list_id = request.GET.get("list_id", "").strip()
         if not list_id:
             return JsonResponse({"error": "list_id is required."}, status=400)
+        clean = request.GET.get("clean") == "1"
         from apps.mailmerge.pco import list_to_csv_bytes
         try:
-            filename, csv_bytes = list_to_csv_bytes(list_id)
+            filename, csv_bytes = list_to_csv_bytes(list_id, clean=clean)
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=503)
         except Exception as exc:
