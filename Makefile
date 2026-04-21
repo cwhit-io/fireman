@@ -224,4 +224,4 @@ register-printer:
 		-o EFPunchHoleType=None \
 		-o EFOutputBin=RelayUnit \
 		-o EFPageDelivery=SameOrderFaceUp
-	sudo cupsenable EmberExpress
+	sudo cupsenable EmberExpress-

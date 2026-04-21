@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Printer Setup — Ember{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  {# ── Header ── #}
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-2">
+      <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>
+        </svg>
+      </div>
+      <h1 class="text-3xl font-extrabold tracking-tight">Add the EmberExpress Printer</h1>
+    </div>
+    <p class="text-base-content/60 text-sm mb-3">
+      EmberExpress is a shared network printer backed by our Konica Minolta C4070 &mdash; a production-grade color press that most offices could only dream of. Add it once and get crisp, professional 8.5&times;11 prints in color or B&amp;W, simplex or duplex, right from your own computer.
+    </p>
+    <span class="inline-flex items-center gap-1 text-sm font-medium text-warning">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+      </svg>
+      You must be on the <strong>BHMTech</strong> Wi-Fi network.
+    </span>
+  </div>
+
+  {# ── Windows ── #}
+  <section class="mb-10" x-data="{ open: true }">
+    <button @click="open = !open"
+            class="w-full flex items-center justify-between gap-3 mb-4 text-left">
+      <div class="flex items-center gap-3">
+        <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-base-300 shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+          </svg>
+        </div>
+        <h2 class="text-lg font-bold">Windows</h2>
+      </div>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/40 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </button>
+
+    <div x-show="open" x-transition>
+      <ol class="space-y-4">
+
+        <li class="flex gap-4">
+          <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold shrink-0 mt-0.5">1</span>
+          <div>
+            <p class="font-medium text-sm">Open <strong>Settings</strong></p>
+            <p class="text-sm text-base-content/60">Press <kbd class="kbd kbd-sm">Win</kbd> + <kbd class="kbd kbd-sm">I</kbd>, then go to <strong>Bluetooth &amp; devices &rarr; Printers &amp; scanners</strong>.</p>
+          </div>
+        </li>
+
+        <li class="flex gap-4">
+          <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold shrink-0 mt-0.5">2</span>
+          <div>
+            <p class="font-medium text-sm">Add a printer</p>
+            <p class="text-sm text-base-content/60">Click <strong>Add device</strong>. Windows will scan the network. Look for <strong>EmberExpress</strong> in the list and click <strong>Add device</strong> next to it.</p>
+          </div>
+        </li>
+
+        <li class="flex gap-4">
+          <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold shrink-0 mt-0.5">3</span>
+          <div>
+            <p class="font-medium text-sm">Not showing up?</p>
+            <p class="text-sm text-base-content/60">Click <strong>Add manually</strong>, choose <em>Add a printer using an IP address or hostname</em>, and enter:</p>
+            <div class="mt-2 rounded-lg bg-base-200 px-4 py-3 font-mono text-sm space-y-1">
+              <p><span class="text-base-content/50">Hostname / IP:</span> <strong>10.10.96.138</strong></p>
+              <p><span class="text-base-content/50">Protocol:</span> <strong>IPP</strong></p>
+              <p><span class="text-base-content/50">Queue:</span> <strong>printers/EmberExpress</strong></p>
+            </div>
+          </div>
+        </li>
+
+        <li class="flex gap-4">
+          <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold shrink-0 mt-0.5">4</span>
+          <div>
+            <p class="font-medium text-sm">Print a test page</p>
+            <p class="text-sm text-base-content/60">Right-click <strong>EmberExpress</strong> in your printer list &rarr; <strong>Printer properties</strong> &rarr; <strong>Print Test Page</strong>.</p>
+          </div>
+        </li>
+
+      </ol>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  {# ── macOS ── #}
+  <section class="mt-6 mb-10" x-data="{ open: true }">
+    <button @click="open = !open"
+            class="w-full flex items-center justify-between gap-3 mb-4 text-left">
+      <div class="flex items-center gap-3">
+        <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-base-300 shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 814 1000" fill="currentColor" aria-hidden="true">
+            <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 411.8 43 305.8 43 282.7c0-145.4 94.7-222.4 185.3-222.4 69.7 0 127.9 45.5 170.7 45.5 40.8 0 106.5-48.8 185.3-48.8 14.4 0 97.4 1.3 157.4 67.9zm-165.9-28.5c-3.2-14.4-12.2-84.7-69.1-139.9-56.3-55.3-124.3-74.4-163.2-74.4 3.2 15.7 16.3 87.1 73.9 141.9 55 52.8 134.9 71.9 158.4 72.4z"/>
+          </svg>
+        </div>
+        <h2 class="text-lg font-bold">macOS</h2>
+      </div>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/40 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </button>
+
+    <div x-show="open" x-transition>
+      <ol class="space-y-4">
+
+        <li class="flex gap-4">
+          <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold shrink-0 mt-0.5">1</span>
+          <div>
+            <p class="font-medium text-sm">Open <strong>System Settings</strong></p>
+            <p class="text-sm text-base-content/60">Click the Apple menu &rarr; <strong>System Settings</strong> &rarr; <strong>Printers &amp; Scanners</strong>.</p>
+          </div>
+        </li>
+
+        <li class="flex gap-4">
+          <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold shrink-0 mt-0.5">2</span>
+          <div>
+            <p class="font-medium text-sm">Add a printer</p>
+            <p class="text-sm text-base-content/60">Click <strong>Add Printer, Scanner or Fax&hellip;</strong> The <strong>Default</strong> tab lists nearby Bonjour printers. Click <strong>EmberExpress</strong> then <strong>Add</strong>.</p>
+          </div>
+        </li>
+
+        <li class="flex gap-4">
+          <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold shrink-0 mt-0.5">3</span>
+          <div>
+            <p class="font-medium text-sm">Not showing up?</p>
+            <p class="text-sm text-base-content/60">Click the <strong>IP</strong> tab in the Add Printer dialog and enter:</p>
+            <div class="mt-2 rounded-lg bg-base-200 px-4 py-3 font-mono text-sm space-y-1">
+              <p><span class="text-base-content/50">Protocol:</span> <strong>IPP</strong></p>
+              <p><span class="text-base-content/50">Address:</span> <strong>10.10.96.138</strong></p>
+              <p><span class="text-base-content/50">Queue:</span> <strong>printers/EmberExpress</strong></p>
+            </div>
+            <p class="text-sm text-base-content/60 mt-2">Set <strong>Use</strong> to <em>Generic PostScript Printer</em> and click <strong>Add</strong>.</p>
+          </div>
+        </li>
+
+        <li class="flex gap-4">
+          <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold shrink-0 mt-0.5">4</span>
+          <div>
+            <p class="font-medium text-sm">Print a test page</p>
+            <p class="text-sm text-base-content/60">Open any document, press <kbd class="kbd kbd-sm">&#8984;</kbd> + <kbd class="kbd kbd-sm">P</kbd>, choose <strong>EmberExpress</strong>, and print.</p>
+          </div>
+        </li>
+
+      </ol>
+    </div>
+  </section>
+
+  {# ── Reminder ── #}
+  <div class="alert alert-warning">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+    </svg>
+    <span class="text-sm">Printer only visible on the <strong>BHMTech</strong> network. If you don&rsquo;t see it, check your Wi-Fi first.</span>
+  </div>
+
+</div>
+{% endblock %}

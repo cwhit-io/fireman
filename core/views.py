@@ -66,6 +66,10 @@ def links_page(request):
     return render(request, "core/links.html")
 
 
+def printer_setup(request):
+    return render(request, "core/printer_setup.html")
+
+
 def qr_page(request):
     """Render the QR generator page."""
     return render(request, "core/qr.html")
