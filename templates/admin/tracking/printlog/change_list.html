@@ -1,0 +1,48 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+  <li>
+    <a href="sync/" class="viewsitelink">
+      ⟳ Sync from Fiery
+    </a>
+  </li>
+  {{ block.super }}
+{% endblock %}
+
+{% block content %}
+  {{ block.super }}
+
+  {% if user_totals %}
+  <div style="margin-top: 2em;">
+    <h2 style="font-size: 1.1em; font-weight: bold; margin-bottom: 0.5em;">Usage by User</h2>
+    <table style="border-collapse: collapse; width: 100%; max-width: 800px;">
+      <thead>
+        <tr style="background: #f8f8f8; text-align: left;">
+          <th style="padding: 8px 12px; border: 1px solid #ddd;">User</th>
+          <th style="padding: 8px 12px; border: 1px solid #ddd;">Jobs</th>
+          <th style="padding: 8px 12px; border: 1px solid #ddd;">Color Pages</th>
+          <th style="padding: 8px 12px; border: 1px solid #ddd;">B&amp;W Pages</th>
+          <th style="padding: 8px 12px; border: 1px solid #ddd;">Total Pages</th>
+          <th style="padding: 8px 12px; border: 1px solid #ddd;">Est. Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in user_totals %}
+        <tr style="{% cycle 'background:#fff;' 'background:#f9f9f9;' %}">
+          <td style="padding: 8px 12px; border: 1px solid #ddd; font-weight: 500;">{{ row.username }}</td>
+          <td style="padding: 8px 12px; border: 1px solid #ddd;">{{ row.total_jobs }}</td>
+          <td style="padding: 8px 12px; border: 1px solid #ddd;">{{ row.total_color }}</td>
+          <td style="padding: 8px 12px; border: 1px solid #ddd;">{{ row.total_bw }}</td>
+          <td style="padding: 8px 12px; border: 1px solid #ddd;">{{ row.total_color|add:row.total_bw }}</td>
+          <td style="padding: 8px 12px; border: 1px solid #ddd;">
+            {% if row.total_cost %}${{ row.total_cost|floatformat:2 }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+{% endblock %}

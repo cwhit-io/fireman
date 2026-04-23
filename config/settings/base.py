@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.routing",
     "apps.mailmerge",
     "apps.brand_assets",
+    "apps.tracking",
 ]
 
 AUTH_USER_MODEL = "core.User"
@@ -141,6 +142,14 @@ MEDIA_MOUNT_POINT = Path(_media_mount) if _media_mount else MEDIA_ROOT
 
 # Fiery print queue username shown on the Fiery job list
 FIERY_PRINT_USER = env("FIERY_PRINT_USER", default="Ember")
+
+# Fiery REST API credentials (used by apps.tracking to pull job logs)
+FIERY_IP = env("FIERY_IP", default="10.10.96.103")
+FIERY_API_USER = env("FIERY_API_USER", default="admin")
+FIERY_API_PASS = env("FIERY_API_PASS", default="")
+# Access key registered in Fiery Configure → Security → API Access Rights
+FIERY_API_KEY = env("FIERY_API_KEY", default="")
+FIERY_VERIFY_SSL = env.bool("FIERY_VERIFY_SSL", default=False)
 
 # ── Preflight constants ──────────────────────────────────────────────────────
 # Required bleed (0.125" = 9pt)
