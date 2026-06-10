@@ -1,0 +1,10 @@
+[Unit]
+Description=Fireman CUPS monitor
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash /usr/local/bin/fireman-cups-monitor.sh
+StandardOutput=journal
+StandardError=journal
+User=root

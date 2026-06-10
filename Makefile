@@ -1,4 +1,4 @@
-.PHONY: help venv install env setup run dev worker tailwind test migrate makemigrations shell superuser wagtail-init collectstatic lint lint-fix format commit check clean reset pre-commit-install startapp docker-build docker-up docker-up-dev docker-down docker-logs docker-shell docker-manage stop reload
+.PHONY: help venv install env setup run dev worker tailwind test migrate makemigrations shell superuser wagtail-init collectstatic lint lint-fix format commit check clean reset pre-commit-install startapp docker-build docker-up docker-up-dev docker-down docker-logs docker-shell docker-manage stop reload service-install service-start service-stop service-restart service-status service-logs
 
 VENV := .venv
 PYTHON := $(VENV)/bin/python
@@ -115,6 +115,30 @@ stop: ## Stop all running services
 
 reload: stop _tailwind run ## Restart production services
 	@echo "Reloaded."
+
+# ─── Systemd Services ──────────────────────────────────────────────────────────
+
+service-install: ## Install and enable systemd user services (auto-start on boot)
+	@mkdir -p logs
+	systemctl --user daemon-reload
+	systemctl --user enable fireman-daphne fireman-celery
+	systemctl --user start fireman-daphne fireman-celery
+	@echo "Services installed and started. Run 'make service-status' to check."
+
+service-start: ## Start the systemd services
+	systemctl --user start fireman-daphne fireman-celery
+
+service-stop: ## Stop the systemd services
+	systemctl --user stop fireman-daphne fireman-celery
+
+service-restart: ## Restart the systemd services
+	systemctl --user restart fireman-daphne fireman-celery
+
+service-status: ## Show status of systemd services
+	systemctl --user status fireman-daphne fireman-celery
+
+service-logs: ## Tail live logs for both services
+	@echo "--- Daphne log ---" && tail -n 30 logs/daphne.log; echo "--- Celery log ---" && tail -n 30 logs/celery.log
 
 reload-dev: stop dev ## Restart dev services (rebuilds assets)
 	@echo "Reloaded (dev)."
