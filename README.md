@@ -375,6 +375,33 @@ make test
 
 Tests live in `core/tests.py`. Fixtures are in `conftest.py`. Settings default to `config.settings.dev` (see `pytest.ini`).
 
+## Printing / CUPS troubleshooting
+
+When CUPS is used as the print delivery path, these commands help inspect the queue and recover a stuck or disabled printer.
+
+```bash
+# Show all current CUPS jobs
+lpstat -o
+
+# Show detailed state for the Fiery printer
+lpstat -p fiery_hold -l
+
+# Show all jobs that are not completed
+lpstat -W not-completed -o
+
+# Cancel all queued jobs for the printer
+sudo cancel -a fiery_hold
+
+# Re-enable a printer disabled by CUPS
+sudo cupsenable fiery_hold
+
+# Optionally disable and re-enable if the printer needs a reset
+sudo cupsdisable fiery_hold
+sudo cupsenable fiery_hold
+```
+
+If CUPS disabled the printer after a backend or filter failure, `sudo cupsenable fiery_hold` is the normal recovery step. Clearing stuck jobs with `sudo cancel -a fiery_hold` is useful when old or stalled jobs are blocking new submissions.
+
 ## Linting & formatting
 
 ```bash
