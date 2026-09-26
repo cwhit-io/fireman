@@ -8,6 +8,20 @@ from django.core.files.base import ContentFile
 logger = logging.getLogger(__name__)
 
 
+@shared_task(name="apps.jobs.tasks.purge_old_jobs_task")
+def purge_old_jobs_task(days: int = 30) -> dict:
+    """Daily cleanup of unsaved print jobs older than *days*."""
+    from .services import purge_unsaved_jobs
+
+    result = purge_unsaved_jobs(days=days)
+    logger.info(
+        "Purged %s unsaved print job(s) older than %s days",
+        result["deleted"],
+        days,
+    )
+    return result
+
+
 @shared_task
 def process_job_task(job_id: str) -> None:
     """
@@ -38,6 +52,12 @@ def process_job_task(job_id: str) -> None:
     job.save(update_fields=["status", "error_message"])
 
     extract_pdf_metadata(job)
+    try:
+        from .services import generate_job_thumbnail
+
+        generate_job_thumbnail(job)
+    except Exception:
+        logger.exception("Thumbnail generation failed for job %s", job.pk)
     if job.status == PrintJob.Status.ERROR:
         return
 
@@ -64,6 +84,7 @@ def process_job_task(job_id: str) -> None:
                 barcode_y=bc["barcode_y"],
                 barcode_width=bc["barcode_width"],
                 barcode_height=bc["barcode_height"],
+                fit_mode=job.fit_mode,
             )
             buf_out.seek(0)
 

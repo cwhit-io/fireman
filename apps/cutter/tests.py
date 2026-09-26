@@ -323,25 +323,26 @@ class TestProgramBarcodeView:
 
 
 class TestCutterProgramApi:
-    def test_list_returns_only_active(self, client):
+    def test_list_returns_only_active(self, client, api_auth_headers):
         _make_program(name="Active", duplo_code="001", active=True)
         _make_program(name="Inactive", duplo_code="002", active=False)
-        response = client.get("/api/cutter/programs")
+        response = client.get("/api/cutter/programs", **api_auth_headers)
         assert response.status_code == 200
         names = [p["name"] for p in response.json()]
         assert "Active" in names
         assert "Inactive" not in names
 
-    def test_list_empty(self, client):
-        response = client.get("/api/cutter/programs")
+    def test_list_empty(self, client, api_auth_headers):
+        response = client.get("/api/cutter/programs", **api_auth_headers)
         assert response.status_code == 200
         assert response.json() == []
 
-    def test_create_program_via_api(self, client):
+    def test_create_program_via_api(self, client, api_auth_headers):
         response = client.post(
             "/api/cutter/programs",
             {"name": "Via API", "duplo_code": "010", "description": "Test"},
             content_type="application/json",
+            **api_auth_headers,
         )
         assert response.status_code == 200
         assert CutterProgram.objects.filter(name="Via API").exists()

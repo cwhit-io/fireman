@@ -120,3 +120,34 @@ class TestBuildLprCommand:
         )
         cmd = _build_lpr_command(preset, "/tmp/x.pdf")
         assert "ColorModel=Gray" in " ".join(cmd)
+
+
+class TestRoutingSendApi:
+    def test_send_requires_auth(self, client):
+        response = client.post("/api/routing/00000000-0000-0000-0000-000000000001/send")
+        assert response.status_code == 401
+
+    def test_send_sets_routing_preset_before_queue(self, client, api_auth_headers, monkeypatch):
+        from apps.jobs.models import PrintJob
+        from apps.routing.models import RoutingPreset
+
+        queued = []
+        monkeypatch.setattr(
+            "apps.routing.tasks.send_job_task.delay",
+            lambda job_id: queued.append(job_id),
+        )
+        preset = RoutingPreset.objects.create(name="Send Preset", printer_queue="fiery_hold")
+        job = PrintJob.objects.create(name="send.pdf")
+        assert job.routing_preset_id is None
+
+        response = client.post(
+            f"/api/routing/{job.pk}/send?routing_preset_id={preset.pk}",
+            **api_auth_headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["queued"] is True
+        assert body["routing_preset_id"] == preset.pk
+        job.refresh_from_db()
+        assert job.routing_preset_id == preset.pk
+        assert queued == [str(job.pk)]

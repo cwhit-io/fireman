@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import io
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import IO
 
@@ -40,52 +41,45 @@ _COMMON_BLEEDS_PT: tuple[float, ...] = (
 # Tolerance for dimension matching (pts).
 _DIM_TOL_PT: float = 3.0
 
+# Boxes that differ by more than this are treated as distinct (trim vs media).
+_BOX_TOL_PT: float = 1.0
+
 # mm → PDF points conversion factor.
 _MM_TO_PT: float = 72.0 / 25.4
 
+# Artwork fit modes for placement inside an imposition cell.
+FIT_COVER = "cover"  # stretch/oversize artwork to fill trim + bleed
+FIT_CENTER = "center"  # fit artwork at trim size, centred, no bleed fill
 
-def detect_source_trim(page) -> tuple[float, float, float, float]:
-    """Detect the trim size and its position within a page's MediaBox.
 
-    Returns ``(trim_w, trim_h, trim_left, trim_bottom)`` — all in PDF points.
-    *trim_left* and *trim_bottom* are the absolute PDF coordinates of the
-    trim box's bottom-left corner (the same coordinate space as MediaBox).
+def infer_trim_from_mediabox(
+    media_w: float,
+    media_h: float,
+    media_left: float = 0.0,
+    media_bottom: float = 0.0,
+) -> tuple[float, float, float, float]:
+    """Infer trim from MediaBox dimensions when no explicit TrimBox is present.
+
+    Returns ``(trim_w, trim_h, trim_left, trim_bottom)`` in PDF points.
 
     Detection order:
 
-    1. **Explicit TrimBox** — most reliable; used when the PDF contains a
-       ``/TrimBox`` entry that differs from the MediaBox.
-    2. **Standard exact match** — MediaBox dimensions equal a known trim size
-       within ±3 pt; the page has no bleed content.
-    3. **Inferred trim + bleed** — MediaBox = standard trim + a uniform bleed
+    1. **Standard exact match** — dimensions equal a known trim size within
+       ±3 pt; the page has no bleed content.
+    2. **Inferred trim + bleed** — MediaBox = standard trim + a uniform bleed
        on all four sides (probes common bleed amounts: 0.0625", 0.125", …,
        0.25").  For example a 4.25 × 6.25" MediaBox is inferred as a 4 × 6"
        trim with a 0.125" bleed.
-    4. **Fallback** — treat the full MediaBox as the trim (no bleed).
+    3. **Fallback** — treat the full MediaBox as the trim (no bleed).
     """
-    media = page.mediabox
-    media_w = float(media.width)
-    media_h = float(media.height)
-    media_left = float(media.left)
-    media_bottom = float(media.bottom)
-
-    # 1. Explicit TrimBox ──────────────────────────────────────────────────
-    if "/TrimBox" in page:
-        tb = page.trimbox
-        tb_w = float(tb.width)
-        tb_h = float(tb.height)
-        # Only use when it genuinely differs from the MediaBox.
-        if abs(tb_w - media_w) > 1.0 or abs(tb_h - media_h) > 1.0:
-            return (tb_w, tb_h, float(tb.left), float(tb.bottom))
-
-    # 2. MediaBox exactly matches a known standard trim (no bleed) ─────────
+    # 1. MediaBox exactly matches a known standard trim (no bleed) ─────────
     for sw, sh in _STANDARD_TRIM_SIZES_PT.values():
         if (abs(media_w - sw) < _DIM_TOL_PT and abs(media_h - sh) < _DIM_TOL_PT) or (
             abs(media_w - sh) < _DIM_TOL_PT and abs(media_h - sw) < _DIM_TOL_PT
         ):
             return (media_w, media_h, media_left, media_bottom)
 
-    # 3. MediaBox = standard trim + uniform bleed (inferred) ───────────────
+    # 2. MediaBox = standard trim + uniform bleed (inferred) ───────────────
     best: tuple[float, float, float, float] | None = None
     best_err = float("inf")
     for sw, sh in _STANDARD_TRIM_SIZES_PT.values():
@@ -104,8 +98,163 @@ def detect_source_trim(page) -> tuple[float, float, float, float]:
     if best is not None:
         return best
 
-    # 4. Fallback — full MediaBox is the trim ──────────────────────────────
+    # 3. Fallback — full MediaBox is the trim ──────────────────────────────
     return (media_w, media_h, media_left, media_bottom)
+
+
+def detect_source_trim(page) -> tuple[float, float, float, float]:
+    """Detect the trim size and its position within a page's MediaBox.
+
+    Returns ``(trim_w, trim_h, trim_left, trim_bottom)`` — all in PDF points.
+    *trim_left* and *trim_bottom* are the absolute PDF coordinates of the
+    trim box's bottom-left corner (the same coordinate space as MediaBox).
+
+    Detection order:
+
+    1. **Explicit TrimBox** — most reliable; used when the PDF contains a
+       ``/TrimBox`` entry that differs from the MediaBox.
+    2. Otherwise :func:`infer_trim_from_mediabox` (standard size, inferred
+       bleed, or full-MediaBox fallback).
+    """
+    media = page.mediabox
+    media_w = float(media.width)
+    media_h = float(media.height)
+    media_left = float(media.left)
+    media_bottom = float(media.bottom)
+
+    # 1. Explicit TrimBox ──────────────────────────────────────────────────
+    if "/TrimBox" in page:
+        tb = page.trimbox
+        tb_w = float(tb.width)
+        tb_h = float(tb.height)
+        # Only use when it genuinely differs from the MediaBox.
+        if abs(tb_w - media_w) > _BOX_TOL_PT or abs(tb_h - media_h) > _BOX_TOL_PT:
+            return (tb_w, tb_h, float(tb.left), float(tb.bottom))
+
+    return infer_trim_from_mediabox(media_w, media_h, media_left, media_bottom)
+
+
+@dataclass(frozen=True)
+class ArtworkPlacement:
+    """Scale/translate that maps a source page onto one imposition cell.
+
+    A point ``(x, y)`` in source-page space lands at
+    ``(tx + scale * x, ty + scale * y)`` on the sheet.
+    """
+
+    scale: float
+    tx: float
+    ty: float
+    clip_x: float
+    clip_y: float
+    clip_w: float
+    clip_h: float
+    src_has_bleed: bool
+
+    def map_point(self, x: float, y: float) -> tuple[float, float]:
+        return (self.tx + self.scale * x, self.ty + self.scale * y)
+
+
+def compute_artwork_placement(
+    *,
+    src_trim_w: float,
+    src_trim_h: float,
+    src_trim_left: float,
+    src_trim_bottom: float,
+    src_media_w: float,
+    src_media_h: float,
+    src_media_left: float,
+    src_media_bottom: float,
+    cell_w: float,
+    cell_h: float,
+    cell_trim_left: float,
+    cell_trim_bottom: float,
+    bleed: float,
+    fit_mode: str = FIT_COVER,
+) -> ArtworkPlacement:
+    """Compute how a source page's trim maps onto an imposition cell.
+
+    ``fit_mode="cover"`` (default): when the source already has bleed
+    (trim inset from MediaBox), the source trim is scaled to the cell's trim —
+    existing bleed fills the cell's bleed gutter.  When the source has no
+    bleed, the trim is scaled to *cover* the full cell (trim + bleed) so the
+    edges become the template bleed.
+
+    ``fit_mode="center"``: the artwork is fitted inside the cell's trim area
+    at a uniform scale, centred — it is shrunk if larger than the trim area
+    but never enlarged beyond its own size, and nothing is stretched to
+    generate bleed.  Any gap between the artwork and the cut line prints
+    white.
+    """
+    src_has_bleed = (
+        abs(src_trim_w - src_media_w) > _BOX_TOL_PT
+        or abs(src_trim_h - src_media_h) > _BOX_TOL_PT
+        or abs(src_trim_left - src_media_left) > _BOX_TOL_PT
+        or abs(src_trim_bottom - src_media_bottom) > _BOX_TOL_PT
+    )
+
+    cell_trim_w = cell_w - 2 * bleed
+    cell_trim_h = cell_h - 2 * bleed
+    centered = fit_mode == FIT_CENTER
+    use_trim_to_trim = (
+        src_has_bleed and cell_trim_w > 0 and cell_trim_h > 0 and not centered
+    )
+
+    if centered:
+        # Fit the whole source page inside the cell's trim area at a uniform
+        # scale, centred, without enlarging it — gaps past the artwork edge
+        # stay white (no bleed fill).
+        scale_x = cell_trim_w / src_media_w if src_media_w else 1.0
+        scale_y = cell_trim_h / src_media_h if src_media_h else 1.0
+        scale = min(scale_x, scale_y, 1.0)
+        center_x = (cell_trim_w - src_media_w * scale) / 2
+        center_y = (cell_trim_h - src_media_h * scale) / 2
+        # Centre the whole MediaBox, so the translate anchors on the media
+        # origin rather than the trim origin.
+        tx = cell_trim_left + center_x - scale * src_media_left
+        ty = cell_trim_bottom + center_y - scale * src_media_bottom
+        # The placed page sits entirely inside the cell trim, so the clip is
+        # just the MediaBox — the artwork's own margins stay visible.
+        clip_x = src_media_left
+        clip_y = src_media_bottom
+        clip_w = src_media_w
+        clip_h = src_media_h
+    else:
+        if use_trim_to_trim:
+            scale_x = cell_trim_w / src_trim_w if src_trim_w else 1.0
+            scale_y = cell_trim_h / src_trim_h if src_trim_h else 1.0
+            scale = min(scale_x, scale_y)
+            center_x = (cell_trim_w - src_trim_w * scale) / 2
+            center_y = (cell_trim_h - src_trim_h * scale) / 2
+            target_trim_left = cell_trim_left + center_x
+            target_trim_bottom = cell_trim_bottom + center_y
+        else:
+            scale_x = cell_w / src_trim_w if src_trim_w else 1.0
+            scale_y = cell_h / src_trim_h if src_trim_h else 1.0
+            scale = max(scale_x, scale_y) if src_trim_w and src_trim_h else 1.0
+            center_x = (cell_w - src_trim_w * scale) / 2
+            center_y = (cell_h - src_trim_h * scale) / 2
+            # Cell origin is the bleed-cell bottom-left (trim origin minus bleed).
+            target_trim_left = (cell_trim_left - bleed) + center_x
+            target_trim_bottom = (cell_trim_bottom - bleed) + center_y
+        tx = target_trim_left - scale * src_trim_left
+        ty = target_trim_bottom - scale * src_trim_bottom
+        src_allowed_bleed = bleed / scale if scale else 0.0
+        clip_x = src_trim_left - src_allowed_bleed
+        clip_y = src_trim_bottom - src_allowed_bleed
+        clip_w = src_trim_w + 2 * src_allowed_bleed
+        clip_h = src_trim_h + 2 * src_allowed_bleed
+
+    return ArtworkPlacement(
+        scale=scale,
+        tx=tx,
+        ty=ty,
+        clip_x=clip_x,
+        clip_y=clip_y,
+        clip_w=clip_w,
+        clip_h=clip_h,
+        src_has_bleed=src_has_bleed,
+    )
 
 
 def _pts(inches: float) -> float:
@@ -336,6 +485,7 @@ def impose_nup(
     margin_right: float = 0.0,
     margin_bottom: float = 0.0,
     margin_left: float = 0.0,
+    fit_mode: str = FIT_COVER,
 ) -> None:
     """
     Tile *columns × rows* source pages onto new press sheets and write to *output_pdf*.
@@ -345,10 +495,15 @@ def impose_nup(
     The grid is automatically centered on the sheet when all four margins are
     zero (the default).  Explicit margins override centering.
 
-    Each source page is analysed with :func:`detect_source_trim` so that the
-    correct trim area is used for scaling — regardless of whether the uploaded
-    file has bleed already baked into the MediaBox, stores it via an explicit
-    TrimBox/BleedBox, or omits it entirely.
+    *fit_mode* controls artwork placement — ``FIT_COVER`` stretches artwork
+    to fill the cell's trim + bleed; ``FIT_CENTER`` fits it inside the cell's
+    trim area, centred at its own size.
+
+    Each source page is analysed with :func:`detect_source_trim` and placed
+    with :func:`compute_artwork_placement`.  Files that already have bleed
+    map trim-to-trim (source bleed fills the cell bleed).  Files with no
+    bleed are scaled to cover the full cell so their edges become the
+    template bleed (unless *fit_mode* is ``FIT_CENTER``).
     """
     from pypdf import PageObject, PdfReader, PdfWriter, Transformation
 
@@ -376,10 +531,6 @@ def impose_nup(
         margin_left = (sheet_width - grid_w) / 2
         margin_top = (sheet_height - grid_h) / 2
 
-    # Available area for the trim content inside each cell (excluding bleed border).
-    cell_trim_w = cell_w - 2 * bleed
-    cell_trim_h = cell_h - 2 * bleed
-
     for sheet_start in range(0, len(pages_up), per_sheet):
         sheet = PageObject.create_blank_page(width=sheet_width, height=sheet_height)
         for idx in range(per_sheet):
@@ -391,46 +542,42 @@ def impose_nup(
             col = idx % columns
             row = idx // columns
 
-            # Detect the actual trim dimensions of the source page.
             src_trim_w, src_trim_h, src_trim_left, src_trim_bottom = detect_source_trim(
                 src
             )
+            media = src.mediabox
 
-            # Bottom-left corner of the cell's trim area on the sheet.
             cell_trim_left = margin_left + col * cell_w + bleed
             cell_trim_bottom = sheet_height - margin_top - (row + 1) * cell_h + bleed
 
-            # Scale so the source trim *covers* the full bleed cell (aspect-ratio preserved).
-            # Artwork fills trim + bleed on all sides; excess beyond bleed is clipped below.
-            scale_x = cell_w / src_trim_w if src_trim_w else 1.0
-            scale_y = cell_h / src_trim_h if src_trim_h else 1.0
-            scale = max(scale_x, scale_y)
+            placement = compute_artwork_placement(
+                src_trim_w=src_trim_w,
+                src_trim_h=src_trim_h,
+                src_trim_left=src_trim_left,
+                src_trim_bottom=src_trim_bottom,
+                src_media_w=float(media.width),
+                src_media_h=float(media.height),
+                src_media_left=float(media.left),
+                src_media_bottom=float(media.bottom),
+                cell_w=cell_w,
+                cell_h=cell_h,
+                cell_trim_left=cell_trim_left,
+                cell_trim_bottom=cell_trim_bottom,
+                bleed=bleed,
+                fit_mode=fit_mode,
+            )
 
-            # Centre the scaled artwork within the bleed cell; overflow handled by clip mask.
-            center_x = (cell_w - src_trim_w * scale) / 2
-            center_y = (cell_h - src_trim_h * scale) / 2
-
-            # Desired position for the source trim's bottom-left corner on the sheet.
-            # Origin is the bleed cell's bottom-left corner (cell_trim origin minus bleed).
-            target_trim_left = (cell_trim_left - bleed) + center_x
-            target_trim_bottom = (cell_trim_bottom - bleed) + center_y
-
-            # Transformation: scale(s) then translate(tx, ty).
-            tx = target_trim_left - scale * src_trim_left
-            ty = target_trim_bottom - scale * src_trim_bottom
-
-            transform = Transformation().scale(scale).translate(tx, ty)
-
-            # Clip the source page to exactly trim + allowed bleed before merging.
-            # This prevents oversized source bleed from overflowing into adjacent cells.
-            # The clip box is expressed in source page coordinates (before transformation).
-            src_allowed_bleed = bleed / scale if scale else 0.0
+            transform = (
+                Transformation()
+                .scale(placement.scale)
+                .translate(placement.tx, placement.ty)
+            )
             clipped_src = _clip_page_content_to_box(
                 src,
-                src_trim_left - src_allowed_bleed,
-                src_trim_bottom - src_allowed_bleed,
-                src_trim_w + 2 * src_allowed_bleed,
-                src_trim_h + 2 * src_allowed_bleed,
+                placement.clip_x,
+                placement.clip_y,
+                placement.clip_w,
+                placement.clip_h,
             )
             sheet.merge_transformed_page(clipped_src, transform)
 
@@ -451,6 +598,7 @@ def impose_step_repeat(
     margin_right: float = 0.0,
     margin_bottom: float = 0.0,
     margin_left: float = 0.0,
+    fit_mode: str = FIT_COVER,
 ) -> None:
     """Repeat each source page *columns × rows* times on its own output sheet.
 
@@ -494,6 +642,7 @@ def impose_step_repeat(
             margin_right=margin_right,
             margin_bottom=margin_bottom,
             margin_left=margin_left,
+            fit_mode=fit_mode,
         )
         sheet_buf.seek(0)
         for page in PdfReader(sheet_buf).pages:
@@ -514,6 +663,7 @@ def impose_double_sided_nup(
     margin_right: float = 0.0,
     margin_bottom: float = 0.0,
     margin_left: float = 0.0,
+    fit_mode: str = FIT_COVER,
 ) -> None:
     """Impose a double-sided job: each source page fills one output sheet.
 
@@ -556,6 +706,7 @@ def impose_double_sided_nup(
             margin_right=margin_right,
             margin_bottom=margin_bottom,
             margin_left=margin_left,
+            fit_mode=fit_mode,
         )
         sheet_buf.seek(0)
         sheet_reader = PdfReader(sheet_buf)
@@ -667,6 +818,7 @@ def impose_from_template(
     barcode_width: float | None = None,
     barcode_height: float | None = None,
     cut_marks: bool = False,
+    fit_mode: str = FIT_COVER,
 ) -> None:
     """Dispatch imposition to the right function based on *template* settings.
 
@@ -683,6 +835,10 @@ def impose_from_template(
       can be duplexed correctly.
     * Otherwise: standard sequential n-up — pages are gang-imposed across
       sheets using the template's grid dimensions.
+
+    *fit_mode* controls artwork placement inside each cell: ``FIT_COVER``
+    stretches artwork to fill trim + bleed (default), ``FIT_CENTER`` fits it
+    inside the trim area, centred at its own size.
 
     Post-processing overlays
     ------------------------
@@ -745,6 +901,7 @@ def impose_from_template(
             margin_right=eff_margin_right,
             margin_bottom=eff_margin_bottom,
             margin_left=eff_margin_left,
+            fit_mode=fit_mode,
         )
     elif is_double_sided:
         impose_double_sided_nup(
@@ -759,6 +916,7 @@ def impose_from_template(
             margin_right=eff_margin_right,
             margin_bottom=eff_margin_bottom,
             margin_left=eff_margin_left,
+            fit_mode=fit_mode,
         )
     else:
         impose_nup(
@@ -773,6 +931,7 @@ def impose_from_template(
             margin_right=eff_margin_right,
             margin_bottom=eff_margin_bottom,
             margin_left=eff_margin_left,
+            fit_mode=fit_mode,
         )
 
     # ── Build overlays (barcode TIF + cut marks) ──────────────────────────

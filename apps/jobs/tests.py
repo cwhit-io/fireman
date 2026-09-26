@@ -122,6 +122,88 @@ class TestJobUploadView:
         response = client.post(reverse("jobs:upload"), {"file": f})
         assert response.status_code == 400
 
+    def test_upload_fit_mode_center_saved(self, client, user, monkeypatch):
+        """fit_mode=center on upload persists as the job's placement mode."""
+        client.force_login(user)
+        monkeypatch.setattr(
+            "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
+        )
+        from apps.impose.models import ImpositionTemplate
+        from apps.jobs.models import PrintJob
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="Center Tmpl",
+            sheet_width=900,
+            sheet_height=1368,
+            columns=1,
+            rows=1,
+        )
+        pdf = SimpleUploadedFile(
+            "centered.pdf", _make_minimal_pdf(), content_type="application/pdf"
+        )
+        response = client.post(
+            reverse("jobs:upload"),
+            {"file": pdf, "template_id": str(tmpl.pk), "fit_mode": "center"},
+        )
+        assert response.status_code == 302
+        job = PrintJob.objects.filter(owner=user).latest("created_at")
+        assert job.fit_mode == "center"
+
+    def test_upload_fit_mode_invalid_falls_back_to_cover(
+        self, client, user, monkeypatch
+    ):
+        """An unrecognised fit_mode value falls back to the default 'cover'."""
+        client.force_login(user)
+        monkeypatch.setattr(
+            "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
+        )
+        from apps.impose.models import ImpositionTemplate
+        from apps.jobs.models import PrintJob
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="Bogus Mode Tmpl",
+            sheet_width=900,
+            sheet_height=1368,
+            columns=1,
+            rows=1,
+        )
+        pdf = SimpleUploadedFile(
+            "bogus.pdf", _make_minimal_pdf(), content_type="application/pdf"
+        )
+        response = client.post(
+            reverse("jobs:upload"),
+            {"file": pdf, "template_id": str(tmpl.pk), "fit_mode": "bogus"},
+        )
+        assert response.status_code == 302
+        job = PrintJob.objects.filter(owner=user).latest("created_at")
+        assert job.fit_mode == "cover"
+
+    def test_upload_without_fit_mode_defaults_to_cover(self, client, user, monkeypatch):
+        """A missing fit_mode field saves the default 'cover'."""
+        client.force_login(user)
+        monkeypatch.setattr(
+            "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
+        )
+        from apps.impose.models import ImpositionTemplate
+        from apps.jobs.models import PrintJob
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="No Mode Tmpl",
+            sheet_width=900,
+            sheet_height=1368,
+            columns=1,
+            rows=1,
+        )
+        pdf = SimpleUploadedFile(
+            "nomode.pdf", _make_minimal_pdf(), content_type="application/pdf"
+        )
+        response = client.post(
+            reverse("jobs:upload"), {"file": pdf, "template_id": str(tmpl.pk)}
+        )
+        assert response.status_code == 302
+        job = PrintJob.objects.filter(owner=user).latest("created_at")
+        assert job.fit_mode == "cover"
+
 
 class TestValidateAndRepairPDF:
     def test_clean_pdf_passes(self):
@@ -345,6 +427,171 @@ class TestPreflight:
         assert len(pairs) == len(job.preflight_messages)
         assert job.preflight_acknowledged is False
 
+    def test_r1_message_cover_vs_center(self):
+        """The no-bleed (R1) message reflects the job's artwork placement mode."""
+        import io
+
+        from pypdf import PageObject, PdfWriter
+
+        from apps.jobs.preflight import run_preflight
+
+        trim_w, trim_h = 252.0, 144.0
+        buf = io.BytesIO()
+        w = PdfWriter()
+        w.add_page(PageObject.create_blank_page(width=trim_w, height=trim_h))
+        w.write(buf)
+
+        cover = run_preflight(buf.getvalue(), trim_w, trim_h, fit_mode="cover")
+        assert "R1" in cover.rules_triggered
+        assert "stretched" in " ".join(cover.messages).lower()
+
+        center = run_preflight(buf.getvalue(), trim_w, trim_h, fit_mode="center")
+        assert "R1_CENTER" in center.rules_triggered
+        assert "R1" not in center.rules_triggered
+        assert "centred" in " ".join(center.messages).lower()
+
+    def test_run_preflight_for_job_center_message(self):
+        """run_preflight_for_job stores the centred wording for a center job."""
+        import io as _io
+
+        from django.core.files.base import ContentFile
+        from pypdf import PageObject, PdfWriter
+
+        from apps.impose.models import ImpositionTemplate
+        from apps.jobs.models import PrintJob
+        from apps.jobs.services import run_preflight_for_job
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="R1 Center Tmpl",
+            sheet_width=900,
+            sheet_height=1368,
+            columns=1,
+            rows=1,
+            cut_width=252,
+            cut_height=144,
+        )
+        buf = _io.BytesIO()
+        w = PdfWriter()
+        w.add_page(PageObject.create_blank_page(width=252, height=144))
+        w.write(buf)
+        pdf_bytes = buf.getvalue()
+
+        job = PrintJob.objects.create(
+            name="pf-center.pdf", imposition_template=tmpl, fit_mode="center"
+        )
+        job.file.save("pf-center.pdf", ContentFile(pdf_bytes), save=True)
+
+        run_preflight_for_job(job, pdf_bytes=pdf_bytes)
+        job.refresh_from_db()
+
+        assert "R1_CENTER" in job.preflight_rules_triggered
+        assert any("centred" in m.lower() for m in job.preflight_messages)
+
+
+class TestJobApplyTemplateView:
+    """Tests for the Change-Template flow, including fit-mode selection."""
+
+    def _make_job(self, user):
+        import io
+
+        from django.core.files.base import ContentFile
+        from pypdf import PageObject, PdfWriter
+
+        from apps.jobs.models import PrintJob
+
+        job = PrintJob.objects.create(name="apply.pdf", owner=user)
+        buf = io.BytesIO()
+        w = PdfWriter()
+        w.add_page(PageObject.create_blank_page(width=252, height=144))
+        w.write(buf)
+        job.file.save("apply.pdf", ContentFile(buf.getvalue()), save=True)
+        return job
+
+    def test_apply_template_updates_fit_mode(self, client, user, monkeypatch):
+        client.force_login(user)
+        monkeypatch.setattr(
+            "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
+        )
+        monkeypatch.setattr("apps.jobs.views.run_preflight_for_job", lambda job: None)
+        from apps.impose.models import ImpositionTemplate
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="Apply Tmpl",
+            sheet_width=900,
+            sheet_height=1368,
+            columns=1,
+            rows=1,
+        )
+        job = self._make_job(user)
+        response = client.post(
+            reverse("jobs:apply_template", kwargs={"pk": job.pk}),
+            {"template_id": str(tmpl.pk), "fit_mode": "center"},
+        )
+        assert response.status_code == 302
+        job.refresh_from_db()
+        assert job.imposition_template == tmpl
+        assert job.fit_mode == "center"
+
+    def test_apply_template_missing_fit_mode_keeps_existing(
+        self, client, user, monkeypatch
+    ):
+        """Omitting fit_mode leaves the job's current placement mode alone."""
+        client.force_login(user)
+        monkeypatch.setattr(
+            "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
+        )
+        monkeypatch.setattr("apps.jobs.views.run_preflight_for_job", lambda job: None)
+        from apps.impose.models import ImpositionTemplate
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="Keep Mode Tmpl",
+            sheet_width=900,
+            sheet_height=1368,
+            columns=1,
+            rows=1,
+        )
+        job = self._make_job(user)
+        job.fit_mode = "center"
+        job.save(update_fields=["fit_mode"])
+
+        response = client.post(
+            reverse("jobs:apply_template", kwargs={"pk": job.pk}),
+            {"template_id": str(tmpl.pk)},
+        )
+        assert response.status_code == 302
+        job.refresh_from_db()
+        assert job.imposition_template == tmpl
+        assert job.fit_mode == "center"
+
+    def test_apply_template_invalid_fit_mode_keeps_existing(
+        self, client, user, monkeypatch
+    ):
+        client.force_login(user)
+        monkeypatch.setattr(
+            "apps.jobs.views.process_job_task.delay", lambda *a, **kw: None
+        )
+        monkeypatch.setattr("apps.jobs.views.run_preflight_for_job", lambda job: None)
+        from apps.impose.models import ImpositionTemplate
+
+        tmpl = ImpositionTemplate.objects.create(
+            name="Invalid Mode Tmpl",
+            sheet_width=900,
+            sheet_height=1368,
+            columns=1,
+            rows=1,
+        )
+        job = self._make_job(user)
+        job.fit_mode = "cover"
+        job.save(update_fields=["fit_mode"])
+
+        response = client.post(
+            reverse("jobs:apply_template", kwargs={"pk": job.pk}),
+            {"template_id": str(tmpl.pk), "fit_mode": "nope"},
+        )
+        assert response.status_code == 302
+        job.refresh_from_db()
+        assert job.fit_mode == "cover"
+
 
 # ---------------------------------------------------------------------------
 # Intake service tests
@@ -551,3 +798,179 @@ class TestUploadFileSizeLimit:
 
         response = client.post(reverse("jobs:upload"), {"file": f})
         assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# 30-day purge
+# ---------------------------------------------------------------------------
+
+
+class TestPurgeUnsavedJobs:
+    def _make_job(self, *, name, is_saved=False, days_ago=0):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.jobs.models import PrintJob
+
+        job = PrintJob.objects.create(name=name, is_saved=is_saved)
+        if days_ago:
+            PrintJob.objects.filter(pk=job.pk).update(
+                created_at=timezone.now() - timedelta(days=days_ago)
+            )
+            job.refresh_from_db()
+        return job
+
+    def test_deletes_old_unsaved_keeps_saved_and_recent(self):
+        from apps.jobs.models import PrintJob
+        from apps.jobs.services import purge_unsaved_jobs
+
+        old = self._make_job(name="old.pdf", days_ago=45)
+        saved = self._make_job(name="saved.pdf", is_saved=True, days_ago=45)
+        recent = self._make_job(name="recent.pdf", days_ago=5)
+
+        result = purge_unsaved_jobs(days=30)
+        assert result["deleted"] == 1
+        assert result["dry_run"] is False
+
+        assert not PrintJob.objects.filter(pk=old.pk).exists()
+        assert PrintJob.objects.filter(pk=saved.pk).exists()
+        assert PrintJob.objects.filter(pk=recent.pk).exists()
+
+    def test_dry_run_does_not_delete(self):
+        from apps.jobs.models import PrintJob
+        from apps.jobs.services import purge_unsaved_jobs
+
+        job = self._make_job(name="old.pdf", days_ago=40)
+        result = purge_unsaved_jobs(days=30, dry_run=True)
+        assert result["count"] == 1
+        assert result["deleted"] == 0
+        assert PrintJob.objects.filter(pk=job.pk).exists()
+
+    def test_management_command(self, capsys):
+        from django.core.management import call_command
+
+        from apps.jobs.models import PrintJob
+
+        self._make_job(name="stale.pdf", days_ago=90)
+        call_command("purge_old_jobs", "--days", "30")
+        captured = capsys.readouterr()
+        assert "Deleted 1 job" in captured.out
+        assert not PrintJob.objects.filter(name="stale.pdf").exists()
+
+
+# ---------------------------------------------------------------------------
+# Job list search + thumbnails
+# ---------------------------------------------------------------------------
+
+
+class TestJobListSearch:
+    def test_requires_login(self, client):
+        response = client.get(reverse("jobs:list"))
+        assert response.status_code == 302
+
+    def test_search_filters_by_name(self, client, user):
+        from apps.jobs.models import PrintJob
+
+        client.force_login(user)
+        PrintJob.objects.create(name="Spring postcard.pdf", owner=user)
+        PrintJob.objects.create(name="Sunday bulletin.pdf", owner=user)
+
+        response = client.get(reverse("jobs:list"), {"q": "postcard"})
+        assert response.status_code == 200
+        names = [j.name for j in response.context["jobs"]]
+        assert names == ["Spring postcard.pdf"]
+        assert response.context["search_query"] == "postcard"
+
+    def test_search_also_filters_saved_jobs(self, client, user):
+        from apps.jobs.models import PrintJob
+
+        client.force_login(user)
+        PrintJob.objects.create(name="Keep me.pdf", owner=user, is_saved=True)
+        PrintJob.objects.create(name="Other saved.pdf", owner=user, is_saved=True)
+
+        response = client.get(reverse("jobs:list"), {"q": "Keep"})
+        saved_names = [j.name for j in response.context["saved_jobs"]]
+        assert saved_names == ["Keep me.pdf"]
+
+
+class TestJobThumbnail:
+    def _pdf_bytes(self) -> bytes:
+        import io
+
+        from pypdf import PageObject, PdfWriter
+
+        buf = io.BytesIO()
+        w = PdfWriter()
+        w.add_page(PageObject.create_blank_page(width=612, height=792))
+        w.write(buf)
+        return buf.getvalue()
+
+    def test_generate_thumbnail_from_pdf(self):
+        from django.core.files.base import ContentFile
+
+        from apps.jobs.models import PrintJob
+        from apps.jobs.services import generate_job_thumbnail
+
+        job = PrintJob.objects.create(name="thumb.pdf")
+        job.file.save("thumb.pdf", ContentFile(self._pdf_bytes()), save=True)
+        ok = generate_job_thumbnail(job)
+        assert ok is True
+        job.refresh_from_db()
+        assert job.thumbnail
+        assert job.thumbnail.size > 0
+
+    def test_thumbnail_view_serves_jpeg(self, client, user):
+        from django.core.files.base import ContentFile
+
+        from apps.jobs.models import PrintJob
+
+        client.force_login(user)
+        job = PrintJob.objects.create(name="view.pdf", owner=user)
+        job.file.save("view.pdf", ContentFile(self._pdf_bytes()), save=True)
+        response = client.get(reverse("jobs:thumbnail", kwargs={"pk": job.pk}))
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/jpeg"
+
+    def test_process_job_creates_thumbnail(self):
+        from django.core.files.base import ContentFile
+
+        from apps.jobs.models import PrintJob
+        from apps.jobs.tasks import process_job_task
+
+        job = PrintJob.objects.create(name="task-thumb.pdf")
+        job.file.save("task-thumb.pdf", ContentFile(self._pdf_bytes()), save=True)
+        process_job_task(str(job.pk))
+        job.refresh_from_db()
+        assert job.thumbnail
+
+
+class TestJobsApiUpload:
+    def test_upload_requires_auth(self, client):
+        pdf = SimpleUploadedFile(
+            "sample.pdf", _make_minimal_pdf(), content_type="application/pdf"
+        )
+        response = client.post("/api/jobs/upload", {"file": pdf})
+        assert response.status_code == 401
+
+    def test_upload_sets_routing_preset(self, client, api_auth_headers, monkeypatch):
+        from apps.jobs.models import PrintJob
+        from apps.routing.models import RoutingPreset
+
+        monkeypatch.setattr(
+            "apps.jobs.tasks.process_job_task.delay", lambda *a, **kw: None
+        )
+        preset = RoutingPreset.objects.create(
+            name="API Preset", printer_queue="fiery_hold"
+        )
+        pdf = SimpleUploadedFile(
+            "sample.pdf", _make_minimal_pdf(), content_type="application/pdf"
+        )
+        response = client.post(
+            f"/api/jobs/upload?routing_preset_id={preset.pk}",
+            {"file": pdf, "name": "sample.pdf"},
+            **api_auth_headers,
+        )
+        assert response.status_code == 200
+        job = PrintJob.objects.get(pk=response.json()["id"])
+        assert job.routing_preset_id == preset.pk

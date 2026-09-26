@@ -29,6 +29,12 @@ class PrintJob(models.Model):
     name = models.CharField(max_length=255, blank=True)
     file = models.FileField(upload_to="jobs/originals/")
     imposed_file = models.FileField(upload_to="jobs/imposed/", blank=True, null=True)
+    thumbnail = models.ImageField(
+        upload_to="jobs/thumbnails/",
+        blank=True,
+        null=True,
+        help_text="Small JPEG of the first page, used in the job list.",
+    )
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING
     )
@@ -47,6 +53,20 @@ class PrintJob(models.Model):
     pages_are_unique = models.BooleanField(
         default=True,
         help_text="Each page has unique content; uncheck for step-and-repeat / stack-cut (Duplo)",
+    )
+
+    class FitMode(models.TextChoices):
+        COVER = "cover", "Stretch to cover bleed"
+        CENTER = "center", "Center within cut size"
+
+    fit_mode = models.CharField(
+        max_length=10,
+        choices=FitMode.choices,
+        default=FitMode.COVER,
+        help_text=(
+            "How artwork fills the selected canvas: 'cover' stretches it to "
+            "fill trim + bleed; 'center' fits it inside the cut size, centred."
+        ),
     )
     is_saved = models.BooleanField(
         default=False,

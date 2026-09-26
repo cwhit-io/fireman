@@ -306,8 +306,21 @@ DJANGO_SETTINGS_MODULE=config.settings.prod python manage.py check --deploy
 
 Django Ninja exposes a REST API at `/api/`. Add endpoints in [config/api.py](config/api.py).
 
-- **Swagger UI:** [http://127.0.0.1:8000/api/docs](http://127.0.0.1:8000/api/docs)
-- **Example:** `GET /api/hello` → `{"message": "Hello from Django Ninja!"}`
+All Ninja routes under `/api/` (including `GET /api/hello` and `/api/docs`) require:
+
+```
+Authorization: Bearer <PRINTOPS_API_TOKEN>
+```
+
+Set `PRINTOPS_API_TOKEN` (or alias `FIREMAN_API_TOKEN`) in `.env`. Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. Do not commit the real token. The Django session-authenticated web UI is unchanged; this gate applies only to the Ninja API.
+
+- **Swagger UI:** [http://127.0.0.1:8085/api/docs](http://127.0.0.1:8085/api/docs) (also requires the bearer token)
+- **Example:** `GET /api/hello` with a valid bearer token → `{"message": "Hello from Django Ninja!"}`
+- **Upload / send:** `POST /api/jobs/upload` and `POST /api/routing/{job_id}/send` accept optional query param `routing_preset_id` so `send_job_task` can reach Fiery.
+
+The MCP server (a separate process in `/home/blackhawk/fireman-mcp`) binds `127.0.0.1:8766` only and is never exposed directly. Ember publishes it at `https://ember.bhm.li/mcp`: `core/mcp_proxy.py` wraps the ASGI application and forwards the MCP paths (`/mcp`, `/login`, `/authorize`, `/token`, `/register`, `/revoke`, `/.well-known/oauth-*`) to that loopback port; every other path goes to Django untouched. Set `MCP_PROXY_ENABLED=False` in `.env` to turn the proxy off, or `MCP_UPSTREAM_URL` to point it elsewhere. Do not bind the MCP server to `0.0.0.0`.
+
+The proxy is enabled by default, which suits a host running the MCP server. Turn it off where the MCP server is unreachable — inside the Docker compose `web` container its loopback has nothing listening on 8766, so `/mcp` would return 502 instead of Django's 404.
 
 ---
 

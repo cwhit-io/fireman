@@ -5,6 +5,7 @@ Base Django settings shared by all environments.
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -17,15 +18,29 @@ env = environ.Env(
     DATABASE_URL=(str, f"sqlite:///{BASE_DIR / 'data' / 'db.sqlite3'}"),
     REDIS_URL=(str, "redis://localhost:6379/0"),
     MEDIA_MOUNT_POINT=(str, ""),
+    # MCP server reverse proxy (see core/mcp_proxy.py)
+    MCP_PROXY_ENABLED=(bool, True),
+    MCP_UPSTREAM_URL=(str, "http://127.0.0.1:8766"),
 )
 
 environ.Env.read_env(BASE_DIR / ".env")
 
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
+
+# Bearer token for Django Ninja PrintOps API (/api/*). Fail closed if unset.
+# PRINTOPS_API_TOKEN is preferred; FIREMAN_API_TOKEN is accepted as an alias.
+PRINTOPS_API_TOKEN = (
+    env("PRINTOPS_API_TOKEN", default="") or env("FIREMAN_API_TOKEN", default="")
+).strip()
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 INTERNAL_IPS = env("INTERNAL_IPS")
+
+# Publish the loopback-only MCP server under Ember's hostname (core/mcp_proxy.py).
+# Disable to serve MCP straight from its own port instead.
+MCP_PROXY_ENABLED = env("MCP_PROXY_ENABLED")
+MCP_UPSTREAM_URL = env("MCP_UPSTREAM_URL")
 
 # Application definition
 INSTALLED_APPS = [
@@ -246,6 +261,12 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "purge-old-print-jobs": {
+        "task": "apps.jobs.tasks.purge_old_jobs_task",
+        "schedule": crontab(hour=3, minute=15),
+    },
+}
 
 # django-daisy admin theme
 DAISY_SETTINGS = {

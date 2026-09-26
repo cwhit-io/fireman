@@ -52,7 +52,7 @@
         </svg>
       </button>
       <a href="{% url 'homepage' %}" class="flex items-center gap-2">
-        <img src="{% static 'logo.png' %}" alt="Ember" class="h-8" />
+        {% include "partials/_brand_logo.html" with logo_class="h-8 w-auto" %}
       </a>
     </div>
 

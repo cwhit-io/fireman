@@ -50,6 +50,7 @@ def impose_job_task(job_id: str, template_id: int | None = None) -> None:
             barcode_y=bc["barcode_y"],
             barcode_width=bc["barcode_width"],
             barcode_height=bc["barcode_height"],
+            fit_mode=job.fit_mode,
         )
         output_buf.seek(0)
         from pathlib import Path

@@ -12,7 +12,7 @@
   {# ── Brand ───────────────────────────────────────── #}
   <div class="h-32 px-3 flex items-center justify-between shrink-0 border-b border-base-300/60">
     <a href="{% url 'homepage' %}" class="flex items-center gap-2 group min-w-0">
-      <img src="{% static 'logo.png' %}" alt="Ember" class="shrink-0 transition-transform group-hover:scale-105" />
+      {% include "partials/_brand_logo.html" with logo_class="shrink-0 transition-transform group-hover:scale-105" %}
       <span class="font-semibold text-sm leading-tight truncate"></span>
     </a>
     {# Close button — mobile only #}

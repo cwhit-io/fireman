@@ -561,6 +561,9 @@
           <tr><th>Imposition</th><td>
             {% if job.pages_are_unique %}N-up (unique pages){% else %}Step-and-repeat{% endif %}
           </td></tr>
+          <tr><th>Artwork Placement</th><td>
+            {% if job.fit_mode == 'center' %}Centered within cut size{% else %}Stretched to cover bleed{% endif %}
+          </td></tr>
           {% if job.imposition_template %}
           <tr><th>Template</th><td>{{ job.imposition_template.name }}</td></tr>
           {% endif %}
@@ -633,7 +636,7 @@
       <form method="post" action="{% url 'jobs:apply_template' job.pk %}"
             class="flex flex-wrap items-end gap-3">
         {% csrf_token %}
-        <div class="form-control flex-1">
+        <div class="form-control flex-1 min-w-[14rem]">
           <label class="label" for="id_template_id"><span class="label-text">Template</span></label>
           <select id="id_template_id" name="template_id" class="select select-bordered">
             <option value="">— Select a template —</option>
@@ -642,6 +645,13 @@
               {{ tmpl.name }}{% if tmpl.product_category %} ({{ tmpl.product_category }}){% endif %}
             </option>
             {% endfor %}
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label" for="id_fit_mode"><span class="label-text">Artwork placement</span></label>
+          <select id="id_fit_mode" name="fit_mode" class="select select-bordered">
+            <option value="cover" {% if job.fit_mode != 'center' %}selected{% endif %}>Stretch to cover bleed</option>
+            <option value="center" {% if job.fit_mode == 'center' %}selected{% endif %}>Center within size</option>
           </select>
         </div>
         <button type="submit" class="btn btn-primary">Apply &amp; Reprocess</button>

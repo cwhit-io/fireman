@@ -1,0 +1,12 @@
+{% load static %}
+{% comment %}
+Brand wordmark: animated WebP where supported and motion is welcome, still PNG otherwise.
+Do not add `display:contents` to the <picture>. <source> is never rendered, but contents would
+promote it into a flex parent as a phantom zero-width item and double that parent's gap.
+{% endcomment %}
+<picture>
+  <source srcset="{% static 'ember-logo.webp' %}" type="image/webp"
+          media="(prefers-reduced-motion: no-preference)">
+  <img src="{% static 'ember-logo.png' %}" alt="Ember"
+       width="300" height="163" class="{{ logo_class|default:'h-16 w-auto' }}" />
+</picture>

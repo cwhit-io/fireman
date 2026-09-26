@@ -48,6 +48,8 @@ assets/printer/KM_IC419_v3_0_FD703_WinRel1.zip
 
 # Celery
 celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
 celerybeat.pid
 
 # Pytest

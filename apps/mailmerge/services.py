@@ -676,6 +676,8 @@ def build_address_steprepeat(
     """
     from pypdf import PageObject, PdfWriter
 
+    from apps.impose.services import compute_artwork_placement, infer_trim_from_mediabox
+
     effective_barcode_font_size = (
         barcode_font_size if barcode_font_size is not None else _BARCODE_FONT_SIZE
     )
@@ -716,81 +718,112 @@ def build_address_steprepeat(
             row = idx // cols
 
             # ── Card-to-sheet coordinate transform ────────────────────────
-            # Mirrors impose_nup / impose_double_sided_nup geometry.
-            _tw = cell_trim_w if cell_trim_w > 0 else cell_w
-            _th = cell_trim_h if cell_trim_h > 0 else cell_h
-            scale_n = min(_tw / card_w, _th / card_h) if card_w and card_h else 1.0
-            scale_r = min(_tw / card_h, _th / card_w) if card_w and card_h else 1.0
-            rotated = scale_r > scale_n
-            scale = scale_r if rotated else scale_n
-
             cell_trim_left = margin_left + col * cell_w + bleed
             cell_trim_bottom = sheet_h - margin_top - (row + 1) * cell_h + bleed
 
-            if rotated:
-                placed_h = card_w * scale
-                center_y = (
-                    (cell_trim_h - placed_h) / 2
-                    if cell_trim_h > 0
-                    else (cell_h - placed_h) / 2
+            if bleed > 0:
+                # Same transform impose_nup applies to the artwork, so address
+                # coords (source MediaBox space) land on the printed card.
+                src_trim_w, src_trim_h, src_trim_left, src_trim_bottom = (
+                    infer_trim_from_mediabox(card_w, card_h)
                 )
-                target_bottom = cell_trim_bottom + center_y
-                placed_w = card_h * scale
-                center_x = (
-                    (cell_trim_w - placed_w) / 2
-                    if cell_trim_w > 0
-                    else (cell_w - placed_w) / 2
+                placement = compute_artwork_placement(
+                    src_trim_w=src_trim_w,
+                    src_trim_h=src_trim_h,
+                    src_trim_left=src_trim_left,
+                    src_trim_bottom=src_trim_bottom,
+                    src_media_w=card_w,
+                    src_media_h=card_h,
+                    src_media_left=0.0,
+                    src_media_bottom=0.0,
+                    cell_w=cell_w,
+                    cell_h=cell_h,
+                    cell_trim_left=cell_trim_left,
+                    cell_trim_bottom=cell_trim_bottom,
+                    bleed=bleed,
                 )
-                target_left = cell_trim_left + center_x
-                sheet_addr_x = target_left + addr_y * scale
-                sheet_addr_y = (
-                    target_bottom
-                    + (card_w - addr_x - (font_size or _FONT_SIZE)) * scale
-                )
+                sheet_addr_x, sheet_addr_y = placement.map_point(addr_x, addr_y)
                 _bx = barcode_x if barcode_x is not None else addr_x
                 _by = barcode_y if barcode_y is not None else addr_y
-                sheet_barcode_x = target_left + _by * scale
-                sheet_barcode_y = (
-                    target_bottom + (card_w - _bx - effective_barcode_font_size) * scale
-                )
-                sheet_tray_x = (
-                    (target_left + tray_y * scale) if tray_independent else 0.0
-                )
-                sheet_tray_y = (
-                    (
-                        target_bottom
-                        + (card_w - tray_x - (font_size or _FONT_SIZE)) * scale
-                    )
-                    if tray_independent
-                    else 0.0
-                )
+                sheet_barcode_x, sheet_barcode_y = placement.map_point(_bx, _by)
+                if tray_independent:
+                    sheet_tray_x, sheet_tray_y = placement.map_point(tray_x, tray_y)
+                else:
+                    sheet_tray_x = sheet_tray_y = 0.0
             else:
-                placed_w = card_w * scale
-                placed_h = card_h * scale
-                center_x = (
-                    (cell_trim_w - placed_w) / 2
-                    if cell_trim_w > 0
-                    else (cell_w - placed_w) / 2
-                )
-                center_y = (
-                    (cell_trim_h - placed_h) / 2
-                    if cell_trim_h > 0
-                    else (cell_h - placed_h) / 2
-                )
-                target_left = cell_trim_left + center_x
-                target_bottom = cell_trim_bottom + center_y
-                sheet_addr_x = target_left + addr_x * scale
-                sheet_addr_y = target_bottom + addr_y * scale
-                _bx = barcode_x if barcode_x is not None else addr_x
-                _by = barcode_y if barcode_y is not None else addr_y
-                sheet_barcode_x = target_left + _bx * scale
-                sheet_barcode_y = target_bottom + _by * scale
-                sheet_tray_x = (
-                    (target_left + tray_x * scale) if tray_independent else 0.0
-                )
-                sheet_tray_y = (
-                    (target_bottom + tray_y * scale) if tray_independent else 0.0
-                )
+                # No-template gang-up: fit (and maybe rotate) MediaBox into the cell.
+                _tw = cell_trim_w if cell_trim_w > 0 else cell_w
+                _th = cell_trim_h if cell_trim_h > 0 else cell_h
+                scale_n = min(_tw / card_w, _th / card_h) if card_w and card_h else 1.0
+                scale_r = min(_tw / card_h, _th / card_w) if card_w and card_h else 1.0
+                rotated = scale_r > scale_n
+                scale = scale_r if rotated else scale_n
+
+                if rotated:
+                    placed_h = card_w * scale
+                    center_y = (
+                        (cell_trim_h - placed_h) / 2
+                        if cell_trim_h > 0
+                        else (cell_h - placed_h) / 2
+                    )
+                    target_bottom = cell_trim_bottom + center_y
+                    placed_w = card_h * scale
+                    center_x = (
+                        (cell_trim_w - placed_w) / 2
+                        if cell_trim_w > 0
+                        else (cell_w - placed_w) / 2
+                    )
+                    target_left = cell_trim_left + center_x
+                    sheet_addr_x = target_left + addr_y * scale
+                    sheet_addr_y = (
+                        target_bottom
+                        + (card_w - addr_x - (font_size or _FONT_SIZE)) * scale
+                    )
+                    _bx = barcode_x if barcode_x is not None else addr_x
+                    _by = barcode_y if barcode_y is not None else addr_y
+                    sheet_barcode_x = target_left + _by * scale
+                    sheet_barcode_y = (
+                        target_bottom
+                        + (card_w - _bx - effective_barcode_font_size) * scale
+                    )
+                    sheet_tray_x = (
+                        (target_left + tray_y * scale) if tray_independent else 0.0
+                    )
+                    sheet_tray_y = (
+                        (
+                            target_bottom
+                            + (card_w - tray_x - (font_size or _FONT_SIZE)) * scale
+                        )
+                        if tray_independent
+                        else 0.0
+                    )
+                else:
+                    placed_w = card_w * scale
+                    placed_h = card_h * scale
+                    center_x = (
+                        (cell_trim_w - placed_w) / 2
+                        if cell_trim_w > 0
+                        else (cell_w - placed_w) / 2
+                    )
+                    center_y = (
+                        (cell_trim_h - placed_h) / 2
+                        if cell_trim_h > 0
+                        else (cell_h - placed_h) / 2
+                    )
+                    target_left = cell_trim_left + center_x
+                    target_bottom = cell_trim_bottom + center_y
+                    sheet_addr_x = target_left + addr_x * scale
+                    sheet_addr_y = target_bottom + addr_y * scale
+                    _bx = barcode_x if barcode_x is not None else addr_x
+                    _by = barcode_y if barcode_y is not None else addr_y
+                    sheet_barcode_x = target_left + _bx * scale
+                    sheet_barcode_y = target_bottom + _by * scale
+                    sheet_tray_x = (
+                        (target_left + tray_x * scale) if tray_independent else 0.0
+                    )
+                    sheet_tray_y = (
+                        (target_bottom + tray_y * scale) if tray_independent else 0.0
+                    )
 
             # ── Address text stream ───────────────────────────────────────
             # Delegate entirely to _address_text_stream with pre-transformed

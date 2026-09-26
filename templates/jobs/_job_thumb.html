@@ -1,0 +1,9 @@
+{# Small first-page thumbnail for the job list. Usage: include with job=job #}
+<a href="{% url 'jobs:detail' job.pk %}" class="shrink-0 block" tabindex="-1" aria-hidden="true">
+  <img src="{% url 'jobs:thumbnail' job.pk %}"
+       alt=""
+       width="56" height="56"
+       class="w-14 h-14 object-contain rounded-md border border-base-300 bg-base-200"
+       loading="lazy"
+       onerror="this.style.visibility='hidden'">
+</a>

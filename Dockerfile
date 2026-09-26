@@ -15,6 +15,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cups-client \
     cups-ipp-utils \
+    poppler-utils \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*

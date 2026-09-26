@@ -36,6 +36,11 @@ PREFLIGHT_MESSAGES: dict[str, str] = {
         "I didn't see any bleed, so I stretched the edges for you! Give it a "
         "quick look to make sure I didn't clip anything important."
     ),
+    "R1_CENTER": (
+        "I didn't see any bleed. Your artwork was kept at its exact size and "
+        "centred inside the cut area, so any gap past the cut line will print "
+        "white."
+    ),
     "R2": (
         "Sniff test passed! Your bleed and layout look perfect. This one is "
         "ready for the press!"
@@ -84,17 +89,18 @@ PREFLIGHT_MESSAGES: dict[str, str] = {
 
 # optional photo for each rule; templates resolve via static tag
 PREFLIGHT_IMAGES: dict[str, str] = {
-    "R1": "ruler.png",       # no bleed — edges stretched
-    "R2": "medal.png",       # clean bleed — all good
-    "R3": "wanted.png",      # canva crop marks found and removed
-    "R4": "ruler.png",       # oversized, unrecognised dimensions
-    "R5": "ruler.png",       # wrong size, aspect ratio matches — scaled
-    "R6": "caution_tape.png", # wrong size + aspect ratio mismatch — stretched
-    "R7": "ruler.png",       # bleedbox thinner than required
-    "R8": "neon.png",        # RGB colorspace detected
+    "R1": "ruler.png",  # no bleed — edges stretched
+    "R1_CENTER": "ruler.png",  # no bleed — centred, kept at exact size
+    "R2": "medal.png",  # clean bleed — all good
+    "R3": "wanted.png",  # canva crop marks found and removed
+    "R4": "ruler.png",  # oversized, unrecognised dimensions
+    "R5": "ruler.png",  # wrong size, aspect ratio matches — scaled
+    "R6": "caution_tape.png",  # wrong size + aspect ratio mismatch — stretched
+    "R7": "ruler.png",  # bleedbox thinner than required
+    "R8": "neon.png",  # RGB colorspace detected
     "R9_MARGINAL": "newspaper.png",  # images under 300 DPI
     "R9_CRITICAL": "newspaper.png",  # images under 150 DPI
-    "R10": "artist.png",     # text near trim/safe zone
+    "R10": "artist.png",  # text near trim/safe zone
     "R5_ROTATED": "ruler.png",  # wrong orientation — rotated 90° to match trim
 }
 
@@ -276,7 +282,7 @@ def _check_image_dpi(
         # Prefer computing rendered size from the page content stream CTM
         content = page.get_contents()
         resources = page.get("/Resources") or {}
-        xobjects = (resources.get("/XObject") or {})
+        xobjects = resources.get("/XObject") or {}
 
         # CTM stack (a,b,c,d,e,f) — start with identity
         import math
@@ -317,7 +323,14 @@ def _check_image_dpi(
                         # params are six numbers
                         try:
                             nums = [float(n) for n in params]
-                            matrix = (nums[0], nums[1], nums[2], nums[3], nums[4], nums[5])
+                            matrix = (
+                                nums[0],
+                                nums[1],
+                                nums[2],
+                                nums[3],
+                                nums[4],
+                                nums[5],
+                            )
                             current_ctm = mul_ctm(current_ctm, matrix)
                         except Exception:
                             pass
@@ -334,10 +347,16 @@ def _check_image_dpi(
                         if key is None:
                             continue
                         # look up the XObject
-                        xobj_ref = xobjects.get(key) or xobjects.get(key.replace("/", ""))
+                        xobj_ref = xobjects.get(key) or xobjects.get(
+                            key.replace("/", "")
+                        )
                         if not xobj_ref:
                             continue
-                        xobj_obj = xobj_ref.get_object() if hasattr(xobj_ref, "get_object") else xobj_ref
+                        xobj_obj = (
+                            xobj_ref.get_object()
+                            if hasattr(xobj_ref, "get_object")
+                            else xobj_ref
+                        )
                         subtype = str(xobj_obj.get("/Subtype", ""))
                         if subtype == "/Image":
                             pix_w = int(xobj_obj.get("/Width", 0))
@@ -509,6 +528,7 @@ def run_preflight(
     pdf_bytes: bytes,
     trim_w_pt: float,
     trim_h_pt: float,
+    fit_mode: str = "cover",
 ) -> PreflightResult:
     """
     Run all preflight rules against *pdf_bytes* and a target trim size.
@@ -518,6 +538,8 @@ def run_preflight(
     pdf_bytes   Raw bytes of the (already validated/repaired) PDF.
     trim_w_pt   Finished trim width in points.
     trim_h_pt   Finished trim height in points.
+    fit_mode    Job's artwork placement mode ("cover" or "center"); selects
+                the user-facing message when the no-bleed rule (R1) fires.
 
     Returns
     -------
@@ -620,7 +642,11 @@ def run_preflight(
             # Pretend file is now at trim size for bleed evaluation
             file_w, file_h = trim_w_pt, trim_h_pt
             excess_w = excess_h = 0.0
-        elif file_h != file_w and trim_h_pt != trim_w_pt and (file_h > file_w) != (trim_h_pt > trim_w_pt):
+        elif (
+            file_h != file_w
+            and trim_h_pt != trim_w_pt
+            and (file_h > file_w) != (trim_h_pt > trim_w_pt)
+        ):
             # Orientation flip: long/short axis of file doesn't match trim → rotate 90° CW
             rotated = _rotate_pdf_pages(pdf_bytes, 90)
             if rotated is not None:
@@ -685,9 +711,10 @@ def run_preflight(
     else:
         # Evaluate overage rules
         if abs(overage_per_side) <= size_tol_pt:
-            # Rule 1: Exact trim, no bleed
+            # Rule 1: Exact trim, no bleed — wording depends on the placement
+            # mode chosen for the job (stretched to cover vs centred).
             result.add(
-                "R1",
+                "R1_CENTER" if fit_mode == "center" else "R1",
                 status="warn",
                 note=f"No bleed: overage={overage_per_side:.1f}pt. Scaling content up.",
             )

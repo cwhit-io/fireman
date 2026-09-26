@@ -151,6 +151,29 @@
           <p class="mt-2 text-xs text-base-content/40 leading-relaxed">
             Controls imposition layout, barcode program, and printer preset. Filter by category above to narrow by cut size.
           </p>
+
+          {# Fit mode — how the artwork fills the selected canvas #}
+          <div class="mt-4">
+            <p class="text-sm font-medium text-base-content mb-2">Artwork placement</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label class="flex items-start gap-3 rounded-xl border border-base-300 bg-base-100 p-3 cursor-pointer hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                <input type="radio" name="fit_mode" value="cover" checked
+                  class="radio radio-primary radio-sm mt-0.5">
+                <span class="min-w-0">
+                  <span class="block text-sm font-medium text-base-content">Stretch to cover bleed</span>
+                  <span class="block text-xs text-base-content/60 mt-1">Artwork is enlarged to fill the cut size plus bleed. Edges stretch past the cut line — nothing shows white when trimmed.</span>
+                </span>
+              </label>
+              <label class="flex items-start gap-3 rounded-xl border border-base-300 bg-base-100 p-3 cursor-pointer hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                <input type="radio" name="fit_mode" value="center"
+                  class="radio radio-primary radio-sm mt-0.5">
+                <span class="min-w-0">
+                  <span class="block text-sm font-medium text-base-content">Center within size</span>
+                  <span class="block text-xs text-base-content/60 mt-1">Artwork keeps its exact size, centred inside the cut area. Any bleed gap stays white when trimmed.</span>
+                </span>
+              </label>
+            </div>
+          </div>
         </div>
 
         {# ── Step 4: Multi-page (conditional) ── #}

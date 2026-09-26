@@ -17,10 +17,28 @@ from apps.impose.image_utils import image_to_contentfile
 from apps.impose.models import ImpositionTemplate, ProductCategory
 
 from .models import PrintJob
-from .services import compute_fiery_name, run_preflight_for_job, validate_and_repair_pdf
+from .services import (
+    compute_fiery_name,
+    run_preflight_for_job,
+    validate_and_repair_pdf,
+)
 from .tasks import process_job_task
 
 logger = logging.getLogger(__name__)
+
+
+def _apply_job_search(qs, query: str):
+    """Filter a PrintJob queryset by name, notes, template, or cutter program."""
+    query = (query or "").strip()
+    if not query:
+        return qs
+    return qs.filter(
+        models.Q(name__icontains=query)
+        | models.Q(notes__icontains=query)
+        | models.Q(imposition_template__name__icontains=query)
+        | models.Q(cutter_program__name__icontains=query)
+        | models.Q(cutter_program__duplo_code__icontains=query)
+    )
 
 
 class JobListView(LoginRequiredMixin, ListView):
@@ -28,6 +46,9 @@ class JobListView(LoginRequiredMixin, ListView):
     template_name = "jobs/job_list.html"
     context_object_name = "jobs"
     paginate_by = 25
+
+    def get_search_query(self) -> str:
+        return self.request.GET.get("q", "").strip()
 
     def get_queryset(self):
         qs = (
@@ -41,21 +62,24 @@ class JobListView(LoginRequiredMixin, ListView):
         )
         if not self.request.user.is_staff:
             qs = qs.filter(owner=self.request.user)
-        return qs
+        return _apply_job_search(qs, self.get_search_query())
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        query = self.get_search_query()
         if self.request.user.is_staff:
             saved_qs = PrintJob.objects.filter(is_saved=True)
         else:
-            saved_qs = PrintJob.objects.filter(
-                is_saved=True
-            ).filter(
+            saved_qs = PrintJob.objects.filter(is_saved=True).filter(
                 models.Q(owner=self.request.user) | models.Q(is_global=True)
             )
-        ctx["saved_jobs"] = saved_qs.select_related(
-            "imposition_template__sheet_size", "cutter_program", "routing_preset"
+        ctx["saved_jobs"] = _apply_job_search(
+            saved_qs.select_related(
+                "imposition_template__sheet_size", "cutter_program", "routing_preset"
+            ),
+            query,
         )
+        ctx["search_query"] = query
         return ctx
 
 
@@ -68,7 +92,8 @@ class JobDetailView(LoginRequiredMixin, DetailView):
         qs = super().get_queryset()
         if not self.request.user.is_staff:
             qs = qs.filter(
-                models.Q(owner=self.request.user) | models.Q(is_global=True, is_saved=True)
+                models.Q(owner=self.request.user)
+                | models.Q(is_global=True, is_saved=True)
             )
         return qs
 
@@ -118,9 +143,15 @@ class JobUploadView(LoginRequiredMixin, View):
         # Accept image uploads (JPG/PNG) and convert to single-page PDF
         if file and not file.name.lower().endswith(".pdf"):
             content_type = getattr(file, "content_type", "").lower()
-            if content_type in ("image/jpeg", "image/jpg", "image/png") or file.name.lower().endswith((".jpg", ".jpeg", ".png")):
+            if content_type in (
+                "image/jpeg",
+                "image/jpg",
+                "image/png",
+            ) or file.name.lower().endswith((".jpg", ".jpeg", ".png")):
                 try:
-                    file = image_to_contentfile(file, name=file.name.rsplit('.', 1)[0] + ".pdf")
+                    file = image_to_contentfile(
+                        file, name=file.name.rsplit(".", 1)[0] + ".pdf"
+                    )
                 except Exception:
                     # fallback: keep original file and let validation report an error
                     pass
@@ -152,11 +183,15 @@ class JobUploadView(LoginRequiredMixin, View):
         # Capture user-provided job options
         pages_are_unique = request.POST.get("pages_are_unique") == "on"
         is_double_sided = request.POST.get("is_double_sided") == "on"
+        fit_mode = request.POST.get("fit_mode", "")
+        if fit_mode not in PrintJob.FitMode.values:
+            fit_mode = PrintJob.FitMode.COVER
 
         job = PrintJob.objects.create(
             name=file.name,
             is_double_sided=is_double_sided,
             pages_are_unique=pages_are_unique,
+            fit_mode=fit_mode,
             owner=request.user if request.user.is_authenticated else None,
         )
         # Save the (possibly repaired) PDF
@@ -224,7 +259,7 @@ class JobUploadTemplatesView(LoginRequiredMixin, View):
             else:
                 label = escape(tmpl.name)
             if tmpl.notes:
-                label += ' - ' + escape(tmpl.notes)
+                label += " - " + escape(tmpl.notes)
             html += f'<option value="{tmpl.pk}">{label}</option>'
         return HttpResponse(html)
 
@@ -254,12 +289,16 @@ class JobApplyTemplateView(LoginRequiredMixin, View):
         job.imposition_template = template
         job.cutter_program = template.cutter_program
         job.routing_preset = template.routing_preset
+        fit_mode = request.POST.get("fit_mode", "")
+        if fit_mode in PrintJob.FitMode.values:
+            job.fit_mode = fit_mode
         job.status = PrintJob.Status.PENDING
         job.save(
             update_fields=[
                 "imposition_template",
                 "cutter_program",
                 "routing_preset",
+                "fit_mode",
                 "status",
             ]
         )
@@ -321,6 +360,39 @@ class JobDeleteView(LoginRequiredMixin, DeleteView):
         return super().form_valid(form)
 
 
+class JobThumbnailView(LoginRequiredMixin, View):
+    """Serve (and lazily generate) a small first-page JPEG for the job list."""
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        from .services import generate_job_thumbnail
+
+        if request.user.is_staff:
+            job = get_object_or_404(PrintJob, pk=pk)
+        else:
+            job = get_object_or_404(
+                PrintJob,
+                models.Q(owner=request.user) | models.Q(is_global=True, is_saved=True),
+                pk=pk,
+            )
+        missing = not job.thumbnail or not job.thumbnail.storage.exists(
+            job.thumbnail.name
+        )
+        if missing:
+            generate_job_thumbnail(job)
+            job.refresh_from_db()
+        if not job.thumbnail:
+            raise Http404("No thumbnail available for this job.")
+        try:
+            fh = job.thumbnail.open("rb")
+        except FileNotFoundError as exc:
+            raise Http404("Thumbnail file not found on disk.") from exc
+        response = FileResponse(fh, content_type="image/jpeg")
+        response["Cache-Control"] = "private, max-age=86400"
+        return response
+
+
 class JobPreviewView(LoginRequiredMixin, View):
     """Serve the imposed PDF inline for browser preview before sending to printer."""
 
@@ -339,8 +411,8 @@ class JobPreviewView(LoginRequiredMixin, View):
             raise Http404("No imposed file available for this job.")
         try:
             fh = job.imposed_file.open("rb")
-        except FileNotFoundError:
-            raise Http404("Imposed PDF file not found on disk.")
+        except FileNotFoundError as exc:
+            raise Http404("Imposed PDF file not found on disk.") from exc
         response = FileResponse(
             fh,
             as_attachment=False,
@@ -368,8 +440,8 @@ class JobSourcePreviewView(LoginRequiredMixin, View):
             raise Http404("No source file available for this job.")
         try:
             fh = job.file.open("rb")
-        except FileNotFoundError:
-            raise Http404("Source PDF file not found on disk.")
+        except FileNotFoundError as exc:
+            raise Http404("Source PDF file not found on disk.") from exc
         response = FileResponse(
             fh,
             as_attachment=False,

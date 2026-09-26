@@ -510,6 +510,37 @@ class TestBuildAddressSteprepeat:
         # 5 records, 4 per sheet → 2 sheets
         assert len(reader.pages) == 2
 
+    def test_bleed_template_maps_address_in_source_space(self):
+        """With template bleed, address coords stay in artwork MediaBox space.
+
+        A 4.25×6.25" card (trim 4×6 + 0.125" bleed) on a 2-up 4×6 template
+        is placed 1:1.  An address at (100, 50) on the artwork therefore
+        appears at (100, 50) on the first cell of the sheet — not scaled
+        into the trim box.
+        """
+        from pypdf import PdfReader
+
+        records = parse_usps_csv(io.BytesIO(_sample_csv_bytes()))
+        out = io.BytesIO()
+        build_address_steprepeat(
+            records,
+            card_w=306.0,
+            card_h=450.0,
+            cols=2,
+            rows=1,
+            sheet_w=612.0,
+            sheet_h=450.0,
+            addr_x=100.0,
+            addr_y=50.0,
+            output_pdf=out,
+            bleed=9.0,
+        )
+        out.seek(0)
+        page = PdfReader(out).pages[0]
+        contents = page.get("/Contents")
+        data = contents.get_data() if hasattr(contents, "get_data") else b""
+        assert b"100.000 50.000 Td" in data
+
 
 # ── Integration tests: new views ─────────────────────────────────────────
 

@@ -43,7 +43,7 @@ _daphne:
 	echo "Daphne started (PID $$(cat logs/daphne.pid))"
 
 _celery:
-	$(VENV)/bin/celery -A config worker -l info > logs/celery.log 2>&1 & \
+	$(VENV)/bin/celery -A config worker -B -l info > logs/celery.log 2>&1 & \
 	echo $$! > logs/celery.pid; \
 	echo "Celery started (PID $$(cat logs/celery.pid))"
 

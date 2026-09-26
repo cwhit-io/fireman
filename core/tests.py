@@ -14,10 +14,28 @@ class TestIndexView:
 
 
 class TestNinjaAPI:
-    def test_hello_endpoint(self, client: Client):
+    def test_hello_requires_bearer_token(self, client: Client):
         response = client.get("/api/hello")
+        assert response.status_code == 401
+
+    def test_hello_rejects_wrong_token(self, client: Client):
+        response = client.get(
+            "/api/hello", HTTP_AUTHORIZATION="Bearer wrong-token"
+        )
+        assert response.status_code == 401
+
+    def test_hello_endpoint(self, client: Client, api_auth_headers):
+        response = client.get("/api/hello", **api_auth_headers)
         assert response.status_code == 200
         assert response.json()["message"] == "Hello from Django Ninja!"
+
+    def test_docs_require_bearer_token(self, client: Client):
+        assert client.get("/api/docs").status_code == 401
+        assert client.get("/api/openapi.json").status_code == 401
+
+    def test_docs_with_token(self, client: Client, api_auth_headers):
+        assert client.get("/api/docs", **api_auth_headers).status_code == 200
+        assert client.get("/api/openapi.json", **api_auth_headers).status_code == 200
 
 
 class TestUserModel:

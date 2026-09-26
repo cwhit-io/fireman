@@ -1,4 +1,5 @@
 import io
+import re
 
 import pytest
 from pypdf import PageObject, PdfWriter
@@ -132,6 +133,312 @@ class TestDetectSourceTrim:
         assert trim_bottom == pytest.approx(0.0, abs=1.0)
 
 
+class TestComputeArtworkPlacement:
+    """Numeric tests for trim-to-trim vs no-bleed cover placement."""
+
+    def _cell(
+        self, cut_w=288.0, cut_h=432.0, bleed=9.0, margin_left=0.0, margin_top=0.0
+    ):
+        cell_w = cut_w + 2 * bleed
+        cell_h = cut_h + 2 * bleed
+        return {
+            "cell_w": cell_w,
+            "cell_h": cell_h,
+            "cell_trim_left": margin_left + bleed,
+            "cell_trim_bottom": bleed,  # single row, origin at sheet bottom of cell
+            "bleed": bleed,
+            "cut_w": cut_w,
+            "cut_h": cut_h,
+        }
+
+    def test_inferred_bleed_is_trim_to_trim(self):
+        """4.25×6.25" source into 4×6" + 0.125" cell → scale 1, trim origins match."""
+        from apps.impose.services import compute_artwork_placement
+
+        cell = self._cell()
+        p = compute_artwork_placement(
+            src_trim_w=288.0,
+            src_trim_h=432.0,
+            src_trim_left=9.0,
+            src_trim_bottom=9.0,
+            src_media_w=306.0,
+            src_media_h=450.0,
+            src_media_left=0.0,
+            src_media_bottom=0.0,
+            cell_w=cell["cell_w"],
+            cell_h=cell["cell_h"],
+            cell_trim_left=cell["cell_trim_left"],
+            cell_trim_bottom=cell["cell_trim_bottom"],
+            bleed=cell["bleed"],
+        )
+        assert p.src_has_bleed is True
+        assert p.scale == pytest.approx(1.0)
+        # Source trim (9, 9) maps onto cell trim origin.
+        mx, my = p.map_point(9.0, 9.0)
+        assert mx == pytest.approx(cell["cell_trim_left"])
+        assert my == pytest.approx(cell["cell_trim_bottom"])
+        # Source MediaBox origin maps onto cell bleed origin.
+        ox, oy = p.map_point(0.0, 0.0)
+        assert ox == pytest.approx(cell["cell_trim_left"] - 9.0)
+        assert oy == pytest.approx(cell["cell_trim_bottom"] - 9.0)
+        # Clip keeps template bleed (9pt) around trim in source space.
+        assert p.clip_x == pytest.approx(0.0)
+        assert p.clip_y == pytest.approx(0.0)
+        assert p.clip_w == pytest.approx(306.0)
+        assert p.clip_h == pytest.approx(450.0)
+
+    def test_explicit_trimbox_same_as_inferred(self):
+        from apps.impose.services import compute_artwork_placement
+
+        cell = self._cell()
+        p = compute_artwork_placement(
+            src_trim_w=288.0,
+            src_trim_h=432.0,
+            src_trim_left=9.0,
+            src_trim_bottom=9.0,
+            src_media_w=306.0,
+            src_media_h=450.0,
+            src_media_left=0.0,
+            src_media_bottom=0.0,
+            **{
+                k: cell[k]
+                for k in (
+                    "cell_w",
+                    "cell_h",
+                    "cell_trim_left",
+                    "cell_trim_bottom",
+                    "bleed",
+                )
+            },
+        )
+        assert p.scale == pytest.approx(1.0)
+        assert p.src_has_bleed is True
+
+    def test_larger_source_bleed_clipped_to_template(self):
+        """0.25" source bleed into 0.125" template: trim-to-trim, clip to 9pt."""
+        from apps.impose.services import compute_artwork_placement
+
+        cell = self._cell()
+        p = compute_artwork_placement(
+            src_trim_w=288.0,
+            src_trim_h=432.0,
+            src_trim_left=18.0,
+            src_trim_bottom=18.0,
+            src_media_w=324.0,
+            src_media_h=468.0,
+            src_media_left=0.0,
+            src_media_bottom=0.0,
+            cell_w=cell["cell_w"],
+            cell_h=cell["cell_h"],
+            cell_trim_left=cell["cell_trim_left"],
+            cell_trim_bottom=cell["cell_trim_bottom"],
+            bleed=cell["bleed"],
+        )
+        assert p.src_has_bleed is True
+        assert p.scale == pytest.approx(1.0)
+        mx, my = p.map_point(18.0, 18.0)
+        assert mx == pytest.approx(cell["cell_trim_left"])
+        assert my == pytest.approx(cell["cell_trim_bottom"])
+        assert p.clip_x == pytest.approx(9.0)  # 18 - 9
+        assert p.clip_y == pytest.approx(9.0)
+        assert p.clip_w == pytest.approx(288.0 + 18.0)
+        assert p.clip_h == pytest.approx(432.0 + 18.0)
+
+    def test_no_bleed_covers_full_cell(self):
+        """Exact 4×6" source is stretched to fill trim + bleed (R1)."""
+        from apps.impose.services import compute_artwork_placement
+
+        cell = self._cell()
+        p = compute_artwork_placement(
+            src_trim_w=288.0,
+            src_trim_h=432.0,
+            src_trim_left=0.0,
+            src_trim_bottom=0.0,
+            src_media_w=288.0,
+            src_media_h=432.0,
+            src_media_left=0.0,
+            src_media_bottom=0.0,
+            cell_w=cell["cell_w"],
+            cell_h=cell["cell_h"],
+            cell_trim_left=cell["cell_trim_left"],
+            cell_trim_bottom=cell["cell_trim_bottom"],
+            bleed=cell["bleed"],
+        )
+        assert p.src_has_bleed is False
+        # Cover uses max(cell/trim). Adding equal bleed to both axes changes AR,
+        # so the scaled page overflows the long axis and is centred.
+        assert p.scale == pytest.approx(cell["cell_w"] / 288.0)  # 306/288
+        cell_origin_x = cell["cell_trim_left"] - cell["bleed"]
+        cell_origin_y = cell["cell_trim_bottom"] - cell["bleed"]
+        placed_w = 288.0 * p.scale
+        placed_h = 432.0 * p.scale
+        assert placed_w >= cell["cell_w"] - 1e-6
+        assert placed_h >= cell["cell_h"] - 1e-6
+        ox, oy = p.map_point(0.0, 0.0)
+        assert ox == pytest.approx(cell_origin_x + (cell["cell_w"] - placed_w) / 2)
+        assert oy == pytest.approx(cell_origin_y + (cell["cell_h"] - placed_h) / 2)
+
+    def test_center_mode_no_bleed_fits_inside_trim(self):
+        """Center mode: exact 4×6" source stays at scale 1, centred in the trim."""
+        from apps.impose.services import compute_artwork_placement
+
+        cell = self._cell()
+        p = compute_artwork_placement(
+            src_trim_w=288.0,
+            src_trim_h=432.0,
+            src_trim_left=0.0,
+            src_trim_bottom=0.0,
+            src_media_w=288.0,
+            src_media_h=432.0,
+            src_media_left=0.0,
+            src_media_bottom=0.0,
+            cell_w=cell["cell_w"],
+            cell_h=cell["cell_h"],
+            cell_trim_left=cell["cell_trim_left"],
+            cell_trim_bottom=cell["cell_trim_bottom"],
+            bleed=cell["bleed"],
+            fit_mode="center",
+        )
+        assert p.src_has_bleed is False
+        # MediaBox == trim, so scale is min(trim/media) = 1.0 in both axes.
+        assert p.scale == pytest.approx(1.0)
+        # Page fills the trim area exactly, centred in the cell.
+        ox, oy = p.map_point(0.0, 0.0)
+        assert ox == pytest.approx(cell["cell_trim_left"])
+        assert oy == pytest.approx(cell["cell_trim_bottom"])
+        # Clip covers the whole MediaBox (nothing to trim away in center mode).
+        assert p.clip_x == pytest.approx(0.0)
+        assert p.clip_y == pytest.approx(0.0)
+        assert p.clip_w == pytest.approx(288.0)
+        assert p.clip_h == pytest.approx(432.0)
+
+    def test_center_mode_fits_trim_when_cut_size_matches(self):
+        """Center mode: a source smaller than the cell trim is centred unscaled."""
+        from apps.impose.services import compute_artwork_placement
+
+        # Cell trim is 288×432; source page is 216×216 (smaller both axes).
+        p = compute_artwork_placement(
+            src_trim_w=216.0,
+            src_trim_h=216.0,
+            src_trim_left=0.0,
+            src_trim_bottom=0.0,
+            src_media_w=216.0,
+            src_media_h=216.0,
+            src_media_left=0.0,
+            src_media_bottom=0.0,
+            cell_w=306.0,
+            cell_h=450.0,
+            cell_trim_left=9.0,
+            cell_trim_bottom=9.0,
+            bleed=9.0,
+            fit_mode="center",
+        )
+        # Never enlarged beyond its own size, even though the trim is bigger.
+        assert p.scale == pytest.approx(1.0)
+        # Centred: leftover space split evenly on each axis.
+        ox, oy = p.map_point(0.0, 0.0)
+        assert ox == pytest.approx(9.0 + (288.0 - 216.0) / 2)
+        assert oy == pytest.approx(9.0 + (432.0 - 216.0) / 2)
+
+    def test_center_mode_oversized_page_scaled_down(self):
+        """Center mode: a page larger than the cell trim is uniformly shrunk."""
+        from apps.impose.services import compute_artwork_placement
+
+        # Source 400×600 into a 288×432 trim → scale limited by height.
+        p = compute_artwork_placement(
+            src_trim_w=400.0,
+            src_trim_h=600.0,
+            src_trim_left=0.0,
+            src_trim_bottom=0.0,
+            src_media_w=400.0,
+            src_media_h=600.0,
+            src_media_left=0.0,
+            src_media_bottom=0.0,
+            cell_w=306.0,
+            cell_h=450.0,
+            cell_trim_left=9.0,
+            cell_trim_bottom=9.0,
+            bleed=9.0,
+            fit_mode="center",
+        )
+        expected_scale = 432.0 / 600.0
+        assert p.scale == pytest.approx(expected_scale)
+        # The scaled page must fit inside the trim on both axes.
+        placed_w = 400.0 * p.scale
+        placed_h = 600.0 * p.scale
+        assert placed_w <= 288.0 + 1e-6
+        assert placed_h <= 432.0 + 1e-6
+        # Centred horizontally: leftover width split evenly.
+        ox, _ = p.map_point(0.0, 0.0)
+        assert ox == pytest.approx(9.0 + (288.0 - placed_w) / 2)
+
+    def test_center_mode_with_source_bleed_keeps_trim_size(self):
+        """Center mode: 4.25×6.25" source is clipped to its trim and fitted, not
+        stretched — the artwork is never scaled up to fill the bleed gutter."""
+        from apps.impose.services import compute_artwork_placement
+
+        cell = self._cell()
+        p = compute_artwork_placement(
+            src_trim_w=288.0,
+            src_trim_h=432.0,
+            src_trim_left=9.0,
+            src_trim_bottom=9.0,
+            src_media_w=306.0,
+            src_media_h=450.0,
+            src_media_left=0.0,
+            src_media_bottom=0.0,
+            cell_w=cell["cell_w"],
+            cell_h=cell["cell_h"],
+            cell_trim_left=cell["cell_trim_left"],
+            cell_trim_bottom=cell["cell_trim_bottom"],
+            bleed=cell["bleed"],
+            fit_mode="center",
+        )
+        assert p.src_has_bleed is True
+        # Center mode fits the whole MediaBox (306×450) inside the cell trim
+        # (288×432) — the limiting axis is width → 288/306, capped at 1.0.
+        assert p.scale == pytest.approx(288.0 / 306.0)
+        # The whole MediaBox (including its bleed margin) must sit inside the
+        # cell's trim area.
+        placed_w = 306.0 * p.scale
+        placed_h = 450.0 * p.scale
+        assert placed_w <= 288.0 + 1e-6
+        assert placed_h <= 432.0 + 1e-6
+        # Centred within the cell trim: leftover space split evenly.
+        ox, oy = p.map_point(0.0, 0.0)
+        assert ox == pytest.approx(cell["cell_trim_left"] + (288.0 - placed_w) / 2)
+        assert oy == pytest.approx(cell["cell_trim_bottom"] + (432.0 - placed_h) / 2)
+        # Clip covers the whole MediaBox, including the source bleed margin.
+        assert p.clip_x == pytest.approx(0.0)
+        assert p.clip_y == pytest.approx(0.0)
+        assert p.clip_w == pytest.approx(306.0)
+        assert p.clip_h == pytest.approx(450.0)
+
+    def test_default_fit_mode_is_cover(self):
+        """Omitting fit_mode reproduces the legacy cover behaviour exactly."""
+        from apps.impose.services import compute_artwork_placement
+
+        cell = self._cell()
+        kwargs = {
+            "src_trim_w": 288.0,
+            "src_trim_h": 432.0,
+            "src_trim_left": 0.0,
+            "src_trim_bottom": 0.0,
+            "src_media_w": 288.0,
+            "src_media_h": 432.0,
+            "src_media_left": 0.0,
+            "src_media_bottom": 0.0,
+            "cell_w": cell["cell_w"],
+            "cell_h": cell["cell_h"],
+            "cell_trim_left": cell["cell_trim_left"],
+            "cell_trim_bottom": cell["cell_trim_bottom"],
+            "bleed": cell["bleed"],
+        }
+        default = compute_artwork_placement(**kwargs)
+        explicit = compute_artwork_placement(**kwargs, fit_mode="cover")
+        assert default == explicit
+
+
 class TestImposeNup:
     def test_2up_produces_output(self):
         from pypdf import PdfReader
@@ -144,6 +451,58 @@ class TestImposeNup:
         out.seek(0)
         reader = PdfReader(out)
         assert len(reader.pages) == 1
+
+    def test_center_mode_placed_at_trim_origin(self):
+        """1-up center mode: page content lands at the trim origin, unscaled.
+
+        A 288×432 page imposed 1-up on a 306×450 sheet with 9pt bleed: center
+        mode keeps scale 1.0 and translates the content to (9, 9); cover mode
+        would scale to 1.0625.
+        """
+        from pypdf import PdfReader
+        from pypdf.generic import DecodedStreamObject, NameObject
+
+        from apps.impose.services import impose_nup
+
+        def _make_page_pdf() -> bytes:
+            buf = io.BytesIO()
+            writer = PdfWriter()
+            page = PageObject.create_blank_page(width=288, height=432)
+            stream = DecodedStreamObject()
+            stream.set_data(b"0 0 288 432 re f\n")
+            page[NameObject("/Contents")] = stream
+            writer.add_page(page)
+            writer.write(buf)
+            return buf.getvalue()
+
+        inp = io.BytesIO(_make_page_pdf())
+        out = io.BytesIO()
+        impose_nup(
+            inp,
+            out,
+            columns=1,
+            rows=1,
+            sheet_width=306,
+            sheet_height=450,
+            bleed=9.0,
+            fit_mode="center",
+        )
+        out.seek(0)
+        data = PdfReader(out).pages[0].get_contents().get_data()
+        # Collect every cm matrix in the merged content stream.
+        matrices = []
+        for m in re.finditer(
+            rb"(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+"
+            rb"(-?[\d.]+)\s+(-?[\d.]+)\s+cm",
+            data,
+        ):
+            a, b, c, d, e, f = (float(g) for g in m.groups())
+            matrices.append((a, b, c, d, e, f))
+        placement = [m for m in matrices if abs(m[0] - 1.0) < 0.01]
+        assert placement, f"no unit-scale placement found in {matrices!r}"
+        _, _, _, _, e, f = placement[0]
+        assert e == pytest.approx(9.0, abs=0.5)
+        assert f == pytest.approx(9.0, abs=0.5)
 
     def test_business_card_21up(self):
         from pypdf import PdfReader
@@ -603,10 +962,10 @@ class TestCutMarks:
         expected_cell_h = round((5.5 + 2 * 0.125) * PT, 6)
 
         assert abs(layout["cell_w"] - expected_cell_w) < 0.01, (
-            f"cell_w should be {expected_cell_w:.2f} pt ({4.5}\" incl bleed) "
+            f'cell_w should be {expected_cell_w:.2f} pt ({4.5}" incl bleed) '
             f"but got {layout['cell_w']:.2f}"
         )
         assert abs(layout["cell_h"] - expected_cell_h) < 0.01, (
-            f"cell_h should be {expected_cell_h:.2f} pt ({5.75}\" incl bleed) "
+            f'cell_h should be {expected_cell_h:.2f} pt ({5.75}" incl bleed) '
             f"but got {layout['cell_h']:.2f}"
         )
