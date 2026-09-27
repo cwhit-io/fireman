@@ -435,3 +435,5 @@ make format   # ruff format
 - [ ] Set `EMAIL_*` variables for transactional email
 - [ ] Run `python manage.py collectstatic`
 - [ ] Run `python manage.py check --deploy`
+
+Changes to this repo go through pull requests reviewed by Foreman; see the Ben PR process.
