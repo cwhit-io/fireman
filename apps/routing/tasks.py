@@ -6,8 +6,12 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task
-def send_job_task(job_id: str) -> None:
-    """Send the imposed PDF for a job to the Fiery using its routing preset."""
+def send_job_task(job_id: str, duplex_override: str | None = None) -> None:
+    """Send the imposed PDF for a job to the Fiery using its routing preset.
+
+    *duplex_override* (simplex / duplex_long / duplex_short) overrides the
+    preset's duplex for this send only.
+    """
     from apps.jobs.models import PrintJob
     from apps.routing.services import send_to_fiery_ipp
 
@@ -38,7 +42,13 @@ def send_job_task(job_id: str) -> None:
         logger.info(
             "Sending job %s to %s with title %r", job.pk, preset.printer_queue, title
         )
-        send_to_fiery_ipp(pdf_file.path, preset.printer_queue, preset, title=title)
+        send_to_fiery_ipp(
+            pdf_file.path,
+            preset.printer_queue,
+            preset,
+            title=title,
+            duplex_override=duplex_override,
+        )
         job.status = PrintJob.Status.SENT
         job.save(update_fields=["status"])
     except Exception as exc:

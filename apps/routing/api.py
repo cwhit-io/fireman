@@ -1,7 +1,12 @@
+from typing import Literal
+
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
 router = Router(tags=["routing"])
+
+# Exact model enum: RoutingPreset.DuplexMode.
+DuplexMode = Literal["simplex", "duplex_long", "duplex_short"]
 
 
 class RoutingPresetOut(Schema):
@@ -52,11 +57,20 @@ def create_preset(request, data: RoutingPresetIn):
 
 
 @router.post("/{job_id}/send", summary="Queue a job for sending to the printer")
-def send_job(request, job_id: str, routing_preset_id: int | None = None):
+def send_job(
+    request,
+    job_id: str,
+    routing_preset_id: int | None = None,
+    duplex: DuplexMode | None = None,
+):
     """Enqueue the send-to-printer task for *job_id*.
 
     Optional routing_preset_id is saved on the job before queueing
     send_job_task (which uses job.routing_preset).
+
+    Optional duplex (simplex / duplex_long / duplex_short) overrides the
+    preset's duplex for this send only (EFDuplex for Fiery PPD presets,
+    sides= for plain CUPS presets).
     """
     from apps.jobs.models import PrintJob
     from apps.routing.models import RoutingPreset
@@ -68,9 +82,13 @@ def send_job(request, job_id: str, routing_preset_id: int | None = None):
         job.routing_preset = preset
         job.save(update_fields=["routing_preset"])
 
-    send_job_task.delay(job_id)
+    if duplex is not None:
+        send_job_task.delay(job_id, duplex_override=duplex)
+    else:
+        send_job_task.delay(job_id)
     return {
         "queued": True,
         "job_id": job_id,
         "routing_preset_id": routing_preset_id,
+        "duplex": duplex,
     }

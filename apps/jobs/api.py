@@ -1,10 +1,15 @@
 import uuid
+from typing import Literal
 
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 from ninja.files import UploadedFile
 
 router = Router(tags=["jobs"])
+
+# Exact model enums: RoutingPreset.DuplexMode / PrintJob.FitMode.
+DuplexMode = Literal["simplex", "duplex_long", "duplex_short"]
+FitMode = Literal["cover", "center"]
 
 
 class PrintJobOut(Schema):
@@ -18,6 +23,8 @@ class PrintJobOut(Schema):
     page_height: float | None = None
     product_type: str
     error_message: str
+    is_double_sided: bool = False
+    fit_mode: str = ""
 
     class Config:
         from_attributes = True
@@ -46,6 +53,8 @@ def upload_job(
     name: str = "",
     product_type: str = "",
     routing_preset_id: int | None = None,
+    duplex: DuplexMode | None = None,
+    fit_mode: FitMode | None = None,
 ):
     """
     Accept a PDF file upload, persist it as a new PrintJob, and enqueue
@@ -53,6 +62,10 @@ def upload_job(
 
     Optional routing_preset_id assigns job.routing_preset so a later send
     can reach Fiery (send_job_task no-ops without a preset).
+
+    Optional duplex (simplex / duplex_long / duplex_short) sets
+    job.is_double_sided for imposition; optional fit_mode (cover / center)
+    sets job.fit_mode. Omitted values keep the model defaults.
     """
     from apps.jobs.models import PrintJob
     from apps.jobs.tasks import process_job_task
@@ -62,11 +75,18 @@ def upload_job(
     if routing_preset_id is not None:
         preset = get_object_or_404(RoutingPreset, pk=routing_preset_id)
 
+    options = {}
+    if duplex is not None:
+        options["is_double_sided"] = duplex != "simplex"
+    if fit_mode is not None:
+        options["fit_mode"] = fit_mode
+
     job = PrintJob.objects.create(
         name=name or file.name,
         file=file,
         product_type=product_type,
         routing_preset=preset,
+        **options,
     )
     process_job_task.delay(str(job.pk))
     return job

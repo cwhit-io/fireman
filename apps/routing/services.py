@@ -68,6 +68,30 @@ def _page_size_already_set(fiery_options: dict, extra_lpr_options: str) -> bool:
     return False
 
 
+def _duplex_override_options(preset, duplex_override: str | None) -> list[str]:
+    """CUPS -o args for a per-job duplex override (empty when not set).
+
+    Fiery PPD presets use EFDuplex; legacy/standard CUPS presets use sides=.
+    """
+    if not duplex_override:
+        return []
+    if preset.fiery_options:
+        ef_duplex_map = {
+            "duplex_long": "TopTop",
+            "duplex_short": "TopBottom",
+            "simplex": "False",
+        }
+        ef_value = ef_duplex_map.get(duplex_override, "False")
+        return ["-o", f"EFDuplex={ef_value}"]
+    sides_map = {
+        "duplex_long": "two-sided-long-edge",
+        "duplex_short": "two-sided-short-edge",
+        "simplex": "one-sided",
+    }
+    sides_value = sides_map.get(duplex_override, duplex_override)
+    return ["-o", f"sides={sides_value}"]
+
+
 def _build_lpr_command(
     preset,
     pdf_path: str,
@@ -113,24 +137,7 @@ def _build_lpr_command(
             cmd += ["-o", f"{key}={value}"]
 
     # Per-job duplex override — applied after preset options so it takes effect.
-    # Fiery PPD presets use EFDuplex; legacy/standard CUPS presets use sides=.
-    if duplex_override:
-        if preset.fiery_options:
-            ef_duplex_map = {
-                "duplex_long": "TopTop",
-                "duplex_short": "TopBottom",
-                "simplex": "False",
-            }
-            ef_value = ef_duplex_map.get(duplex_override, "False")
-            cmd += ["-o", f"EFDuplex={ef_value}"]
-        else:
-            sides_map = {
-                "duplex_long": "two-sided-long-edge",
-                "duplex_short": "two-sided-short-edge",
-                "simplex": "one-sided",
-            }
-            sides_value = sides_map.get(duplex_override, duplex_override)
-            cmd += ["-o", f"sides={sides_value}"]
+    cmd += _duplex_override_options(preset, duplex_override)
 
     # Free-text extra options always appended last
     for line in preset.extra_lpr_options.splitlines():
@@ -178,9 +185,13 @@ def send_to_fiery_lpr(
 def send_to_fiery_ipp(
     pdf_path: str, printer_uri: str, preset, dry_run: bool = False, title: str = "",
     print_user: str | None = None,
+    duplex_override: str | None = None,
 ) -> subprocess.CompletedProcess | None:
     """
     Send *pdf_path* to Fiery via IPP using `lp`.
+
+    *duplex_override* (simplex / duplex_long / duplex_short) overrides the
+    preset's duplex for this job only.
     """
     if not shutil.which("lp"):
         raise OSError("lp is not available on this system.")
@@ -209,6 +220,9 @@ def send_to_fiery_ipp(
     for key, value in (preset.fiery_options or {}).items():
         if value:
             cmd += ["-o", f"{key}={value}"]
+
+    # Per-job duplex override — applied after preset options so it takes effect.
+    cmd += _duplex_override_options(preset, duplex_override)
 
     # Free-text extra options always appended last
     for line in preset.extra_lpr_options.splitlines():
