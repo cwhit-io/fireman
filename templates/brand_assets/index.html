@@ -3,6 +3,11 @@
 
 {% block title %}Brand Assets — Ember{% endblock %}
 
+{% block extra_head %}
+  <link rel="alternate" type="application/json" href="{% url 'brand_assets:index_json' %}" title="Brand assets JSON index" />
+  <link rel="alternate" type="text/plain" href="{% url 'brand_assets:llms_txt' %}" title="Brand assets llms.txt" />
+{% endblock %}
+
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8 space-y-12">
 
@@ -10,6 +15,12 @@
   <div>
     <h1 class="text-3xl font-extrabold tracking-tight">Brand Assets</h1>
     <p class="text-base-content/60 mt-1 text-sm">Download logos and graphics in SVG, PDF, or high-resolution PNG.</p>
+    <p class="text-base-content/50 mt-2 text-xs">
+      Machine-readable:
+      <a href="{% url 'brand_assets:index_json' %}" class="link link-primary">index.json</a>
+      ·
+      <a href="{% url 'brand_assets:llms_txt' %}" class="link link-primary">llms.txt</a>
+    </p>
   </div>
 
   {# ── Assets ───────────────────────────────────────────────────────── #}
