@@ -65,7 +65,9 @@ async def _call(app, method="GET", path="/mcp", headers=None, body=b"", query=b"
 
 
 def _body_of(sent) -> bytes:
-    return b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    return b"".join(
+        m.get("body", b"") for m in sent if m["type"] == "http.response.body"
+    )
 
 
 def _status_of(sent) -> int:
@@ -74,7 +76,9 @@ def _status_of(sent) -> int:
 
 def _headers_of(sent) -> dict[str, str]:
     start = next(m for m in sent if m["type"] == "http.response.start")
-    return {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in start["headers"]}
+    return {
+        k.decode("latin-1").lower(): v.decode("latin-1") for k, v in start["headers"]
+    }
 
 
 class TestIsMcpPath:
@@ -97,7 +101,15 @@ class TestIsMcpPath:
 
     @pytest.mark.parametrize(
         "path",
-        ["/", "/jobs/", "/api/hello", "/mlogin", "/mcpfoo", "/cr/links/", "/static/x.css"],
+        [
+            "/",
+            "/jobs/",
+            "/api/hello",
+            "/mlogin",
+            "/mcpfoo",
+            "/cr/links/",
+            "/static/x.css",
+        ],
     )
     def test_application_paths_do_not_match(self, path):
         assert not is_mcp_path(path)
@@ -226,7 +238,9 @@ class TestForwarding:
             captured["transfer_encoding"] = request.headers.get("transfer-encoding")
             return _streaming_response(200, body=b"ok")
 
-        await _call(self._proxy(handler), path="/.well-known/oauth-authorization-server")
+        await _call(
+            self._proxy(handler), path="/.well-known/oauth-authorization-server"
+        )
 
         # A GET must not acquire chunked framing from an empty body iterator.
         assert captured["content"] == b""

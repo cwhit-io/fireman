@@ -19,9 +19,7 @@ class TestNinjaAPI:
         assert response.status_code == 401
 
     def test_hello_rejects_wrong_token(self, client: Client):
-        response = client.get(
-            "/api/hello", HTTP_AUTHORIZATION="Bearer wrong-token"
-        )
+        response = client.get("/api/hello", HTTP_AUTHORIZATION="Bearer wrong-token")
         assert response.status_code == 401
 
     def test_hello_endpoint(self, client: Client, api_auth_headers):
@@ -123,7 +121,9 @@ class TestQrViews:
         assert response["Content-Type"] == "image/png"
 
     def test_qr_image_with_custom_colors(self, client: Client):
-        response = client.get(reverse("qr_image") + "?data=test&fg_color=%23FF0000&bg_color=%2300FF00")
+        response = client.get(
+            reverse("qr_image") + "?data=test&fg_color=%23FF0000&bg_color=%2300FF00"
+        )
         assert response.status_code == 200
         assert response["Content-Type"] == "image/png"
 
@@ -136,8 +136,8 @@ class TestQrViews:
         assert response.status_code == 200
         assert response["Content-Type"] == "image/svg+xml"
         assert b'linearGradient id="qr-body-gradient"' in response.content
-        assert b'#FF6600' in response.content
-        assert b'#0066FF' in response.content
+        assert b"#FF6600" in response.content
+        assert b"#0066FF" in response.content
 
     def test_qr_image_with_style(self, client: Client):
         response = client.get(reverse("qr_image") + "?data=test&style=rounded")
@@ -164,131 +164,183 @@ class TestQrViews:
 
     def test_api_preview_svg(self, client: Client):
         import json
+
         payload = {
-            'data': 'test',
-            'size': 300,
-            'quality': 10,
-            'style': 'square',
-            'fg_color': '#000000',
-            'bg_color': '#FFFFFF',
-            'format': 'svg',
-            'logo_id': None,
-            'logo_position': 'center'
+            "data": "test",
+            "size": 300,
+            "quality": 10,
+            "style": "square",
+            "fg_color": "#000000",
+            "bg_color": "#FFFFFF",
+            "format": "svg",
+            "logo_id": None,
+            "logo_position": "center",
         }
-        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        response = client.post(
+            reverse("api_generate_preview"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
         assert response.status_code == 200
         data = response.json()
-        assert data['format'] == 'svg'
-        assert '<svg' in data['data']
+        assert data["format"] == "svg"
+        assert "<svg" in data["data"]
 
     def test_api_preview_png(self, client: Client):
         import json
+
         payload = {
-            'data': 'test',
-            'size': 300,
-            'quality': 10,
-            'style': 'square',
-            'fg_color': '#000000',
-            'bg_color': '#FFFFFF',
-            'format': 'png',
-            'logo_id': None,
-            'logo_position': 'center'
+            "data": "test",
+            "size": 300,
+            "quality": 10,
+            "style": "square",
+            "fg_color": "#000000",
+            "bg_color": "#FFFFFF",
+            "format": "png",
+            "logo_id": None,
+            "logo_position": "center",
         }
-        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        response = client.post(
+            reverse("api_generate_preview"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
         assert response.status_code == 200
         data = response.json()
-        assert data['format'] == 'png'
-        assert 'data:image/png;base64,' in data['data']
+        assert data["format"] == "png"
+        assert "data:image/png;base64," in data["data"]
 
     def test_api_preview_no_data(self, client: Client):
         import json
+
         payload = {
-            'data': '',
-            'size': 300,
-            'quality': 10,
-            'style': 'square',
-            'format': 'png'
+            "data": "",
+            "size": 300,
+            "quality": 10,
+            "style": "square",
+            "format": "png",
         }
-        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        response = client.post(
+            reverse("api_generate_preview"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
         assert response.status_code == 400
-        assert response.json()['error'] == 'Missing data parameter'
+        assert response.json()["error"] == "Missing data parameter"
 
     def test_api_preview_custom_colors(self, client: Client):
         import json
+
         payload = {
-            'data': 'test',
-            'size': 300,
-            'quality': 10,
-            'style': 'circle',
-            'fg_color': '#FF0000',
-            'bg_color': '#00FF00',
-            'format': 'svg',
-            'logo_id': None,
-            'logo_position': 'center'
+            "data": "test",
+            "size": 300,
+            "quality": 10,
+            "style": "circle",
+            "fg_color": "#FF0000",
+            "bg_color": "#00FF00",
+            "format": "svg",
+            "logo_id": None,
+            "logo_position": "center",
         }
-        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        response = client.post(
+            reverse("api_generate_preview"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
         assert response.status_code == 200
         data = response.json()
-        assert '#FF0000' in data['data']
-        assert '#00FF00' in data['data']
+        assert "#FF0000" in data["data"]
+        assert "#00FF00" in data["data"]
 
     def test_api_preview_supports_gradient_and_eye_color(self, client: Client):
         import json
+
         payload = {
-            'data': 'test',
-            'size': 640,
-            'quality': 10,
-            'style': 'square',
-            'fg_color': '#101010',
-            'eye_color': '#FF5500',
-            'bg_color': '#FFFFFF',
-            'gradient_enabled': True,
-            'gradient_color': '#0088FF',
-            'gradient_direction': 'horizontal',
-            'format': 'svg',
+            "data": "test",
+            "size": 640,
+            "quality": 10,
+            "style": "square",
+            "fg_color": "#101010",
+            "eye_color": "#FF5500",
+            "bg_color": "#FFFFFF",
+            "gradient_enabled": True,
+            "gradient_color": "#0088FF",
+            "gradient_direction": "horizontal",
+            "format": "svg",
         }
-        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        response = client.post(
+            reverse("api_generate_preview"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
         assert response.status_code == 200
         result = response.json()
-        assert result['format'] == 'svg'
-        assert 'linearGradient id="qr-body-gradient"' in result['data']
-        assert '#FF5500' in result['data']
-        assert '#0088FF' in result['data']
+        assert result["format"] == "svg"
+        assert 'linearGradient id="qr-body-gradient"' in result["data"]
+        assert "#FF5500" in result["data"]
+        assert "#0088FF" in result["data"]
 
     def test_api_preview_with_separate_shape_selectors(self, client: Client):
         import json
+
         payload = {
-            'data': 'test',
-            'size': 300,
-            'quality': 10,
-            'style': 'square',
-            'body_shape': 'horizontal',
-            'eye_frame_shape': 'diamond',
-            'eye_ball_shape': 'circle',
-            'format': 'svg',
+            "data": "test",
+            "size": 300,
+            "quality": 10,
+            "style": "square",
+            "body_shape": "horizontal",
+            "eye_frame_shape": "diamond",
+            "eye_ball_shape": "circle",
+            "format": "svg",
         }
-        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+        response = client.post(
+            reverse("api_generate_preview"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
         assert response.status_code == 200
         result = response.json()
-        assert result['format'] == 'svg'
-        assert '<polygon' in result['data']
-        assert '<circle' in result['data']
+        assert result["format"] == "svg"
+        assert "<polygon" in result["data"]
+        assert "<circle" in result["data"]
 
     def test_api_preview_pdf_format(self, client: Client):
         import json
-        payload = {'data': 'test', 'size': 200, 'quality': 5, 'style': 'square', 'format': 'pdf'}
-        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+
+        payload = {
+            "data": "test",
+            "size": 200,
+            "quality": 5,
+            "style": "square",
+            "format": "pdf",
+        }
+        response = client.post(
+            reverse("api_generate_preview"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
         assert response.status_code == 200
         result = response.json()
-        assert result['format'] == 'pdf'
-        assert result['data'].startswith('data:application/pdf;base64,')
+        assert result["format"] == "pdf"
+        assert result["data"].startswith("data:application/pdf;base64,")
 
     def test_api_preview_data_too_long(self, client: Client):
         import json
-        payload = {'data': 'x' * 2001, 'size': 300, 'quality': 10, 'style': 'square', 'format': 'png'}
-        response = client.post(reverse("api_generate_preview"), data=json.dumps(payload), content_type='application/json')
+
+        payload = {
+            "data": "x" * 2001,
+            "size": 300,
+            "quality": 10,
+            "style": "square",
+            "format": "png",
+        }
+        response = client.post(
+            reverse("api_generate_preview"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
         assert response.status_code == 400
-        assert 'too long' in response.json()['error']
+        assert "too long" in response.json()["error"]
 
     def test_qr_image_data_too_long(self, client: Client):
         response = client.get(reverse("qr_image") + "?data=" + "x" * 2001)
@@ -297,22 +349,28 @@ class TestQrViews:
     def test_qr_image_malicious_color_rejected(self, client: Client):
         """Injection attempt in color param must be silently replaced with the default."""
         response = client.get(
-            reverse("qr_image") + '?data=test&format=svg&fg_color=%22%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E'
+            reverse("qr_image")
+            + "?data=test&format=svg&fg_color=%22%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E"
         )
         assert response.status_code == 200
         # Default color should appear, not the injected string
-        assert b'<script>' not in response.content
+        assert b"<script>" not in response.content
 
     def test_upload_logo_rejects_svg(self, client: Client):
         import io
+
         from django.core.files.uploadedfile import SimpleUploadedFile
-        svg_bytes = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
-        fake_svg = SimpleUploadedFile('evil.svg', svg_bytes, content_type='image/svg+xml')
-        response = client.post(reverse("upload_logo"), {'logo': fake_svg})
+
+        svg_bytes = (
+            b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+        )
+        fake_svg = SimpleUploadedFile(
+            "evil.svg", svg_bytes, content_type="image/svg+xml"
+        )
+        response = client.post(reverse("upload_logo"), {"logo": fake_svg})
         assert response.status_code == 400
-        assert 'not allowed' in response.json()['error']
+        assert "not allowed" in response.json()["error"]
         """A well-formed PDF should be returned unchanged with no warnings."""
-        import io
 
         from django.core.files.base import ContentFile
         from pypdf import PageObject, PdfWriter
@@ -352,7 +410,9 @@ class TestQrViews:
         from core.pdf_utils import extract_pdf_metadata
 
         job = PrintJob.objects.create(name="meta.pdf")
-        job.file.save("meta.pdf", ContentFile(self._make_minimal_pdf()), save=True)
+        job.file.save(
+            "meta.pdf", ContentFile(TestPdfUtils()._make_minimal_pdf()), save=True
+        )
         extract_pdf_metadata(job)
         job.refresh_from_db()
         assert job.page_count == 1

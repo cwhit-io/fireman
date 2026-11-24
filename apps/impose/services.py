@@ -825,10 +825,10 @@ def impose_from_template(
     Modes
     -----
     * ``pages_are_unique=False``:
-      step-and-repeat — only the **first** source page is used; every cell on
-      every output sheet shows that one design.  Multi-page source PDFs are
-      truncated to the first page so that a customer who accidentally submits a
-      two-page file still gets a single gang-up sheet.
+      step-and-repeat — for single-sided jobs only the **first** source page is
+      used (truncating accidental multi-page uploads to 1 sheet); for
+      double-sided jobs every source page becomes its own gang-up sheet so front
+      and back print together.
     * ``is_double_sided=True`` and ``pages_are_unique=True``:
       double-sided n-up — each source page fills one complete output sheet
       (e.g. page 1 × 8-up → sheet 1, page 2 × 8-up → sheet 2) so the job

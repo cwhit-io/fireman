@@ -223,8 +223,6 @@ class McpProxy:
                 await send(
                     {"type": "http.response.body", "body": chunk, "more_body": True}
                 )
-            await send(
-                {"type": "http.response.body", "body": b"", "more_body": False}
-            )
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
         finally:
             await response.aclose()

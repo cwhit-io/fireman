@@ -26,8 +26,6 @@ _GROUP_COLORS = [
 ]
 
 
-
-
 def print_templates(request):
     """Public page listing all cut sizes grouped by category."""
     sizes_qs = (
@@ -112,7 +110,9 @@ def print_size_template_pdf(request, pk, orientation):
     c.setStrokeColor(HexColor("#0055FF"))
     c.setLineWidth(0.4)
     c.setDash([2, 3])
-    c.rect(bleed + safe, bleed + safe, cut_w - 2 * safe, cut_h - 2 * safe, fill=0, stroke=1)
+    c.rect(
+        bleed + safe, bleed + safe, cut_w - 2 * safe, cut_h - 2 * safe, fill=0, stroke=1
+    )
     c.setDash()
 
     # Centre label
@@ -141,7 +141,7 @@ def print_size_template_pdf(request, pk, orientation):
     safe_name = re.sub(r"[^\w\-]", "_", size.name)
     response = HttpResponse(buf.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = (
-        'attachment; filename="{n}_{o}_template.pdf"'.format(n=safe_name, o=orientation)
+        f'attachment; filename="{safe_name}_{orientation}_template.pdf"'
     )
     return response
 
@@ -234,7 +234,7 @@ def _build_form_context():
     from apps.cutter.models import CutterProgram
     from apps.routing.models import RoutingPreset
 
-    from .models import PrintSize, ProductCategory
+    from .models import PrintSize
 
     return {
         "cutter_programs": CutterProgram.objects.filter(active=True).order_by("name"),
@@ -476,8 +476,8 @@ def _build_preview_svg(data: dict) -> str:
     if has_barcode and barcode_x >= 0 and barcode_y >= 0:
         bc_left = barcode_x
         bc_right = barcode_x + barcode_w_in
-        bc_top = sheet_h - barcode_y - barcode_h_in   # from top of sheet
-        bc_bottom = sheet_h - barcode_y               # from top of sheet
+        bc_top = sheet_h - barcode_y - barcode_h_in  # from top of sheet
+        bc_bottom = sheet_h - barcode_y  # from top of sheet
         for r in range(rows):
             for c in range(cols):
                 cx = offset_x + c * cell_w
@@ -486,8 +486,12 @@ def _build_preview_svg(data: dict) -> str:
                 trim_right = cx + cell_w - bleed
                 trim_top = cy + bleed
                 trim_bottom = cy + cell_h - bleed
-                if (bc_right > trim_left and bc_left < trim_right
-                        and bc_bottom > trim_top and bc_top < trim_bottom):
+                if (
+                    bc_right > trim_left
+                    and bc_left < trim_right
+                    and bc_bottom > trim_top
+                    and bc_top < trim_bottom
+                ):
                     barcode_overlaps_trim = True
                     break
             if barcode_overlaps_trim:
@@ -533,11 +537,11 @@ def _build_preview_svg(data: dict) -> str:
         warning = (
             '<div style="margin-top:6px;padding:5px 8px;background:#fef2f2;border:1px solid #fca5a5;'
             'border-radius:4px;font-size:11px;color:#b91c1c;line-height:1.4;">'
-            '&#9888; Barcode overlaps the trim area. Artwork may be obscured. '
-            'You can still save — uncheck <em>Print barcode</em> if this is intentional.'
-            '</div>'
+            "&#9888; Barcode overlaps the trim area. Artwork may be obscured. "
+            "You can still save — uncheck <em>Print barcode</em> if this is intentional."
+            "</div>"
         )
-        return f'<div>{svg}{warning}</div>'
+        return f"<div>{svg}{warning}</div>"
 
     return svg
 
@@ -565,8 +569,6 @@ class TemplateListView(ListView):
         return qs
 
     def get_context_data(self, **kwargs):
-        from .models import ProductCategory
-
         ctx = super().get_context_data(**kwargs)
         # All product categories that have at least one template
         ctx["product_categories"] = ProductCategory.objects.all().order_by("name")

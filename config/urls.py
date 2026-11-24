@@ -22,7 +22,7 @@ from django.http import HttpResponse
 from django.urls import include, path
 
 from config.api import api
-from core.views import homepage, qr_page, qr_image, upload_logo, api_generate_preview
+from core.views import api_generate_preview, homepage, qr_image, qr_page, upload_logo
 
 urlpatterns = [
     path("admin/", admin.site.urls),

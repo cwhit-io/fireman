@@ -116,7 +116,10 @@ class TestRenderImpositionLines:
         record = self._rec(
             name="John Doe",
             company="",
-            **{"primary street": "123 Main St", "city-state-zip": "Springfield, IL 62701"},
+            **{
+                "primary street": "123 Main St",
+                "city-state-zip": "Springfield, IL 62701",
+            },
         )
         lines = render_imposition_lines(record, [])
         # Legacy ordering: top→bottom = imbno, name, ..., city-state-zip

@@ -59,9 +59,7 @@ class ImportExportAdminMixin:
         def _export_selected(modeladmin, request, queryset):
             payload = {
                 "version": 1,
-                modeladmin.export_key: [
-                    modeladmin.obj_to_dict(o) for o in queryset
-                ],
+                modeladmin.export_key: [modeladmin.obj_to_dict(o) for o in queryset],
             }
             if modeladmin.export_note:
                 payload["_note"] = modeladmin.export_note
@@ -154,9 +152,7 @@ class ImportExportAdminMixin:
                     parts.append(f"{counts['error']} invalid entries ignored")
                 self.message_user(
                     request,
-                    "Import complete: "
-                    + (", ".join(parts) or "nothing to do")
-                    + ".",
+                    "Import complete: " + (", ".join(parts) or "nothing to do") + ".",
                     level=messages.SUCCESS,
                 )
 

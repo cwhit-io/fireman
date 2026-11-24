@@ -70,16 +70,13 @@ class FieryOptionsWidget(forms.Widget):
 
                 parts.append('<div class="fiery-field-group">')
                 parts.append(
-                    f'<label for="id_{field_name}">'
-                    f"{conditional_escape(label)}</label>"
+                    f'<label for="id_{field_name}">{conditional_escape(label)}</label>'
                 )
-                parts.append(
-                    f'<select id="id_{field_name}" name="{field_name}">'
-                )
+                parts.append(f'<select id="id_{field_name}" name="{field_name}">')
                 for val, lbl in choices:
                     selected = " selected" if val == current_val else ""
                     parts.append(
-                        f"<option value=\"{conditional_escape(val)}\"{selected}>"
+                        f'<option value="{conditional_escape(val)}"{selected}>'
                         f"{conditional_escape(lbl)}</option>"
                     )
                 parts.append("</select>")
@@ -124,8 +121,8 @@ class FieryOptionsFormField(forms.Field):
         if isinstance(value, str):
             try:
                 return json.loads(value)
-            except json.JSONDecodeError:
-                raise forms.ValidationError("Invalid JSON for Fiery options.")
+            except json.JSONDecodeError as exc:
+                raise forms.ValidationError("Invalid JSON for Fiery options.") from exc
         return {}
 
     def prepare_value(self, value):
@@ -152,4 +149,16 @@ class RoutingPresetAdminForm(forms.ModelForm):
 
     class Meta:
         model = RoutingPreset
-        fields = "__all__"
+        fields = [
+            "name",
+            "printer_queue",
+            "media_type",
+            "media_size",
+            "duplex",
+            "color_mode",
+            "tray",
+            "copies",
+            "fiery_options",
+            "extra_lpr_options",
+            "active",
+        ]

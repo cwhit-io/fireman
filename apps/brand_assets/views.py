@@ -67,26 +67,38 @@ def _asset_payload(request, asset):
 
 def _ordered_assets():
     """Assets in the same order as the HTML page: categorised, then uncategorised."""
-    categories = BrandAssetCategory.objects.prefetch_related("assets").order_by("order", "name")
+    categories = BrandAssetCategory.objects.prefetch_related("assets").order_by(
+        "order", "name"
+    )
     assets = []
     for category in categories:
         assets.extend(category.assets.all())
-    assets.extend(BrandAsset.objects.filter(category__isnull=True).order_by("order", "name"))
+    assets.extend(
+        BrandAsset.objects.filter(category__isnull=True).order_by("order", "name")
+    )
     return assets
 
 
 @require_GET
 def brand_assets_page(request):
-    categories = BrandAssetCategory.objects.prefetch_related("assets").order_by("order", "name")
+    categories = BrandAssetCategory.objects.prefetch_related("assets").order_by(
+        "order", "name"
+    )
     # Uncategorised assets
-    uncategorised = BrandAsset.objects.filter(category__isnull=True).order_by("order", "name")
+    uncategorised = BrandAsset.objects.filter(category__isnull=True).order_by(
+        "order", "name"
+    )
     colors = BrandColor.objects.order_by("order", "name")
 
-    return render(request, "brand_assets/index.html", {
-        "categories": categories,
-        "uncategorised": uncategorised,
-        "colors": colors,
-    })
+    return render(
+        request,
+        "brand_assets/index.html",
+        {
+            "categories": categories,
+            "uncategorised": uncategorised,
+            "colors": colors,
+        },
+    )
 
 
 @require_GET
@@ -103,14 +115,16 @@ def brand_assets_json(request):
         }
         for color in BrandColor.objects.order_by("order", "name")
     ]
-    response = JsonResponse({
-        "name": "Ember Brand Assets",
-        "description": "Official Ember logos and brand colours.",
-        "page": request.build_absolute_uri(reverse("brand_assets:index")),
-        "llms_txt": request.build_absolute_uri(reverse("brand_assets:llms_txt")),
-        "assets": assets,
-        "colors": colors,
-    })
+    response = JsonResponse(
+        {
+            "name": "Ember Brand Assets",
+            "description": "Official Ember logos and brand colours.",
+            "page": request.build_absolute_uri(reverse("brand_assets:index")),
+            "llms_txt": request.build_absolute_uri(reverse("brand_assets:llms_txt")),
+            "assets": assets,
+            "colors": colors,
+        }
+    )
     response["Cache-Control"] = "public, max-age=300"
     return response
 
@@ -146,7 +160,9 @@ def brand_assets_llms_txt(request):
         if asset.category:
             lines.append(f"Category: {asset.category.name}")
         lines.append(f"- SVG (colour): {_download_url(request, asset, 'svg', 'color')}")
-        lines.append(f"- PNG, 300 dpi (colour): {_download_url(request, asset, 'png', 'color')}")
+        lines.append(
+            f"- PNG, 300 dpi (colour): {_download_url(request, asset, 'png', 'color')}"
+        )
         lines.append(f"- PDF (colour): {_download_url(request, asset, 'pdf', 'color')}")
         lines.append(
             "- Black and white variants: append `&variant=black` or `&variant=white` "
@@ -197,17 +213,23 @@ def download_asset(request, pk):
 
     if fmt == "svg":
         response = HttpResponse(svg_bytes, content_type="image/svg+xml")
-        response["Content-Disposition"] = f'attachment; filename="{stem}{variant_suffix}.svg"'
+        response["Content-Disposition"] = (
+            f'attachment; filename="{stem}{variant_suffix}.svg"'
+        )
         return response
 
     if fmt == "pdf":
         pdf_bytes = cairosvg.svg2pdf(bytestring=svg_bytes)
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="{stem}{variant_suffix}.pdf"'
+        response["Content-Disposition"] = (
+            f'attachment; filename="{stem}{variant_suffix}.pdf"'
+        )
         return response
 
     # PNG — high resolution (300 dpi)
     png_bytes = cairosvg.svg2png(bytestring=svg_bytes, scale=PNG_SCALE)
     response = HttpResponse(png_bytes, content_type="image/png")
-    response["Content-Disposition"] = f'attachment; filename="{stem}{variant_suffix}.png"'
+    response["Content-Disposition"] = (
+        f'attachment; filename="{stem}{variant_suffix}.png"'
+    )
     return response

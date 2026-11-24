@@ -183,7 +183,11 @@ def send_to_fiery_lpr(
 
 
 def send_to_fiery_ipp(
-    pdf_path: str, printer_uri: str, preset, dry_run: bool = False, title: str = "",
+    pdf_path: str,
+    printer_uri: str,
+    preset,
+    dry_run: bool = False,
+    title: str = "",
     print_user: str | None = None,
     duplex_override: str | None = None,
 ) -> subprocess.CompletedProcess | None:

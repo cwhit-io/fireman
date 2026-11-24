@@ -1,4 +1,4 @@
-'''
+"""
 FTP Media Cleaner
 =================
 Connects to an FTP server and deletes files older than a configurable
@@ -38,21 +38,21 @@ Timestamp resolution order (per file)
 macOS sidecar files (._*) are skipped entirely -- the HyperDeck firmware
 exposes them in LIST output but blocks FTP deletion with 550. They are
 4 KB stubs with no meaningful storage impact.
-'''
+"""
 
-import ftplib
 import datetime as dt
-import os
-import re
+import ftplib
 import json
 import logging
-from dataclasses import dataclass, asdict
-from typing import List, Optional, Dict, Any, Tuple
-
+import os
+import re
+from dataclasses import asdict, dataclass
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Env helpers
 # ---------------------------------------------------------------------------
+
 
 def _bool_env(name: str, default: bool = False) -> bool:
     val = os.getenv(name)
@@ -72,14 +72,14 @@ def _int_env(name: str, default: int) -> int:
 
 
 def _utc_now() -> dt.datetime:
-    return dt.datetime.now(dt.timezone.utc)
+    return dt.datetime.now(dt.UTC)
 
 
-def _to_iso(ts: Optional[dt.datetime]) -> Optional[str]:
+def _to_iso(ts: dt.datetime | None) -> str | None:
     if ts is None:
         return None
     if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=dt.timezone.utc)
+        ts = ts.replace(tzinfo=dt.UTC)
     return ts.isoformat()
 
 
@@ -94,7 +94,7 @@ def _to_iso(ts: Optional[dt.datetime]) -> Optional[str]:
 _FILENAME_DATE_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})")
 
 
-def _parse_date_from_filename(name: str) -> Optional[dt.datetime]:
+def _parse_date_from_filename(name: str) -> dt.datetime | None:
     """
     Extract a UTC datetime from a recorder-style filename.
 
@@ -118,7 +118,7 @@ def _parse_date_from_filename(name: str) -> Optional[dt.datetime]:
         return None
     year, month, day, hour, minute = (int(x) for x in m.groups())
     try:
-        return dt.datetime(year, month, day, hour, minute, tzinfo=dt.timezone.utc)
+        return dt.datetime(year, month, day, hour, minute, tzinfo=dt.UTC)
     except ValueError:
         return None
 
@@ -139,15 +139,16 @@ def _is_sidecar(name: str) -> bool:
 # Data models
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FileRecord:
     name: str
-    modified_at: Optional[str]
-    size_bytes: Optional[int]
+    modified_at: str | None
+    size_bytes: int | None
     action: str
-    reason: Optional[str] = None
+    reason: str | None = None
     # filename | mlsd | mdtm | list_exact | list_estimated | n/a
-    timestamp_source: Optional[str] = None
+    timestamp_source: str | None = None
 
 
 @dataclass
@@ -160,18 +161,24 @@ class RunResult:
     weeks_threshold: int
     cutoff_utc: str
     started_utc: str
-    finished_utc: Optional[str] = None
-    totals: Dict[str, int] = None
-    files: List[Dict[str, Any]] = None
-    errors: List[str] = None
+    finished_utc: str | None = None
+    totals: dict[str, int] = None
+    files: list[dict[str, Any]] = None
+    errors: list[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["totals"] = d["totals"] or {
-            "scanned": 0, "kept": 0, "deleted": 0,
-            "skipped": 0, "errors": 0,
-            "ts_filename": 0, "ts_mlsd": 0, "ts_mdtm": 0,
-            "ts_list_exact": 0, "ts_list_estimated": 0,
+            "scanned": 0,
+            "kept": 0,
+            "deleted": 0,
+            "skipped": 0,
+            "errors": 0,
+            "ts_filename": 0,
+            "ts_mlsd": 0,
+            "ts_mdtm": 0,
+            "ts_list_exact": 0,
+            "ts_list_estimated": 0,
         }
         d["files"] = d["files"] or []
         d["errors"] = d["errors"] or []
@@ -181,6 +188,7 @@ class RunResult:
 # ---------------------------------------------------------------------------
 # Structured logger
 # ---------------------------------------------------------------------------
+
 
 class JsonLineLogger:
     """
@@ -230,25 +238,25 @@ class JsonLineLogger:
 # FTP Cleaner
 # ---------------------------------------------------------------------------
 
-class FTPCleaner:
 
+class FTPCleaner:
     def __init__(
         self,
         host: str,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         port: int = 21,
         timeout_seconds: int = 30,
-        logger: Optional[JsonLineLogger] = None,
+        logger: JsonLineLogger | None = None,
     ):
         self.host = host
         self.username = username
         self.password = password
         self.port = port
         self.timeout_seconds = timeout_seconds
-        self.ftp: Optional[ftplib.FTP] = None
+        self.ftp: ftplib.FTP | None = None
         self.log = logger or JsonLineLogger(json_output=True)
-        self._ts_counters: Dict[str, int] = {
+        self._ts_counters: dict[str, int] = {
             "ts_filename": 0,
             "ts_mlsd": 0,
             "ts_mdtm": 0,
@@ -309,7 +317,7 @@ class FTPCleaner:
 
     # -- Timestamp resolution ------------------------------------------------
 
-    def _try_mlsd(self) -> Optional[List[Tuple[str, Dict[str, str]]]]:
+    def _try_mlsd(self) -> list[tuple[str, dict[str, str]]] | None:
         """
         Prefer MLSD (RFC 3659) -- machine-readable facts with full UTC timestamps.
         Returns list of (name, facts) or None if server does not support MLSD.
@@ -328,7 +336,7 @@ class FTPCleaner:
             )
             return None
 
-    def _try_mdtm(self, filename: str) -> Optional[dt.datetime]:
+    def _try_mdtm(self, filename: str) -> dt.datetime | None:
         """
         MDTM fallback -- fetches exact modification time per file.
         Used when LIST gives an uncertain year (HH:MM format, no year).
@@ -341,13 +349,13 @@ class FTPCleaner:
             ts_str = resp.split()[-1]
             if len(ts_str) >= 14:
                 return dt.datetime.strptime(ts_str[:14], "%Y%m%d%H%M%S").replace(
-                    tzinfo=dt.timezone.utc
+                    tzinfo=dt.UTC
                 )
         except Exception as e:
             self.log.debug("mdtm_failed", filename=filename, reason=str(e))
         return None
 
-    def _parse_list_line_unix(self, line: str) -> Optional[Dict[str, Any]]:
+    def _parse_list_line_unix(self, line: str) -> dict[str, Any] | None:
         """
         Best-effort parser for Unix LIST format.
 
@@ -370,9 +378,18 @@ class FTPCleaner:
         except Exception:
             pass
         MONTHS = {
-            "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4,
-            "May": 5, "Jun": 6, "Jul": 7, "Aug": 8,
-            "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
+            "Jan": 1,
+            "Feb": 2,
+            "Mar": 3,
+            "Apr": 4,
+            "May": 5,
+            "Jun": 6,
+            "Jul": 7,
+            "Aug": 8,
+            "Sep": 9,
+            "Oct": 10,
+            "Nov": 11,
+            "Dec": 12,
         }
         month_num = MONTHS.get(month_str, 1)
         day_num = int(day_str)
@@ -381,12 +398,12 @@ class FTPCleaner:
         if ":" in year_or_time:
             year_uncertain = True
             year = now.year
-            modified = dt.datetime(year, month_num, day_num, tzinfo=dt.timezone.utc)
+            modified = dt.datetime(year, month_num, day_num, tzinfo=dt.UTC)
             if modified > now + dt.timedelta(days=1):
                 modified = modified.replace(year=year - 1)
         else:
             year = int(year_or_time)
-            modified = dt.datetime(year, month_num, day_num, tzinfo=dt.timezone.utc)
+            modified = dt.datetime(year, month_num, day_num, tzinfo=dt.UTC)
         return {
             "name": name,
             "is_dir": (kind == "d"),
@@ -397,7 +414,7 @@ class FTPCleaner:
 
     # -- File listing --------------------------------------------------------
 
-    def _list_files(self, directory: str) -> List[Dict[str, Any]]:
+    def _list_files(self, directory: str) -> list[dict[str, Any]]:
         """
         Returns a list of file dicts with resolved timestamps.
 
@@ -415,7 +432,7 @@ class FTPCleaner:
         try:
             mlsd_rows = self._try_mlsd()
             if mlsd_rows is not None:
-                entries: List[Dict[str, Any]] = []
+                entries: list[dict[str, Any]] = []
                 for name, facts in mlsd_rows:
                     ftype = (facts.get("type") or "").lower()
                     is_dir = ftype in {"dir", "cdir", "pdir"}
@@ -431,7 +448,7 @@ class FTPCleaner:
                         try:
                             modified = dt.datetime.strptime(
                                 mod[:14], "%Y%m%d%H%M%S"
-                            ).replace(tzinfo=dt.timezone.utc)
+                            ).replace(tzinfo=dt.UTC)
                         except Exception:
                             pass
                     fn_date = _parse_date_from_filename(name)
@@ -440,19 +457,21 @@ class FTPCleaner:
                         ts_source = "filename"
                     else:
                         ts_source = "mlsd"
-                    entries.append({
-                        "name": name,
-                        "is_dir": is_dir,
-                        "size_bytes": size_bytes,
-                        "modified": modified,
-                        "timestamp_source": ts_source,
-                    })
+                    entries.append(
+                        {
+                            "name": name,
+                            "is_dir": is_dir,
+                            "size_bytes": size_bytes,
+                            "modified": modified,
+                            "timestamp_source": ts_source,
+                        }
+                    )
                 return entries
 
             # Fallback: LIST + optional MDTM
-            lines: List[str] = []
+            lines: list[str] = []
             self.ftp.retrlines("LIST", lines.append)
-            entries2: List[Dict[str, Any]] = []
+            entries2: list[dict[str, Any]] = []
             for line in lines:
                 parsed = self._parse_list_line_unix(line)
                 if not parsed:
@@ -491,7 +510,7 @@ class FTPCleaner:
     ) -> RunResult:
         started = _utc_now()
         cutoff = started - dt.timedelta(weeks=weeks)
-        self._ts_counters = {k: 0 for k in self._ts_counters}
+        self._ts_counters = dict.fromkeys(self._ts_counters, 0)
         result = RunResult(
             ok=False,
             host=self.host,
@@ -502,10 +521,16 @@ class FTPCleaner:
             cutoff_utc=_to_iso(cutoff),
             started_utc=_to_iso(started),
             totals={
-                "scanned": 0, "kept": 0, "deleted": 0,
-                "skipped": 0, "errors": 0,
-                "ts_filename": 0, "ts_mlsd": 0, "ts_mdtm": 0,
-                "ts_list_exact": 0, "ts_list_estimated": 0,
+                "scanned": 0,
+                "kept": 0,
+                "deleted": 0,
+                "skipped": 0,
+                "errors": 0,
+                "ts_filename": 0,
+                "ts_mlsd": 0,
+                "ts_mdtm": 0,
+                "ts_list_exact": 0,
+                "ts_list_estimated": 0,
             },
             files=[],
             errors=[],
@@ -526,8 +551,8 @@ class FTPCleaner:
             try:
                 for e in files:
                     name: str = e["name"]
-                    modified: Optional[dt.datetime] = e.get("modified")
-                    size_bytes: Optional[int] = e.get("size_bytes")
+                    modified: dt.datetime | None = e.get("modified")
+                    size_bytes: int | None = e.get("size_bytes")
                     ts_source: str = e.get("timestamp_source", "unknown")
 
                     # -- Skip macOS AppleDouble sidecar stubs ----------------
@@ -660,6 +685,7 @@ class FTPCleaner:
 # CLI entrypoint
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     FTP_HOST = os.getenv("FTP_HOST", "10.10.96.127")
     FTP_PORT = _int_env("FTP_PORT", 21)
@@ -675,13 +701,16 @@ def main() -> None:
 
     log = JsonLineLogger(json_output=JSON_OUTPUT, level=LOG_LEVEL)
     cleaner = FTPCleaner(
-        FTP_HOST, FTP_USERNAME, FTP_PASSWORD, FTP_PORT,
+        FTP_HOST,
+        FTP_USERNAME,
+        FTP_PASSWORD,
+        FTP_PORT,
         timeout_seconds=TIMEOUT_SECONDS,
         logger=log,
     )
 
     exit_code = 1
-    result: Optional[RunResult] = None
+    result: RunResult | None = None
 
     try:
         cleaner.connect()
@@ -705,10 +734,16 @@ def main() -> None:
             started_utc=_to_iso(_utc_now()),
             finished_utc=_to_iso(_utc_now()),
             totals={
-                "scanned": 0, "kept": 0, "deleted": 0,
-                "skipped": 0, "errors": 1,
-                "ts_filename": 0, "ts_mlsd": 0, "ts_mdtm": 0,
-                "ts_list_exact": 0, "ts_list_estimated": 0,
+                "scanned": 0,
+                "kept": 0,
+                "deleted": 0,
+                "skipped": 0,
+                "errors": 1,
+                "ts_filename": 0,
+                "ts_mlsd": 0,
+                "ts_mdtm": 0,
+                "ts_list_exact": 0,
+                "ts_list_estimated": 0,
             },
             files=[],
             errors=[str(e)],

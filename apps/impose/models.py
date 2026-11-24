@@ -303,7 +303,12 @@ class ImpositionTemplate(models.Model):
             except PrintSize.DoesNotExist:
                 pass
 
-        if cut_w is not None and cut_h is not None and sheet_w is not None and sheet_h is not None:
+        if (
+            cut_w is not None
+            and cut_h is not None
+            and sheet_w is not None
+            and sheet_h is not None
+        ):
             bleed = float(self.bleed or 0)
             cell_w = float(cut_w) + 2 * bleed
             cell_h = float(cut_h) + 2 * bleed
@@ -316,15 +321,15 @@ class ImpositionTemplate(models.Model):
                 cw_in = round(cell_w / POINTS_PER_INCH, 4)
                 sw_in = round(sw / POINTS_PER_INCH, 4)
                 errors["columns"] = (
-                    f"{self.columns} column(s) × {cw_in:g}\" cell = {self.columns * cw_in:g}\" "
-                    f"exceeds sheet width {sw_in:g}\""
+                    f'{self.columns} column(s) × {cw_in:g}" cell = {self.columns * cw_in:g}" '
+                    f'exceeds sheet width {sw_in:g}"'
                 )
             if grid_h > sh:
                 ch_in = round(cell_h / POINTS_PER_INCH, 4)
                 sh_in = round(sh / POINTS_PER_INCH, 4)
                 errors["rows"] = (
-                    f"{self.rows} row(s) × {ch_in:g}\" cell = {self.rows * ch_in:g}\" "
-                    f"exceeds sheet height {sh_in:g}\""
+                    f'{self.rows} row(s) × {ch_in:g}" cell = {self.rows * ch_in:g}" '
+                    f'exceeds sheet height {sh_in:g}"'
                 )
             if errors:
                 raise ValidationError(errors)

@@ -17,7 +17,7 @@ Reference: Fiery API Programmer Guide v5 (EFI).
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import requests
@@ -59,7 +59,11 @@ def _login(session: requests.Session, cfg: dict) -> str | None:
         try:
             resp = session.post(
                 f"{base}/login",
-                json={"username": cfg["user"], "password": cfg["password"], "accessrights": cfg["accessrights"]},
+                json={
+                    "username": cfg["user"],
+                    "password": cfg["password"],
+                    "accessrights": cfg["accessrights"],
+                },
                 verify=cfg["verify"],
                 timeout=10,
             )
@@ -89,7 +93,7 @@ def _parse_fiery_dt(value: str | None) -> datetime | None:
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (ValueError, AttributeError):
         return None
@@ -110,7 +114,9 @@ def _import_job(entry: dict, rate: CostRate | None) -> tuple[str, str]:
     Returns ("created"|"skipped"|"error", reason).
     """
     fiery_id = str(entry.get("id") or "")
-    printed_at = _parse_fiery_dt(entry.get("jobCompleteTime") or entry.get("jobSubmitTime"))
+    printed_at = _parse_fiery_dt(
+        entry.get("jobCompleteTime") or entry.get("jobSubmitTime")
+    )
     if printed_at is None:
         return ("error", f"No timestamp for job {fiery_id!r}")
 
@@ -162,7 +168,9 @@ def sync_fiery_logs(limit: int = 500) -> dict:
     summary = {"created": 0, "skipped": 0, "errors": 0}
 
     session = requests.Session()
-    session.headers.update({"Accept": "application/json", "Content-Type": "application/json"})
+    session.headers.update(
+        {"Accept": "application/json", "Content-Type": "application/json"}
+    )
 
     login_error = _login(session, cfg)
     if login_error:

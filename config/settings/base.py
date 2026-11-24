@@ -12,7 +12,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ["10.10.96.138", "localhost", "127.0.0.1", "ember.bhm.li"]),
-    CSRF_TRUSTED_ORIGINS=(list, ["https://ember.bhm.li", "http://10.10.96.138", "http://localhost"]),
+    CSRF_TRUSTED_ORIGINS=(
+        list,
+        ["https://ember.bhm.li", "http://10.10.96.138", "http://localhost"],
+    ),
     INTERNAL_IPS=(list, ["127.0.0.1"]),
     # SECRET_KEY has no default — raises ImproperlyConfigured if not set
     DATABASE_URL=(str, f"sqlite:///{BASE_DIR / 'data' / 'db.sqlite3'}"),

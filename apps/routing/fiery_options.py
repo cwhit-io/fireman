@@ -75,7 +75,7 @@ FIERY_OPTION_SECTIONS = [
                     ("8x13", "8×13"),
                     ("9x11", "9×11"),
                     ("A4Tab", "A4 Tab"),
-                    ("A4TabThreeEightsInch", "A4 Tab 3/8\""),
+                    ("A4TabThreeEightsInch", 'A4 Tab 3/8"'),
                     ("ISOB4", "ISO B4"),
                     ("ISOB5", "ISO B5"),
                     ("ISOB5R", "ISO B5 Rotated"),
@@ -159,7 +159,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Print Queue Action ────────────────────────────────────────────────────
     (
         "Print Queue Action",
@@ -205,7 +204,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Color ─────────────────────────────────────────────────────────────────
     (
         "Color",
@@ -372,7 +370,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Layout ────────────────────────────────────────────────────────────────
     (
         "Layout",
@@ -557,7 +554,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Output & Delivery ─────────────────────────────────────────────────────
     (
         "Output & Delivery",
@@ -702,7 +698,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Finishing ────────────────────────────────────────────────────────────
     (
         "Finishing",
@@ -888,7 +883,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Booklet ───────────────────────────────────────────────────────────────
     (
         "Booklet",
@@ -1027,7 +1021,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Slip Sheet ────────────────────────────────────────────────────────────
     (
         "Slip Sheet",
@@ -1062,7 +1055,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Banner & Cover Page ───────────────────────────────────────────────────
     (
         "Banner & Cover Page",
@@ -1118,7 +1110,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Print Quality ─────────────────────────────────────────────────────────
     (
         "Print Quality",
@@ -1299,7 +1290,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Color — Profiles & Rendering ─────────────────────────────────────────
     (
         "Color — Profiles & Rendering",
@@ -1453,7 +1443,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Color — Separations ───────────────────────────────────────────────────
     (
         "Color — Separations",
@@ -1505,7 +1494,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Image Enhancement ─────────────────────────────────────────────────────
     (
         "Image Enhancement",
@@ -1541,7 +1529,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Inspection & Proofing ─────────────────────────────────────────────────
     (
         "Inspection & Proofing",
@@ -1637,7 +1624,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Copy Protection ───────────────────────────────────────────────────────
     (
         "Copy Protection",
@@ -1684,7 +1670,6 @@ FIERY_OPTION_SECTIONS = [
             ),
         ],
     ),
-
     # ── Control & Diagnostics ────────────────────────────────────────────────
     (
         "Control & Diagnostics",

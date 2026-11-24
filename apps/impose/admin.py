@@ -16,9 +16,7 @@ def _published_icon(published: bool):
         return mark_safe(
             '<span style="color:#16a34a;font-weight:600;">&#x2713; Published</span>'
         )
-    return mark_safe(
-        '<span style="color:#9ca3af;">&#x2013; Draft</span>'
-    )
+    return mark_safe('<span style="color:#9ca3af;">&#x2013; Draft</span>')
 
 
 @admin.action(description="Publish selected")
@@ -30,7 +28,9 @@ def publish_selected(modeladmin, request, queryset):
 @admin.action(description="Unpublish selected")
 def unpublish_selected(modeladmin, request, queryset):
     updated = queryset.update(is_published=False)
-    modeladmin.message_user(request, f"{updated} item(s) unpublished.", messages.SUCCESS)
+    modeladmin.message_user(
+        request, f"{updated} item(s) unpublished.", messages.SUCCESS
+    )
 
 
 class RecentPrintJobInline(admin.TabularInline):
@@ -113,7 +113,15 @@ _PT = POINTS_PER_INCH
 
 @admin.register(PrintSize)
 class PrintSizeAdmin(ImportExportAdminMixin, admin.ModelAdmin):
-    list_display = ["name", "category", "size_type", "width", "height", "published_status", "thumbnail_preview"]
+    list_display = [
+        "name",
+        "category",
+        "size_type",
+        "width",
+        "height",
+        "published_status",
+        "thumbnail_preview",
+    ]
     list_filter = ["is_published", "size_type", "category"]
     search_fields = ["name"]
     import_label = "Print Sizes"
@@ -121,7 +129,18 @@ class PrintSizeAdmin(ImportExportAdminMixin, admin.ModelAdmin):
     export_key = "print_sizes"
     actions = [publish_selected, unpublish_selected]
     fieldsets = [
-        (None, {"fields": ["name", "category", "size_type", ("width", "height"), "is_published"]}),
+        (
+            None,
+            {
+                "fields": [
+                    "name",
+                    "category",
+                    "size_type",
+                    ("width", "height"),
+                    "is_published",
+                ]
+            },
+        ),
         ("Design Resources", {"fields": ["thumbnail", "canva_template_url"]}),
     ]
 

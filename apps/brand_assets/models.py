@@ -5,7 +5,9 @@ class BrandAssetCategory(models.Model):
     """Groups brand assets (e.g. "Logos", "Icons", "Marks")."""
 
     name = models.CharField(max_length=100)
-    order = models.PositiveSmallIntegerField(default=0, help_text="Display order (ascending).")
+    order = models.PositiveSmallIntegerField(
+        default=0, help_text="Display order (ascending)."
+    )
 
     class Meta:
         verbose_name = "Asset Category"
@@ -36,7 +38,9 @@ class BrandAsset(models.Model):
         upload_to=_svg_upload_path,
         help_text="Upload the asset as an SVG file.",
     )
-    order = models.PositiveSmallIntegerField(default=0, help_text="Display order (ascending).")
+    order = models.PositiveSmallIntegerField(
+        default=0, help_text="Display order (ascending)."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -71,7 +75,9 @@ class BrandColor(models.Model):
         blank=True,
         help_text="Optional RGB values, e.g. 'R:26 G:43 B:60'",
     )
-    order = models.PositiveSmallIntegerField(default=0, help_text="Display order (ascending).")
+    order = models.PositiveSmallIntegerField(
+        default=0, help_text="Display order (ascending)."
+    )
 
     class Meta:
         verbose_name = "Brand Color"

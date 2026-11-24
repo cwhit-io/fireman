@@ -52,9 +52,10 @@ class TestBuildLprCommand:
             printer_queue="q",
             duplex="duplex_long",
             copies=1,
+            fiery_options={"EFDuplex": "TopTop"},
         )
         cmd = _build_lpr_command(preset, "/tmp/x.pdf")
-        assert "two-sided-long-edge" in " ".join(cmd)
+        assert "EFDuplex=TopTop" in " ".join(cmd)
 
     def test_duplex_override_fiery_options_uses_efduplex(self):
         """Duplex override must use EFDuplex for presets that use fiery_options."""
@@ -117,9 +118,10 @@ class TestBuildLprCommand:
             color_mode="grayscale",
             duplex="simplex",
             copies=1,
+            fiery_options={"EFColorMode": "Grayscale"},
         )
         cmd = _build_lpr_command(preset, "/tmp/x.pdf")
-        assert "ColorModel=Gray" in " ".join(cmd)
+        assert "EFColorMode=Grayscale" in " ".join(cmd)
 
 
 class TestRoutingSendApi:
@@ -127,7 +129,9 @@ class TestRoutingSendApi:
         response = client.post("/api/routing/00000000-0000-0000-0000-000000000001/send")
         assert response.status_code == 401
 
-    def test_send_sets_routing_preset_before_queue(self, client, api_auth_headers, monkeypatch):
+    def test_send_sets_routing_preset_before_queue(
+        self, client, api_auth_headers, monkeypatch
+    ):
         from apps.jobs.models import PrintJob
         from apps.routing.models import RoutingPreset
 
@@ -136,7 +140,9 @@ class TestRoutingSendApi:
             "apps.routing.tasks.send_job_task.delay",
             lambda job_id: queued.append(job_id),
         )
-        preset = RoutingPreset.objects.create(name="Send Preset", printer_queue="fiery_hold")
+        preset = RoutingPreset.objects.create(
+            name="Send Preset", printer_queue="fiery_hold"
+        )
         job = PrintJob.objects.create(name="send.pdf")
         assert job.routing_preset_id is None
 

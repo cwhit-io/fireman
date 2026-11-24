@@ -1,4 +1,5 @@
 """Management command to delete temp QR logo files older than a configurable age."""
+
 import os
 import time
 
@@ -48,7 +49,9 @@ class Command(BaseCommand):
                 errors += 1
 
         if dry_run:
-            self.stdout.write(self.style.WARNING("Dry run complete — no files deleted."))
+            self.stdout.write(
+                self.style.WARNING("Dry run complete — no files deleted.")
+            )
         else:
             self.stdout.write(
                 self.style.SUCCESS(f"Deleted {deleted} file(s). Errors: {errors}.")

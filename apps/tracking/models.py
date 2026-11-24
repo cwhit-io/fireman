@@ -9,11 +9,15 @@ class CostRate(models.Model):
 
     label = models.CharField(max_length=100, default="Default")
     color_per_page = models.DecimalField(
-        max_digits=8, decimal_places=4, default="0.0500",
+        max_digits=8,
+        decimal_places=4,
+        default="0.0500",
         help_text="Cost per color page (one side)",
     )
     bw_per_page = models.DecimalField(
-        max_digits=8, decimal_places=4, default="0.0100",
+        max_digits=8,
+        decimal_places=4,
+        default="0.0100",
         help_text="Cost per black & white page (one side)",
     )
     active = models.BooleanField(default=True)
@@ -41,11 +45,14 @@ class PrintLog(models.Model):
 
     # --- Identity ---------------------------------------------------------
     fiery_job_id = models.CharField(
-        max_length=100, blank=True, db_index=True,
+        max_length=100,
+        blank=True,
+        db_index=True,
         help_text="Job ID as reported by the Fiery",
     )
     username = models.CharField(
-        max_length=255, db_index=True,
+        max_length=255,
+        db_index=True,
         help_text="Username as reported in the Fiery log (any user, not just Ember users)",
     )
     job_name = models.CharField(max_length=500, blank=True)
@@ -62,7 +69,9 @@ class PrintLog(models.Model):
     bw_pages = models.PositiveIntegerField(default=0)
     copies = models.PositiveSmallIntegerField(default=1)
     color_mode = models.CharField(
-        max_length=10, choices=ColorMode.choices, default=ColorMode.COLOR,
+        max_length=10,
+        choices=ColorMode.choices,
+        default=ColorMode.COLOR,
     )
 
     # --- Media ------------------------------------------------------------
@@ -72,17 +81,24 @@ class PrintLog(models.Model):
 
     # --- Cost -------------------------------------------------------------
     cost_rate = models.ForeignKey(
-        CostRate, null=True, blank=True, on_delete=models.SET_NULL,
+        CostRate,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
         help_text="Rate snapshot used when cost was calculated",
     )
     calculated_cost = models.DecimalField(
-        max_digits=10, decimal_places=4, null=True, blank=True,
+        max_digits=10,
+        decimal_places=4,
+        null=True,
+        blank=True,
         help_text="Total cost of this job at the time of calculation",
     )
 
     # --- Raw --------------------------------------------------------------
     raw_data = models.JSONField(
-        default=dict, blank=True,
+        default=dict,
+        blank=True,
         help_text="Full raw log entry from Fiery for reference",
     )
 

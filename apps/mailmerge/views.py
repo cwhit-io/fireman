@@ -14,6 +14,12 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
+from apps.impose.image_utils import image_to_contentfile
+
+from .models import MailMergeJob
+from .services import inspect_artwork_pdf
+from .tasks import process_mail_merge_task
+
 
 class MailMergeAccessMixin(LoginRequiredMixin):
     """Allow access only to staff or users with the can_use_mail_merge flag."""
@@ -23,14 +29,10 @@ class MailMergeAccessMixin(LoginRequiredMixin):
             return self.handle_no_permission()
         if not getattr(request.user, "can_use_mail_merge", False):
             from django.core.exceptions import PermissionDenied
+
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
 
-from apps.impose.image_utils import image_to_contentfile
-
-from .models import MailMergeJob
-from .services import inspect_artwork_pdf
-from .tasks import process_mail_merge_task
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +83,15 @@ class MailMergeArtworkInspectView(MailMergeAccessMixin, View):
         # Accept image uploads (JPG/PNG) and convert to single-page PDF
         if artwork and not artwork.name.lower().endswith(".pdf"):
             content_type = getattr(artwork, "content_type", "").lower()
-            if content_type in ("image/jpeg", "image/jpg", "image/png") or artwork.name.lower().endswith((".jpg", ".jpeg", ".png")):
+            if content_type in (
+                "image/jpeg",
+                "image/jpg",
+                "image/png",
+            ) or artwork.name.lower().endswith((".jpg", ".jpeg", ".png")):
                 try:
-                    artwork = image_to_contentfile(artwork, name=artwork.name.rsplit('.', 1)[0] + ".pdf")
+                    artwork = image_to_contentfile(
+                        artwork, name=artwork.name.rsplit(".", 1)[0] + ".pdf"
+                    )
                 except Exception:
                     # fallback: keep original file and let validation report an error
                     pass
@@ -219,11 +227,15 @@ class NewMoversCsvView(MailMergeAccessMixin, View):
             return JsonResponse({"error": "Invalid month or year."}, status=400)
 
         from apps.mailmerge.get_addresses import generate_csv_for_period
+
         try:
             filename, csv_bytes = generate_csv_for_period(month, year)
         except Exception:
             logger.exception("New movers fetch failed")
-            return JsonResponse({"error": "Failed to fetch new movers data. Please try again."}, status=502)
+            return JsonResponse(
+                {"error": "Failed to fetch new movers data. Please try again."},
+                status=502,
+            )
 
         response = HttpResponse(csv_bytes, content_type="text/csv")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -235,13 +247,16 @@ class PcoListsJsonView(MailMergeAccessMixin, View):
 
     def get(self, request):
         from apps.mailmerge.pco import get_mailing_lists
+
         try:
             lists = get_mailing_lists()
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=503)
         except Exception as exc:
             logger.exception("PCO list fetch failed")
-            return JsonResponse({"error": str(exc) or "Failed to fetch PCO lists."}, status=502)
+            return JsonResponse(
+                {"error": str(exc) or "Failed to fetch PCO lists."}, status=502
+            )
         return JsonResponse({"lists": lists})
 
 
@@ -254,13 +269,16 @@ class PcoCsvView(MailMergeAccessMixin, View):
             return JsonResponse({"error": "list_id is required."}, status=400)
         clean = request.GET.get("clean") == "1"
         from apps.mailmerge.pco import list_to_csv_bytes
+
         try:
             filename, csv_bytes = list_to_csv_bytes(list_id, clean=clean)
         except ValueError as exc:
             return JsonResponse({"error": str(exc)}, status=503)
         except Exception as exc:
             logger.exception("PCO CSV fetch failed for list %s", list_id)
-            return JsonResponse({"error": str(exc) or "Failed to fetch PCO list."}, status=502)
+            return JsonResponse(
+                {"error": str(exc) or "Failed to fetch PCO list."}, status=502
+            )
         response = HttpResponse(csv_bytes, content_type="text/csv")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
@@ -270,11 +288,15 @@ class MailMergeSampleCsvView(MailMergeAccessMixin, View):
     """Serve the project's sample CSV for download from the assets folder."""
 
     def get(self, request):
-        sample_path = Path(getattr(settings, "ASSETS_DIR", settings.BASE_DIR)) / "sample.csv"
+        sample_path = (
+            Path(getattr(settings, "ASSETS_DIR", settings.BASE_DIR)) / "sample.csv"
+        )
         if not sample_path.exists():
             raise Http404("Sample CSV not found")
         # Stream as attachment
-        return FileResponse(open(sample_path, "rb"), as_attachment=True, filename="sample.csv")
+        return FileResponse(
+            open(sample_path, "rb"), as_attachment=True, filename="sample.csv"
+        )
 
 
 class MailMergeJobDeleteView(MailMergeAccessMixin, DeleteView):
@@ -484,10 +506,12 @@ class MailMergeJobDownloadAddressesPrintPreviewView(MailMergeAccessMixin, View):
                 address_bytes = buf.getvalue()
 
             response = HttpResponse(address_bytes, content_type="application/pdf")
-            response["Content-Disposition"] = 'attachment; filename="addresses_print_preview.pdf"'
+            response["Content-Disposition"] = (
+                'attachment; filename="addresses_print_preview.pdf"'
+            )
             return response
         except Exception as exc:
-            raise Http404(f"Failed to build print-preview PDF: {exc}")
+            raise Http404(f"Failed to build print-preview PDF: {exc}") from exc
 
 
 class MailMergeJobReplaceCsvView(MailMergeAccessMixin, View):
@@ -590,7 +614,10 @@ class MailMergeJobSendGangupToFieryView(MailMergeAccessMixin, View):
             tmp_preset = SimpleNamespace(
                 printer_queue=preset.printer_queue,
                 copies=getattr(preset, "copies", 1),
-                fiery_options={**(preset.fiery_options or {}), "EFCreateMaster": "formC1"},
+                fiery_options={
+                    **(preset.fiery_options or {}),
+                    "EFCreateMaster": "formC1",
+                },
                 extra_lpr_options=preset.extra_lpr_options or "",
                 media_size=getattr(preset, "media_size", ""),
                 media_type=getattr(preset, "media_type", ""),

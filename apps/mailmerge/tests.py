@@ -144,7 +144,9 @@ class TestAddressTextStream:
     def test_custom_addr_x_y(self):
         record = {"primary street": "123 MAIN ST", "city-state-zip": "CITY ST 12345"}
         # Custom position: x=100pt, y=50pt
-        stream = _address_text_stream(record, card_w=432, card_h=288, addr_x=100.0, addr_y=50.0)
+        stream = _address_text_stream(
+            record, card_w=432, card_h=288, addr_x=100.0, addr_y=50.0
+        )
         assert b"100.000" in stream
         assert b"50.000" in stream
 
@@ -206,7 +208,9 @@ class TestMergePostcards:
 
         records = parse_usps_csv(io.BytesIO(_sample_csv_bytes()))
         out = io.BytesIO()
-        count = merge_postcards(io.BytesIO(_make_two_page_pdf()), records, out, merge_page=2)
+        count = merge_postcards(
+            io.BytesIO(_make_two_page_pdf()), records, out, merge_page=2
+        )
         assert count == 1
         out.seek(0)
         reader = PdfReader(out)
@@ -222,7 +226,9 @@ class TestMergePostcards:
         )
         records = parse_usps_csv(io.BytesIO(csv_bytes))
         out = io.BytesIO()
-        count = merge_postcards(io.BytesIO(_make_two_page_pdf()), records, out, merge_page=2)
+        count = merge_postcards(
+            io.BytesIO(_make_two_page_pdf()), records, out, merge_page=2
+        )
         assert count == 2
         out.seek(0)
         reader = PdfReader(out)
@@ -245,11 +251,36 @@ class TestMergePostcards:
         records = parse_usps_csv(io.BytesIO(_sample_csv_bytes()))
         out = io.BytesIO()
         # merge_page=99 should be clamped to 1 for a single-page artwork
-        count = merge_postcards(io.BytesIO(_make_minimal_pdf()), records, out, merge_page=99)
+        count = merge_postcards(
+            io.BytesIO(_make_minimal_pdf()), records, out, merge_page=99
+        )
         assert count == 1
 
 
 # ── Integration tests: views ─────────────────────────────────────────────
+
+
+@pytest.fixture
+def user(db, django_user_model):
+    return django_user_model.objects.create_user(
+        username="testuser",
+        email="test@example.com",
+        password="testpass123",
+        can_use_mail_merge=True,
+    )
+
+
+class TestMailMergePermissions:
+    def test_forbidden_without_permission(self, client, django_user_model):
+        plain_user = django_user_model.objects.create_user(
+            username="nomailmerge",
+            email="none@example.com",
+            password="testpass123",
+            can_use_mail_merge=False,
+        )
+        client.force_login(plain_user)
+        response = client.get(reverse("mailmerge:list"))
+        assert response.status_code == 403
 
 
 class TestMailMergeListView:
@@ -288,7 +319,9 @@ class TestMailMergeUploadView:
         )
         assert response.status_code == 400
 
-    def test_post_valid_files_creates_job_and_redirects(self, client, user, monkeypatch):
+    def test_post_valid_files_creates_job_and_redirects(
+        self, client, user, monkeypatch
+    ):
         client.force_login(user)
         monkeypatch.setattr(
             "apps.mailmerge.views.process_mail_merge_task.delay",
@@ -308,7 +341,9 @@ class TestMailMergeUploadView:
         job = MailMergeJob.objects.get(name="Spring Run")
         assert str(job.pk) in response["Location"]
 
-    def test_post_stores_merge_page_and_address_position(self, client, user, monkeypatch):
+    def test_post_stores_merge_page_and_address_position(
+        self, client, user, monkeypatch
+    ):
         client.force_login(user)
         monkeypatch.setattr(
             "apps.mailmerge.views.process_mail_merge_task.delay",
@@ -348,7 +383,9 @@ class TestMailMergeArtworkInspectView:
     def test_post_non_pdf_returns_400(self, client, user):
         client.force_login(user)
         f = SimpleUploadedFile("art.txt", b"not pdf", content_type="text/plain")
-        response = client.post(reverse("mailmerge:inspect_artwork"), {"artwork_file": f})
+        response = client.post(
+            reverse("mailmerge:inspect_artwork"), {"artwork_file": f}
+        )
         assert response.status_code == 400
 
     def test_post_valid_pdf_returns_page_info(self, client, user):
@@ -356,9 +393,12 @@ class TestMailMergeArtworkInspectView:
         f = SimpleUploadedFile(
             "card.pdf", _make_minimal_pdf(), content_type="application/pdf"
         )
-        response = client.post(reverse("mailmerge:inspect_artwork"), {"artwork_file": f})
+        response = client.post(
+            reverse("mailmerge:inspect_artwork"), {"artwork_file": f}
+        )
         assert response.status_code == 200
         import json
+
         data = json.loads(response.content)
         assert data["page_count"] == 1
         assert len(data["pages"]) == 1
@@ -368,9 +408,12 @@ class TestMailMergeArtworkInspectView:
         f = SimpleUploadedFile(
             "card.pdf", _make_two_page_pdf(), content_type="application/pdf"
         )
-        response = client.post(reverse("mailmerge:inspect_artwork"), {"artwork_file": f})
+        response = client.post(
+            reverse("mailmerge:inspect_artwork"), {"artwork_file": f}
+        )
         assert response.status_code == 200
         import json
+
         data = json.loads(response.content)
         assert data["page_count"] == 2
 
@@ -440,8 +483,10 @@ class TestBuildArtworkGangup:
         out = io.BytesIO()
         build_artwork_gangup(
             io.BytesIO(_make_minimal_pdf()),
-            cols=2, rows=2,
-            sheet_w_pt=864, sheet_h_pt=1296,
+            cols=2,
+            rows=2,
+            sheet_w_pt=864,
+            sheet_h_pt=1296,
             output_pdf=out,
         )
         out.seek(0)
@@ -454,8 +499,10 @@ class TestBuildArtworkGangup:
         out = io.BytesIO()
         build_artwork_gangup(
             io.BytesIO(_make_two_page_pdf()),
-            cols=2, rows=2,
-            sheet_w_pt=864, sheet_h_pt=1296,
+            cols=2,
+            rows=2,
+            sheet_w_pt=864,
+            sheet_h_pt=1296,
             output_pdf=out,
         )
         out.seek(0)
@@ -468,15 +515,18 @@ class TestBuildArtworkGangup:
 
 class TestBuildAddressSteprepeat:
     def test_basic(self):
-
         records = parse_usps_csv(io.BytesIO(_sample_csv_bytes()))
         out = io.BytesIO()
         count = build_address_steprepeat(
             records,
-            card_w=432, card_h=288,
-            cols=2, rows=2,
-            sheet_w=864, sheet_h=1296,
-            addr_x=108, addr_y=180,
+            card_w=432,
+            card_h=288,
+            cols=2,
+            rows=2,
+            sheet_w=864,
+            sheet_h=1296,
+            addr_x=108,
+            addr_y=180,
             output_pdf=out,
         )
         assert count == 1
@@ -498,10 +548,14 @@ class TestBuildAddressSteprepeat:
         out = io.BytesIO()
         count = build_address_steprepeat(
             records,
-            card_w=432, card_h=288,
-            cols=2, rows=2,
-            sheet_w=864, sheet_h=1296,
-            addr_x=None, addr_y=None,
+            card_w=432,
+            card_h=288,
+            cols=2,
+            rows=2,
+            sheet_w=864,
+            sheet_h=1296,
+            addr_x=None,
+            addr_y=None,
             output_pdf=out,
         )
         assert count == 5
@@ -546,6 +600,10 @@ class TestBuildAddressSteprepeat:
 
 
 class TestMailMergeEditView:
+    @pytest.fixture(autouse=True)
+    def _login(self, client, user):
+        client.force_login(user)
+
     def test_get_returns_200(self, client):
         job = MailMergeJob.objects.create(
             name="Edit Me",
@@ -569,8 +627,12 @@ class TestMailMergeEditView:
         )
         response = client.post(
             reverse("mailmerge:edit", kwargs={"pk": job.pk}),
-            {"name": "Edit Me Updated", "merge_page": "1",
-             "addr_x_in": "1.5", "addr_y_in": "2.0"},
+            {
+                "name": "Edit Me Updated",
+                "merge_page": "1",
+                "addr_x_in": "1.5",
+                "addr_y_in": "2.0",
+            },
         )
         assert response.status_code == 302
         job.refresh_from_db()
@@ -580,6 +642,10 @@ class TestMailMergeEditView:
 
 
 class TestMailMergeArtworkServeView:
+    @pytest.fixture(autouse=True)
+    def _login(self, client, user):
+        client.force_login(user)
+
     def test_get_returns_artwork_pdf(self, client):
         artwork = SimpleUploadedFile(
             "card.pdf", _make_minimal_pdf(), content_type="application/pdf"
@@ -596,32 +662,50 @@ class TestMailMergeArtworkServeView:
 
 
 class TestMailMergeDownloadGangupView:
+    @pytest.fixture(autouse=True)
+    def _login(self, client, user):
+        client.force_login(user)
+
     def test_download_gangup_file(self, client, tmp_path):
         from django.core.files.base import ContentFile
 
         job = MailMergeJob.objects.create(name="Gangup Test")
         job.gangup_file.save("gangup.pdf", ContentFile(_make_minimal_pdf()), save=True)
-        response = client.get(reverse("mailmerge:download_gangup", kwargs={"pk": job.pk}))
+        response = client.get(
+            reverse("mailmerge:download_gangup", kwargs={"pk": job.pk})
+        )
         assert response.status_code == 200
         assert response["Content-Type"] == "application/pdf"
 
     def test_download_gangup_missing_returns_404(self, client):
         job = MailMergeJob.objects.create(name="No Gangup")
-        response = client.get(reverse("mailmerge:download_gangup", kwargs={"pk": job.pk}))
+        response = client.get(
+            reverse("mailmerge:download_gangup", kwargs={"pk": job.pk})
+        )
         assert response.status_code == 404
 
 
 class TestMailMergeDownloadAddressPdfView:
+    @pytest.fixture(autouse=True)
+    def _login(self, client, user):
+        client.force_login(user)
+
     def test_download_address_pdf(self, client):
         from django.core.files.base import ContentFile
 
         job = MailMergeJob.objects.create(name="Addr Test")
-        job.address_pdf_file.save("addresses.pdf", ContentFile(_make_minimal_pdf()), save=True)
-        response = client.get(reverse("mailmerge:download_addresses", kwargs={"pk": job.pk}))
+        job.address_pdf_file.save(
+            "addresses.pdf", ContentFile(_make_minimal_pdf()), save=True
+        )
+        response = client.get(
+            reverse("mailmerge:download_addresses", kwargs={"pk": job.pk})
+        )
         assert response.status_code == 200
         assert response["Content-Type"] == "application/pdf"
 
     def test_download_address_pdf_missing_returns_404(self, client):
         job = MailMergeJob.objects.create(name="No Addr")
-        response = client.get(reverse("mailmerge:download_addresses", kwargs={"pk": job.pk}))
+        response = client.get(
+            reverse("mailmerge:download_addresses", kwargs={"pk": job.pk})
+        )
         assert response.status_code == 404

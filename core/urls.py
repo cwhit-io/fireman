@@ -10,5 +10,9 @@ urlpatterns = [
     path("qr/image/", views.qr_image, name="qr_image"),
     path("links/", views.links_page, name="links"),
     path("printer-setup/", views.printer_setup, name="printer_setup"),
-    path("downloads/printer-driver/<str:platform>/", views.printer_driver_download, name="printer_driver_download"),
+    path(
+        "downloads/printer-driver/<str:platform>/",
+        views.printer_driver_download,
+        name="printer_driver_download",
+    ),
 ]

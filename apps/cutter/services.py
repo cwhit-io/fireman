@@ -30,7 +30,9 @@ def get_barcode_tif_preview(duplo_code: str) -> bytes | None:
     try:
         num = int(duplo_code)
     except (TypeError, ValueError):
-        logger.warning("duplo_code %r is not numeric; cannot load TIF preview", duplo_code)
+        logger.warning(
+            "duplo_code %r is not numeric; cannot load TIF preview", duplo_code
+        )
         return None
 
     # Prefer new assets layout: assets/printer/barcodes/*.tif

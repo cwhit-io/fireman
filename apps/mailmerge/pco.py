@@ -82,9 +82,7 @@ def get_list_people(list_id: str) -> list[dict]:
         for person in data.get("data", []):
             primary_address = None
             for addr_ref in (
-                person.get("relationships", {})
-                .get("addresses", {})
-                .get("data", [])
+                person.get("relationships", {}).get("addresses", {}).get("data", [])
             ):
                 addr_data = addresses.get(addr_ref["id"])
                 if addr_data and addr_data.get("primary"):
@@ -113,6 +111,7 @@ def list_to_csv_bytes(list_id: str, clean: bool = False) -> tuple[str, bytes]:
                  zip normalisation, etc.) via address_cleanup.clean_row().
     """
     from apps.mailmerge._csv_headers import CSV_HEADERS
+
     if clean:
         from apps.mailmerge.address_cleanup import clean_row, dedup_rows
 
@@ -136,7 +135,7 @@ def list_to_csv_bytes(list_id: str, clean: bool = False) -> tuple[str, bytes]:
             skipped += 1
             continue
 
-        row = {header: "" for header in CSV_HEADERS}
+        row = dict.fromkeys(CSV_HEADERS, "")
         row["name"] = person["name"]
         row["contactid"] = person["id"]
         row["primary street"] = street

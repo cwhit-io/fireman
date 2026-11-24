@@ -68,7 +68,9 @@ def image_to_pdf_bytes(
                 img = img.resize(new_size, Image.LANCZOS)
 
             # Flatten alpha channels to white background (PDFs are usually RGB).
-            if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+            if img.mode in ("RGBA", "LA") or (
+                img.mode == "P" and "transparency" in img.info
+            ):
                 alpha = img.convert("RGBA").split()[-1]
                 background = Image.new("RGB", img.size, background_color)
                 background.paste(img.convert("RGBA"), mask=alpha)
@@ -98,7 +100,9 @@ def image_to_contentfile(
     Returns a `django.core.files.base.ContentFile` or raises ImportError if
     Django is not installed in the current environment.
     """
-    pdf_bytes = image_to_pdf_bytes(src, dpi=dpi, max_width=max_width, max_height=max_height)
+    pdf_bytes = image_to_pdf_bytes(
+        src, dpi=dpi, max_width=max_width, max_height=max_height
+    )
     try:
         from django.core.files.base import ContentFile
 

@@ -364,13 +364,13 @@ class TestPreflight:
         assert result.status == "warn"
 
     def test_wrong_size_ar_mismatch_triggers_r6(self):
-        """PDF with a genuinely different aspect ratio → R6 (squished)."""
+        """Same-orientation PDF with a genuinely different aspect ratio → R6 (squished)."""
         from apps.jobs.preflight import run_preflight
 
-        # 8.5 × 11 in (letter) against a 3.5 × 2 in landscape card trim
+        # 11 × 8.5 in (landscape letter, AR 1.29) against a 3.5 × 2 in landscape card trim (AR 1.75)
         trim_w, trim_h = 252.0, 144.0
         result = run_preflight(
-            self._make_pdf_bytes(612.0, 792.0),
+            self._make_pdf_bytes(792.0, 612.0),
             trim_w,
             trim_h,
         )

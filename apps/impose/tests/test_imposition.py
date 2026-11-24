@@ -753,17 +753,15 @@ class TestDoubleSidedNup:
         reader = PdfReader(out)
         assert len(reader.pages) == 2
 
-    def test_pages_not_unique_overrides_double_sided(self):
-        """pages_are_unique=False takes precedence: step-repeat produces 1 sheet."""
+    def test_pages_not_unique_double_sided_keeps_both_sides(self):
+        """pages_are_unique=False with is_double_sided=True produces 1 sheet per side;
+        single-sided truncates to 1 sheet."""
         from pypdf import PdfReader
 
         from apps.impose.models import ImpositionTemplate
         from apps.impose.services import impose_from_template
 
         pdf = self._make_two_page_pdf()
-        inp = io.BytesIO(pdf)
-        out = io.BytesIO()
-
         tmpl = ImpositionTemplate.objects.create(
             name="Step-repeat override test",
             sheet_width=576,
@@ -771,11 +769,28 @@ class TestDoubleSidedNup:
             columns=2,
             rows=2,
         )
+
+        out_duplex = io.BytesIO()
         impose_from_template(
-            tmpl, inp, out, pages_are_unique=False, is_double_sided=True
+            tmpl,
+            io.BytesIO(pdf),
+            out_duplex,
+            pages_are_unique=False,
+            is_double_sided=True,
         )
-        out.seek(0)
-        assert len(PdfReader(out).pages) == 1
+        out_duplex.seek(0)
+        assert len(PdfReader(out_duplex).pages) == 2
+
+        out_simplex = io.BytesIO()
+        impose_from_template(
+            tmpl,
+            io.BytesIO(pdf),
+            out_simplex,
+            pages_are_unique=False,
+            is_double_sided=False,
+        )
+        out_simplex.seek(0)
+        assert len(PdfReader(out_simplex).pages) == 1
 
     def test_multipage_unique_uses_nup(self):
         """pages_are_unique=True with a multi-page PDF should gang all pages

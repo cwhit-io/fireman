@@ -8,7 +8,14 @@ from .models import User
 
 @admin.register(User)
 class UserAdmin(ImportExportAdminMixin, BaseUserAdmin):
-    list_display = ("username", "email", "first_name", "last_name", "is_staff", "can_use_mail_merge")
+    list_display = (
+        "username",
+        "email",
+        "first_name",
+        "last_name",
+        "is_staff",
+        "can_use_mail_merge",
+    )
     fieldsets = BaseUserAdmin.fieldsets + (
         ("Permissions (Fireman)", {"fields": ("can_use_mail_merge",)}),
     )
