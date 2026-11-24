@@ -10,7 +10,7 @@ python-barcode==0.16.1
 watchdog==6.0.0
 asgiref==3.11.1
 sqlparse==0.5.5
-dotenv==0.20.0
+python-dotenv==1.2.2
 
 # Environment & config
 django-environ==0.13.0
